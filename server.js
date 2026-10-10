@@ -1,4 +1,4 @@
-// server.js - Planet.io Online v3.2.1
+// server.js - Planet.io Online v3.2.2
 'use strict';
 const express = require('express');
 const http = require('http');
@@ -116,7 +116,6 @@ async function initDatabase() {
         is_sellable BOOLEAN DEFAULT FALSE
       );
     `);
-    // Seed default prices for available skins (no fire anymore)
     const seedSkins = ['mind', 'knight', 'rage'];
     for (const s of seedSkins) {
       await db.query(
@@ -124,7 +123,6 @@ async function initDatabase() {
         [s]
       );
     }
-    // Remove fire from DB if it exists
     await db.query(`DELETE FROM skin_prices WHERE skin_id = 'fire';`);
 
     await db.query(`
@@ -155,11 +153,11 @@ function normalizeSkins(skins) {
   let hasDefault = false;
   for (const s of arr) {
     if (typeof s === 'string') {
-      if (s === 'fire') continue; // removed
+      if (s === 'fire') continue;
       out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
       if (s === 'default') hasDefault = true;
     } else if (s && s.id) {
-      if (s.id === 'fire') continue; // removed
+      if (s.id === 'fire') continue;
       out.push({
         id: String(s.id),
         serial: (typeof s.serial === 'number') ? s.serial : null,
@@ -473,7 +471,6 @@ function tick(dt) {
     if (!p.alive) continue;
     for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
 
-    // Reverse merge
     for (let a = p.cells.length - 1; a >= 0; a--) {
       if (a >= p.cells.length) continue;
       for (let b = a - 1; b >= 0; b--) {
@@ -628,7 +625,7 @@ async function getSkinPrices() {
     const r = await db.query('SELECT skin_id, sell_price, is_sellable FROM skin_prices');
     const out = {};
     for (const row of r.rows) {
-      if (row.skin_id === 'fire') continue; // legacy removed
+      if (row.skin_id === 'fire') continue;
       out[row.skin_id] = {
         sellPrice: parseFloat(row.sell_price),
         isSellable: row.is_sellable
@@ -730,32 +727,35 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ============ LOOTBOX CLAIM ============
+  // ============ LOOTBOX CLAIM (FIXED) ============
   socket.on('claim_lootbox', async (data) => {
     if (!currentUserId || !data || !data.memo) return;
     if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
 
+    // 1) Check memo not already claimed
     const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
     if (existing.rows.length > 0) {
       socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
       return;
     }
 
+    // 2) Check remaining BEFORE any state change
     const settings = await getAdminSettings();
     const price = parseFloat(settings.lootbox_price) || 0.01;
+    const remaining = parseInt(settings.lootbox_remaining);
+    if (remaining === 0) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' });
+      return;
+    }
 
+    // 3) Verify payment on chain
     const txHash = await verifyTonPayment(data.memo, price);
     if (!txHash) {
       socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
       return;
     }
 
-    const serial = await getNextSerial();
-    if (serial === null) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 sold out' });
-      return;
-    }
-
+    // 4) Get user + check locked skins (BEFORE consuming serial)
     const user = await getOrCreateUser(currentUserId, '', '');
     if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
     const currentSkins = normalizeSkins(user.unlocked_skins);
@@ -765,8 +765,39 @@ io.on('connection', (socket) => {
       socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
       return;
     }
-    const picked = locked[Math.floor(Math.random() * locked.length)];
 
+    // 5) Atomic decrement of remaining (only if > 0)
+    let newRemaining = remaining;
+    if (remaining > 0) {
+      const upd = await db.query(
+        `UPDATE admin_settings
+         SET value = (CAST(value AS INTEGER) - 1)::TEXT
+         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0
+         RETURNING value`
+      );
+      if (upd.rows.length === 0) {
+        // Someone else just consumed the last one
+        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' });
+        return;
+      }
+      newRemaining = parseInt(upd.rows[0].value);
+    }
+
+    // 6) Consume serial
+    const serial = await getNextSerial();
+    if (serial === null) {
+      // All 999 used — rollback remaining decrement
+      if (remaining > 0) {
+        await db.query(
+          `UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`
+        );
+      }
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' });
+      return;
+    }
+
+    // 7) Pick random locked skin + add with serial
+    const picked = locked[Math.floor(Math.random() * locked.length)];
     currentSkins.push({
       id: picked,
       serial: serial,
@@ -774,16 +805,36 @@ io.on('connection', (socket) => {
       acquiredAt: Date.now()
     });
 
-    await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-      [JSON.stringify(currentSkins), currentUserId]);
-    await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
-      [data.memo, currentUserId, Date.now()]);
+    // 8) Persist
+    try {
+      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
+        [JSON.stringify(currentSkins), currentUserId]);
+      await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
+        [data.memo, currentUserId, Date.now()]);
+    } catch (e) {
+      console.error('Lootbox save error:', e.message);
+      // Rollback remaining
+      if (remaining > 0) {
+        await db.query(
+          `UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`
+        );
+      }
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' });
+      return;
+    }
 
+    // 9) Broadcast new remaining to everyone
+    if (remaining > 0) {
+      io.emit('settings_update', await getAdminSettings());
+    }
+
+    // 10) Send success with authoritative remaining
     socket.emit('lootbox_claim_result', {
       ok: true,
       skinId: picked,
       serial: serial,
-      unlockedSkins: currentSkins
+      unlockedSkins: currentSkins,
+      lootboxRemaining: newRemaining
     });
   });
 
@@ -1076,7 +1127,7 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.2.1 on ' + PORT);
+    console.log('🪐 Planet.io v3.2.2 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
     console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
