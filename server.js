@@ -1,4 +1,4 @@
-// server.js - Planet.io Online v3.2.2
+// server.js - Planet.io Online v3.3.0
 'use strict';
 const express = require('express');
 const http = require('http');
@@ -26,7 +26,7 @@ const TON_API_KEY = process.env.TON_API_KEY || '';
 const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
 const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
 const TON_WALLET_ADDRESS = process.env.TON_WALLET_ADDRESS || 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '262626';
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '262626');
 const LOOTBOX_MAX_SERIAL = 999;
 
 const WORLD_RADIUS = 1200;
@@ -275,7 +275,7 @@ async function initTonWallet() {
     tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
     console.log('✅ TON wallet V5R1 ready: ' + hotWallet.address.toString());
     if (hotWallet.address.toString() !== TON_WALLET_ADDRESS) {
-      console.warn('⚠️ TON_WALLET_ADDRESS env does not match derived wallet address!');
+      console.warn('⚠️ TON_WALLET_ADDRESS does not match derived wallet address!');
       console.warn('   Env:     ' + TON_WALLET_ADDRESS);
       console.warn('   Derived: ' + hotWallet.address.toString());
     }
@@ -296,9 +296,7 @@ async function getHotWalletBalance() {
 }
 
 async function sendTonToUser(toAddress, amountTon) {
-  if (!hotWallet || !hotWalletKeyPair || !tonClient) {
-    throw new Error('TON wallet not initialized');
-  }
+  if (!hotWallet || !hotWalletKeyPair || !tonClient) throw new Error('TON wallet not initialized');
   const contract = tonClient.open(hotWallet);
   const seqno = await contract.getSeqno();
   const amountNano = BigInt(Math.round(amountTon * 1e9));
@@ -306,14 +304,7 @@ async function sendTonToUser(toAddress, amountTon) {
     seqno,
     secretKey: hotWalletKeyPair.secretKey,
     sendMode: SendMode.PAY_GAS_SEPARATELY,
-    messages: [
-      internal({
-        to: Address.parse(toAddress),
-        value: amountNano,
-        bounce: false,
-        body: 'Planet.io payout'
-      })
-    ]
+    messages: [internal({ to: Address.parse(toAddress), value: amountNano, bounce: false, body: 'Planet.io payout' })]
   });
   return { ok: true, to: toAddress, amount: amountTon };
 }
@@ -640,9 +631,7 @@ async function getNextSerial() {
   try {
     const r = await db.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
     return parseInt(r.rows[0].serial);
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
 async function getSerialStatus() {
@@ -662,6 +651,9 @@ async function getSerialStatus() {
 io.on('connection', (socket) => {
   console.log('🟢 ' + socket.id);
   let currentUserId = null;
+  let isAdminAuthed = false;
+
+  function checkAdmin(pw) { return String(pw) === ADMIN_PASSWORD; }
 
   socket.on('auth', async (data) => {
     let userData = null;
@@ -712,222 +704,91 @@ io.on('connection', (socket) => {
 
   socket.on('save_wallet', async (data) => {
     if (!currentUserId || !data || !data.wallet) return;
-    try {
-      Address.parse(data.wallet);
-    } catch (e) {
-      socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' });
-      return;
-    }
+    try { Address.parse(data.wallet); }
+    catch (e) { socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' }); return; }
     if (!dbReady) { socket.emit('wallet_saved', { ok: false }); return; }
     try {
       await db.query('UPDATE users SET wallet_address = $1 WHERE telegram_id = $2', [data.wallet, currentUserId]);
       socket.emit('wallet_saved', { ok: true, wallet: data.wallet });
-    } catch (e) {
-      socket.emit('wallet_saved', { ok: false });
-    }
+    } catch (e) { socket.emit('wallet_saved', { ok: false }); }
   });
 
-  // ============ LOOTBOX CLAIM (FIXED) ============
-  socket.on('claim_lootbox', async (data) => {
-    if (!currentUserId || !data || !data.memo) return;
-    if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
-
-    // 1) Check memo not already claimed
-    const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
-    if (existing.rows.length > 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
-      return;
-    }
-
-    // 2) Check remaining BEFORE any state change
-    const settings = await getAdminSettings();
-    const price = parseFloat(settings.lootbox_price) || 0.01;
-    const remaining = parseInt(settings.lootbox_remaining);
-    if (remaining === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' });
-      return;
-    }
-
-    // 3) Verify payment on chain
-    const txHash = await verifyTonPayment(data.memo, price);
-    if (!txHash) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
-      return;
-    }
-
-    // 4) Get user + check locked skins (BEFORE consuming serial)
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
-    const currentSkins = normalizeSkins(user.unlocked_skins);
-    const ownedIds = new Set(currentSkins.map(s => s.id));
-    const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
-    if (locked.length === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
-      return;
-    }
-
-    // 5) Atomic decrement of remaining (only if > 0)
-    let newRemaining = remaining;
-    if (remaining > 0) {
-      const upd = await db.query(
-        `UPDATE admin_settings
-         SET value = (CAST(value AS INTEGER) - 1)::TEXT
-         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0
-         RETURNING value`
-      );
-      if (upd.rows.length === 0) {
-        // Someone else just consumed the last one
-        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' });
-        return;
-      }
-      newRemaining = parseInt(upd.rows[0].value);
-    }
-
-    // 6) Consume serial
-    const serial = await getNextSerial();
-    if (serial === null) {
-      // All 999 used — rollback remaining decrement
-      if (remaining > 0) {
-        await db.query(
-          `UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`
-        );
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' });
-      return;
-    }
-
-    // 7) Pick random locked skin + add with serial
-    const picked = locked[Math.floor(Math.random() * locked.length)];
-    currentSkins.push({
-      id: picked,
-      serial: serial,
-      source: 'lootbox',
-      acquiredAt: Date.now()
-    });
-
-    // 8) Persist
-    try {
-      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-        [JSON.stringify(currentSkins), currentUserId]);
-      await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
-        [data.memo, currentUserId, Date.now()]);
-    } catch (e) {
-      console.error('Lootbox save error:', e.message);
-      // Rollback remaining
-      if (remaining > 0) {
-        await db.query(
-          `UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`
-        );
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' });
-      return;
-    }
-
-    // 9) Broadcast new remaining to everyone
-    if (remaining > 0) {
-      io.emit('settings_update', await getAdminSettings());
-    }
-
-    // 10) Send success with authoritative remaining
-    socket.emit('lootbox_claim_result', {
-      ok: true,
-      skinId: picked,
-      serial: serial,
-      unlockedSkins: currentSkins,
-      lootboxRemaining: newRemaining
-    });
+  // ============ ADMIN LOGIN (server-validated) ============
+  socket.on('admin_login', (data) => {
+    const pw = data && data.password;
+    const ok = checkAdmin(pw);
+    isAdminAuthed = ok;
+    console.log('🔐 admin_login attempt from ' + socket.id + ' — ' + (ok ? 'OK' : 'FAILED'));
+    socket.emit('admin_login_result', { ok: ok });
   });
 
-  // ============ SKIN SELLING ============
-  socket.on('sell_skin', async (data) => {
-    if (!currentUserId || !data) return;
-    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
-
-    const { skinId, skinSerial, walletAddress } = data;
-    if (!skinId || skinId === 'default') {
-      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
-      return;
-    }
-    if (skinId === 'fire') {
-      socket.emit('sell_result', { ok: false, message: 'Skin not available' });
-      return;
-    }
-
-    try { Address.parse(walletAddress); }
-    catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
-
-    const prices = await getSkinPrices();
-    const priceInfo = prices[skinId];
-    if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
-      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' });
-      return;
-    }
-
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('sell_result', { ok: false }); return; }
-    const skins = normalizeSkins(user.unlocked_skins);
-    const idx = skins.findIndex(s => s.id === skinId && s.serial === skinSerial);
-    if (idx < 0) {
-      socket.emit('sell_result', { ok: false, message: 'Skin not found' });
-      return;
-    }
-
-    const pending = await db.query(
-      `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
-      [currentUserId, skinId, skinSerial]
-    );
-    if (pending.rows.length > 0) {
-      socket.emit('sell_result', { ok: false, message: 'Already pending' });
-      return;
-    }
-
-    skins.splice(idx, 1);
-
-    const ins = await db.query(
-      `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
-      [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
-    );
-
-    await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
-      [JSON.stringify(skins), walletAddress, currentUserId]);
-
-    socket.emit('sell_result', {
-      ok: true,
-      requestId: ins.rows[0].id,
-      skinId: skinId,
-      skinSerial: skinSerial,
-      price: priceInfo.sellPrice,
-      unlockedSkins: skins,
-      wallet: walletAddress
-    });
-
-    io.emit('admin_new_request', { requestId: ins.rows[0].id });
-  });
-
-  socket.on('get_my_requests', async () => {
+  // ============ ADMIN ACTIONS (server-validated) ============
+  socket.on('admin_add_tokens', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!currentUserId || !dbReady) return;
     try {
-      const r = await db.query(
-        `SELECT id, skin_id, skin_serial, price_ton, status, tx_hash, created_at, paid_at
-         FROM sell_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
-        [currentUserId]
-      );
-      socket.emit('my_requests', r.rows);
-    } catch (e) {}
+      await db.query('UPDATE users SET tokens = tokens + 1000 WHERE telegram_id = $1', [currentUserId]);
+      const r = await db.query('SELECT tokens FROM users WHERE telegram_id = $1', [currentUserId]);
+      const newTokens = r.rows.length > 0 ? r.rows[0].tokens : 0;
+      socket.emit('admin_add_tokens_result', { ok: true, tokens: newTokens });
+    } catch (e) {
+      console.error('admin_add_tokens:', e.message);
+      socket.emit('admin_add_tokens_result', { ok: false });
+    }
   });
 
-  // ============ ADMIN ============
-  function checkAdmin(pw) { return pw === ADMIN_PASSWORD; }
+  socket.on('admin_unlock_all', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
+    if (!currentUserId || !dbReady) return;
+    try {
+      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [currentUserId]);
+      if (u.rows.length === 0) { socket.emit('admin_unlock_all_result', { ok: false }); return; }
+      const skins = normalizeSkins(u.rows[0].unlocked_skins);
+      const ownedIds = new Set(skins.map(s => s.id));
+      for (const sid of ALL_SKINS) {
+        if (!ownedIds.has(sid)) {
+          skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
+        }
+      }
+      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
+        [JSON.stringify(skins), currentUserId]);
+      socket.emit('admin_unlock_all_result', { ok: true, unlockedSkins: skins });
+    } catch (e) {
+      console.error('admin_unlock_all:', e.message);
+      socket.emit('admin_unlock_all_result', { ok: false });
+    }
+  });
+
+  socket.on('admin_wipe_all', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
+    if (!currentUserId || !dbReady) return;
+    try {
+      const fresh = [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }];
+      await db.query(
+        `UPDATE users SET tokens = 0, speed_level = 0, mass_level = 0,
+         unlocked_skins = $1, current_skin = 'default',
+         total_kills = 0, high_score = 0 WHERE telegram_id = $2`,
+        [JSON.stringify(fresh), currentUserId]
+      );
+      socket.emit('admin_wipe_all_result', { ok: true, unlockedSkins: fresh });
+    } catch (e) {
+      console.error('admin_wipe_all:', e.message);
+      socket.emit('admin_wipe_all_result', { ok: false });
+    }
+  });
 
   socket.on('admin_set', async (data) => {
-    if (!data || !data.key || !checkAdmin(data.password)) return;
+    if (!isAdminAuthed || !data || !data.key || !checkAdmin(data.password)) return;
     const ok = await setAdminSetting(data.key, data.value);
     if (ok) io.emit('settings_update', await getAdminSettings());
+    socket.emit('admin_set_result', { ok: ok, key: data.key });
   });
 
   socket.on('admin_get_requests', async (data) => {
-    if (!checkAdmin(data && data.password)) return;
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
+      socket.emit('admin_requests', []);
+      return;
+    }
     if (!dbReady) { socket.emit('admin_requests', []); return; }
     try {
       const r = await db.query(
@@ -935,11 +796,14 @@ io.on('connection', (socket) => {
          FROM sell_requests ORDER BY created_at DESC LIMIT 100`
       );
       socket.emit('admin_requests', r.rows);
-    } catch (e) { socket.emit('admin_requests', []); }
+    } catch (e) {
+      console.error('admin_get_requests:', e.message);
+      socket.emit('admin_requests', []);
+    }
   });
 
   socket.on('admin_pay_request', async (data) => {
-    if (!checkAdmin(data && data.password)) return;
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!dbReady) return;
     const reqId = parseInt(data.requestId);
     if (!reqId) return;
@@ -985,7 +849,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_reject_request', async (data) => {
-    if (!checkAdmin(data && data.password)) return;
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!dbReady) return;
     const reqId = parseInt(data.requestId);
     if (!reqId) return;
@@ -1002,12 +866,7 @@ io.on('connection', (socket) => {
       const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
       if (u.rows.length > 0) {
         const skins = normalizeSkins(u.rows[0].unlocked_skins);
-        skins.push({
-          id: req.skin_id,
-          serial: req.skin_serial,
-          source: 'refund',
-          acquiredAt: Date.now()
-        });
+        skins.push({ id: req.skin_id, serial: req.skin_serial, source: 'refund', acquiredAt: Date.now() });
         await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
           [JSON.stringify(skins), req.user_id]);
       }
@@ -1018,7 +877,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_set_skin_price', async (data) => {
-    if (!checkAdmin(data && data.password)) return;
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!dbReady || !data.skinId) return;
     if (data.skinId === 'fire') { socket.emit('admin_skin_price_result', { ok: false }); return; }
     try {
@@ -1036,13 +895,166 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_get_wallet_balance', async (data) => {
-    if (!checkAdmin(data && data.password)) return;
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
+      socket.emit('admin_wallet_balance', { ok: false, balance: null, address: TON_WALLET_ADDRESS });
+      return;
+    }
     const balance = await getHotWalletBalance();
     socket.emit('admin_wallet_balance', {
       ok: balance !== null,
       balance: balance,
       address: TON_WALLET_ADDRESS
     });
+  });
+
+  // ============ LOOTBOX CLAIM ============
+  socket.on('claim_lootbox', async (data) => {
+    if (!currentUserId || !data || !data.memo) return;
+    if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
+
+    const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
+    if (existing.rows.length > 0) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
+      return;
+    }
+
+    const settings = await getAdminSettings();
+    const price = parseFloat(settings.lootbox_price) || 0.01;
+    const remaining = parseInt(settings.lootbox_remaining);
+    if (remaining === 0) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' });
+      return;
+    }
+
+    const txHash = await verifyTonPayment(data.memo, price);
+    if (!txHash) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
+      return;
+    }
+
+    const user = await getOrCreateUser(currentUserId, '', '');
+    if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
+    const currentSkins = normalizeSkins(user.unlocked_skins);
+    const ownedIds = new Set(currentSkins.map(s => s.id));
+    const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
+    if (locked.length === 0) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
+      return;
+    }
+
+    let newRemaining = remaining;
+    if (remaining > 0) {
+      const upd = await db.query(
+        `UPDATE admin_settings SET value = (CAST(value AS INTEGER) - 1)::TEXT
+         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0
+         RETURNING value`
+      );
+      if (upd.rows.length === 0) {
+        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' });
+        return;
+      }
+      newRemaining = parseInt(upd.rows[0].value);
+    }
+
+    const serial = await getNextSerial();
+    if (serial === null) {
+      if (remaining > 0) {
+        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
+      }
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' });
+      return;
+    }
+
+    const picked = locked[Math.floor(Math.random() * locked.length)];
+    currentSkins.push({ id: picked, serial: serial, source: 'lootbox', acquiredAt: Date.now() });
+
+    try {
+      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
+        [JSON.stringify(currentSkins), currentUserId]);
+      await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
+        [data.memo, currentUserId, Date.now()]);
+    } catch (e) {
+      console.error('Lootbox save error:', e.message);
+      if (remaining > 0) {
+        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
+      }
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' });
+      return;
+    }
+
+    if (remaining > 0) io.emit('settings_update', await getAdminSettings());
+
+    socket.emit('lootbox_claim_result', {
+      ok: true,
+      skinId: picked,
+      serial: serial,
+      unlockedSkins: currentSkins,
+      lootboxRemaining: newRemaining
+    });
+  });
+
+  // ============ SKIN SELLING ============
+  socket.on('sell_skin', async (data) => {
+    if (!currentUserId || !data) return;
+    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
+
+    const { skinId, skinSerial, walletAddress } = data;
+    if (!skinId || skinId === 'default') {
+      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
+      return;
+    }
+    if (skinId === 'fire') {
+      socket.emit('sell_result', { ok: false, message: 'Skin not available' });
+      return;
+    }
+
+    try { Address.parse(walletAddress); }
+    catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
+
+    const prices = await getSkinPrices();
+    const priceInfo = prices[skinId];
+    if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
+      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' });
+      return;
+    }
+
+    const user = await getOrCreateUser(currentUserId, '', '');
+    if (!user) { socket.emit('sell_result', { ok: false }); return; }
+    const skins = normalizeSkins(user.unlocked_skins);
+    const idx = skins.findIndex(s => s.id === skinId && s.serial === skinSerial);
+    if (idx < 0) { socket.emit('sell_result', { ok: false, message: 'Skin not found' }); return; }
+
+    const pending = await db.query(
+      `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
+      [currentUserId, skinId, skinSerial]
+    );
+    if (pending.rows.length > 0) {
+      socket.emit('sell_result', { ok: false, message: 'Already pending' });
+      return;
+    }
+
+    skins.splice(idx, 1);
+
+    const ins = await db.query(
+      `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
+      [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
+    );
+
+    await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
+      [JSON.stringify(skins), walletAddress, currentUserId]);
+
+    socket.emit('sell_result', {
+      ok: true,
+      requestId: ins.rows[0].id,
+      skinId: skinId,
+      skinSerial: skinSerial,
+      price: priceInfo.sellPrice,
+      unlockedSkins: skins,
+      wallet: walletAddress
+    });
+
+    io.emit('admin_new_request', { requestId: ins.rows[0].id });
   });
 
   // ============ GAME ============
@@ -1127,10 +1139,10 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.2.2 on ' + PORT);
+    console.log('🪐 Planet.io v3.3.0 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
     console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
-    console.log('   TON_WALLET_ADDRESS: ' + TON_WALLET_ADDRESS);
+    console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626)'));
   });
 })();
