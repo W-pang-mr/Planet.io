@@ -15,28 +15,26 @@
   .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
   .screen.active { display: flex; }
 
-  /* ============ LOADING ============ */
+  /* LOADING */
   #loadingScreen { background: #000; align-items: center; justify-content: center; }
   #loadingCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-  .loading-content { position: relative; z-index: 1; display: flex; flex-direction: column;
-    align-items: center; gap: 20px; }
+  .loading-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 20px; }
   .loading-logo { font-size: clamp(38px, 12vw, 64px); font-weight: 900; letter-spacing: 4px;
     background: linear-gradient(45deg, #4a9eff, #a55cff, #ff6bd6, #ffcc00, #4a9eff);
     background-size: 300% 300%; -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; animation: gradShift 3s ease infinite; }
-  @keyframes gradShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .loading-spinner { width: 44px; height: 44px; border: 3px solid rgba(74,158,255,0.15);
     border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 13px; color: #888; letter-spacing: 2px; text-transform: uppercase;
-    text-align: center; padding: 0 20px; }
+  .loading-text { font-size: 13px; color: #888; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 0 20px; }
   .loading-retry-btn { display: none; padding: 12px 28px; background: linear-gradient(135deg, #4a9eff, #0066cc);
     color: #fff; border: none; border-radius: 999px; font-size: 14px; font-weight: 800;
     letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; }
   .loading-retry-btn.show { display: block; }
   .loading-attempt { font-size: 11px; color: #555; letter-spacing: 1px; }
 
-  /* ============ MENU ============ */
+  /* MENU */
   #menuScreen { background: #000; position: relative; overflow: hidden; }
   #menuCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .menu-content { position: relative; z-index: 1; width: 100%; height: 100%;
@@ -61,13 +59,12 @@
     border: 1px solid rgba(255,204,0,0.35); border-radius: 999px; padding: 8px 16px 8px 12px;
     font-size: 16px; font-weight: 700; color: #ffcc00; backdrop-filter: blur(10px);
     box-shadow: 0 0 15px rgba(255,204,0,0.15); }
-  .token-counter .token-icon { font-size: 16px; }
   .skin-preview-wrap { position: relative; margin-top: 8px; width: 120px; height: 120px;
     display: flex; align-items: center; justify-content: center; }
   .skin-glow { position: absolute; inset: -14px; border-radius: 50%;
     background: radial-gradient(circle, rgba(60,220,180,0.4) 0%, rgba(60,220,180,0.1) 40%, transparent 70%);
     animation: skinPulse 2.5s ease-in-out infinite; pointer-events: none; }
-  @keyframes skinPulse { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
+  @keyframes skinPulse { 0%,100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
   .skin-preview { width: 110px; height: 110px; border-radius: 50%; background: #111;
     border: 2px solid rgba(255,255,255,0.15); overflow: hidden;
     display: flex; align-items: center; justify-content: center; position: relative; z-index: 1;
@@ -107,8 +104,7 @@
   .play-btn-big svg { width: 50px; height: 50px; fill: #fff; margin-left: 8px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4)); }
   .season-bar { margin-top: auto; margin-bottom: 8px; width: 100%; background: rgba(15,15,18,0.95);
     border-radius: 20px; padding: 14px 20px 18px; position: relative; border: 1px solid rgba(255,255,255,0.05); }
-  .season-header { display: flex; align-items: center; justify-content: center; gap: 10px;
-    margin-bottom: 10px; position: relative; }
+  .season-header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; position: relative; }
   .season-badge-icon { position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
     width: 44px; height: 44px; border-radius: 50%;
     background: radial-gradient(circle at 50% 40%, #ffcc00 0%, #cc7700 100%);
@@ -119,8 +115,6 @@
   .season-progress-fill { height: 100%; background: linear-gradient(90deg, #fff, #ccc); border-radius: 3px; width: 60%; }
   .premium-badge { display: flex; align-items: center; justify-content: center; gap: 6px;
     margin-top: 10px; font-size: 12px; font-weight: 600; color: #aaa; }
-  .premium-badge .icon { font-size: 14px; }
-  .premium-badge .label { color: #ff3388; font-weight: 800; }
   .premium-badge .status { display: flex; align-items: center; gap: 5px; color: #4ade80; font-weight: 800; }
   .premium-badge .status .dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
 
@@ -143,88 +137,112 @@
   .tab-badge.green { background: #4ade80; color: #000; }
   .tab-badge.dark { background: #333; color: #aaa; }
 
+  /* INVENTORY - REDESIGNED */
   #inventoryScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .inv-header { padding: calc(16px + env(safe-area-inset-top)) 20px 12px;
+  .inv-header { padding: calc(18px + env(safe-area-inset-top)) 20px 6px;
     display: flex; align-items: center; justify-content: space-between; }
-  .inv-title { font-size: 22px; font-weight: 900; color: #fff; }
-  .inv-count { font-size: 12px; color: #888; background: rgba(255,255,255,0.06);
-    padding: 5px 12px; border-radius: 999px; font-weight: 700; }
-  .inv-tabs { display: flex; gap: 6px; padding: 0 20px 14px; overflow-x: auto; }
-  .inv-tab { padding: 8px 16px; border-radius: 999px; background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06); color: #888; font-size: 12px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; }
+  .inv-title { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
+  .inv-title .count { color: #555; font-size: 15px; font-weight: 700; margin-left: 6px; }
+  .inv-tokens { display: flex; align-items: center; gap: 5px; background: rgba(255,204,0,0.1);
+    border: 1px solid rgba(255,204,0,0.3); color: #ffcc00; font-size: 14px;
+    font-weight: 800; padding: 6px 12px; border-radius: 999px; }
+  .inv-tabs { display: flex; gap: 8px; padding: 12px 20px 16px; overflow-x: auto; scrollbar-width: none; }
+  .inv-tabs::-webkit-scrollbar { display: none; }
+  .inv-tab { padding: 8px 18px; border-radius: 999px; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06); color: #888; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: all 0.2s; }
   .inv-tab.active { background: #fff; color: #000; border-color: #fff; }
-  .inv-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 12px; padding: 4px 20px 20px; align-content: start; }
-  .inv-card { aspect-ratio: 0.85; background: linear-gradient(160deg, #12121a, #06060c);
-    border: 2px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 10px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-    cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
-  .inv-card.selected { border-color: #4ade80; box-shadow: 0 0 20px rgba(74,222,128,0.4); }
-  .inv-card.selected::after { content: '✓'; position: absolute; top: 6px; right: 6px;
-    width: 20px; height: 20px; background: #4ade80; color: #000; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
-  .inv-card.locked { opacity: 0.5; }
-  .inv-card.locked::before { content: '🔒'; position: absolute; top: 6px; right: 6px; font-size: 14px; }
-  .inv-card-visual { width: 60%; aspect-ratio: 1; border-radius: 50%; background: #0a0a0a;
-    border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
-    overflow: hidden; }
+  .inv-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 14px; padding: 0 20px 20px; align-content: start; }
+  .inv-card { background: linear-gradient(160deg, #14141f 0%, #08080f 100%);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative; overflow: hidden; opacity: 0; animation: cardIn 0.35s ease forwards; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .inv-card:active { transform: scale(0.97); }
+  .inv-card::before { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, var(--glow, transparent) 0%, transparent 60%);
+    opacity: 0.35; pointer-events: none; }
+  .inv-card.selected { border-color: rgba(255,255,255,0.4); box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 8px 30px rgba(74,222,128,0.15); }
+  .inv-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 10px;
+    width: 24px; height: 24px; background: #4ade80; color: #000; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; z-index: 2; }
+  .inv-card.locked { opacity: 0.45; }
+  .inv-card.locked::after { content: '🔒'; position: absolute; top: 10px; right: 10px; font-size: 16px; z-index: 2; }
+  .inv-card-visual { width: 84px; height: 84px; border-radius: 50%; background: #0a0a0a;
+    border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative; z-index: 1; margin-top: 4px; }
   .inv-card-visual img { width: 100%; height: 100%; object-fit: cover; }
-  .inv-card-visual .emoji-fallback { font-size: 30px; }
-  .inv-card-name { font-size: 11px; font-weight: 700; color: #ccc; text-align: center; }
-  .inv-card.selected .inv-card-name { color: #4ade80; }
-  .inv-card-rarity { position: absolute; top: 6px; left: 6px; font-size: 8px; font-weight: 800;
-    letter-spacing: 1px; padding: 2px 6px; border-radius: 999px; text-transform: uppercase; }
-  .rarity-common { background: rgba(150,150,150,0.2); color: #aaa; }
-  .rarity-rare { background: rgba(74,158,255,0.2); color: #4a9eff; }
-  .rarity-epic { background: rgba(165,92,255,0.2); color: #a55cff; }
-  .rarity-legendary { background: rgba(255,204,0,0.2); color: #ffcc00; }
+  .inv-card-visual .emoji-fallback { font-size: 40px; }
+  .inv-card-info { display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
+  .inv-card-name { font-size: 14px; font-weight: 800; color: #fff; text-align: center; letter-spacing: 0.2px; }
+  .inv-card-serial { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700;
+    color: #ffcc00; letter-spacing: 1px; padding: 2px 8px; background: rgba(255,204,0,0.08);
+    border-radius: 999px; }
+  .inv-card-rarity { position: absolute; top: 10px; left: 10px; font-size: 9px; font-weight: 900;
+    letter-spacing: 1px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; z-index: 2; }
+  .rarity-common { background: rgba(150,150,150,0.15); color: #aaa; }
+  .rarity-rare { background: rgba(74,158,255,0.15); color: #4a9eff; }
+  .rarity-epic { background: rgba(165,92,255,0.15); color: #a55cff; }
+  .rarity-legendary { background: rgba(255,204,0,0.15); color: #ffcc00; }
+  .inv-card-count { position: absolute; bottom: 10px; right: 10px; font-size: 11px; font-weight: 800;
+    color: #fff; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1); z-index: 2; }
 
+  /* LOOTBOX */
   .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
-  .lootbox-card { background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,100,0,0.1));
-    border: 2px solid rgba(255,204,0,0.4); border-radius: 20px; padding: 20px;
-    width: 100%; max-width: 400px; text-align: center; }
+  .lootbox-card { background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,100,0,0.05));
+    border: 1px solid rgba(255,204,0,0.3); border-radius: 22px; padding: 22px;
+    width: 100%; max-width: 400px; text-align: center; position: relative; }
   .lootbox-icon { font-size: 44px; margin-bottom: 8px; animation: lootboxBounce 2s ease-in-out infinite; }
-  @keyframes lootboxBounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.08); } }
+  @keyframes lootboxBounce { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.08); } }
   .lootbox-tags { display: flex; gap: 4px; justify-content: center; margin-bottom: 8px; }
-  .lootbox-tag { font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 999px;
-    letter-spacing: 1px; text-transform: uppercase; }
+  .lootbox-tag { font-size: 9px; font-weight: 900; padding: 3px 10px; border-radius: 999px; letter-spacing: 1px; text-transform: uppercase; }
   .lootbox-tag.new { background: #4ade80; color: #000; }
   .lootbox-tag.hot { background: linear-gradient(135deg, #ff6600, #ffcc00); color: #000; }
   .lootbox-tag.sale { background: #ff3333; color: #fff; }
-  .lootbox-title { font-size: 18px; font-weight: 900; color: #ffcc00; margin-bottom: 6px; }
+  .lootbox-title { font-size: 20px; font-weight: 900; color: #ffcc00; margin-bottom: 4px; }
   .lootbox-sub { font-size: 12px; color: #888; margin-bottom: 14px; }
   .lootbox-price { display: inline-flex; align-items: center; gap: 6px;
     background: rgba(0,0,0,0.5); border: 1px solid rgba(255,204,0,0.3);
-    border-radius: 999px; padding: 6px 16px; font-size: 17px; font-weight: 900;
+    border-radius: 999px; padding: 8px 18px; font-size: 18px; font-weight: 900;
     color: #ffcc00; margin-bottom: 8px; }
-  .lootbox-remaining { font-size: 11px; color: #ff8800; font-weight: 800;
+  .lootbox-remaining { font-size: 11px; color: #ff8800; font-weight: 800; letter-spacing: 1px; margin-bottom: 12px; }
+  .lootbox-serial-hint { font-size: 10px; color: #666; font-family: 'Courier New', monospace;
     letter-spacing: 1px; margin-bottom: 12px; }
-  .lootbox-btn-buy { width: 100%; padding: 14px; border: none; border-radius: 999px;
+  .lootbox-btn-buy { width: 100%; padding: 15px; border: none; border-radius: 999px;
     background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000;
-    font-size: 15px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; }
-  .lootbox-btn-buy:disabled { background: #333; color: #666; cursor: not-allowed; }
+    font-size: 15px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; transition: all 0.15s; }
+  .lootbox-btn-buy:active { transform: scale(0.98); }
+  .lootbox-btn-buy:disabled { background: #222; color: #555; cursor: not-allowed; }
 
-  .ton-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92);
-    backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center;
+  /* MODALS (TON + WALLET + DETAIL + ADMIN) */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center;
     z-index: 9999; padding: 20px; }
-  .ton-modal.active { display: flex; }
-  .ton-modal-content { background: linear-gradient(160deg, #0a0a1a, #000);
-    border: 2px solid rgba(255,204,0,0.3); border-radius: 24px; padding: 24px;
+  .modal-overlay.active { display: flex; }
+  .modal-content { background: linear-gradient(160deg, #0d0d18, #000);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 26px;
     max-width: 400px; width: 100%; max-height: 90vh; overflow-y: auto;
-    position: relative; text-align: center; }
-  .ton-modal-close { position: absolute; top: 12px; right: 12px;
+    position: relative; }
+  .modal-close { position: absolute; top: 14px; right: 14px;
     width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 16px; cursor: pointer; }
+    border: 1px solid rgba(255,255,255,0.08); color: #fff; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; }
+  .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+  /* TON modal */
+  .ton-modal-content { border: 1px solid rgba(255,204,0,0.3); text-align: center; }
   .ton-modal-icon { font-size: 44px; margin-bottom: 10px; }
   .ton-modal-title { font-size: 22px; font-weight: 900; color: #ffcc00; margin-bottom: 6px; }
   .ton-modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
   .ton-modal-sub b { color: #ffcc00; }
-  .ton-field { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  .ton-field { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 14px; padding: 12px 16px; margin-bottom: 12px; text-align: left; position: relative; }
-  .ton-field label { font-size: 10px; color: #666; text-transform: uppercase;
-    letter-spacing: 1.5px; display: block; margin-bottom: 4px; }
+  .ton-field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 4px; }
   .ton-field .ton-value { font-family: 'Courier New', monospace; font-size: 11px; color: #fff;
     word-break: break-all; padding-right: 76px; line-height: 1.5; }
   .copy-btn { position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
@@ -237,14 +255,49 @@
   .ton-status { display: flex; align-items: center; justify-content: center; gap: 10px;
     padding: 14px; background: rgba(255,204,0,0.08); border: 1px solid rgba(255,204,0,0.25);
     border-radius: 14px; font-size: 13px; color: #ffcc00; font-weight: 700; margin-bottom: 12px; }
-  .ton-status.success { background: rgba(74,222,128,0.1); color: #4ade80; }
-  .ton-status.error { background: rgba(255,50,50,0.1); color: #ff5555; }
+  .ton-status.success { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3); }
+  .ton-status.error { background: rgba(255,50,50,0.1); color: #ff5555; border-color: rgba(255,50,50,0.3); }
   .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,204,0,0.2);
     border-top-color: #ffcc00; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .ton-cancel-btn { width: 100%; padding: 12px; background: transparent;
     border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; color: #888;
     font-size: 13px; font-weight: 700; cursor: pointer; }
 
+  /* DETAIL MODAL */
+  .detail-content { text-align: center; }
+  .detail-visual { width: 140px; height: 140px; border-radius: 50%; background: #0a0a0a;
+    border: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+    overflow: hidden; margin: 10px auto 16px; position: relative; }
+  .detail-visual img { width: 100%; height: 100%; object-fit: cover; }
+  .detail-visual .emoji-fallback { font-size: 70px; }
+  .detail-name { font-size: 26px; font-weight: 900; margin-bottom: 6px; }
+  .detail-serial { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 800;
+    color: #ffcc00; letter-spacing: 2px; padding: 6px 14px; background: rgba(255,204,0,0.1);
+    border: 1px solid rgba(255,204,0,0.3); border-radius: 999px; display: inline-block; margin-bottom: 14px; }
+  .detail-rarity { display: inline-block; font-size: 11px; font-weight: 900; letter-spacing: 2px;
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 20px; text-transform: uppercase; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
+  .detail-row .lbl { color: #888; }
+  .detail-row .val { color: #fff; font-weight: 700; }
+  .detail-price { font-size: 20px; color: #ffcc00; font-weight: 900; font-family: 'Courier New', monospace; }
+  .detail-btn { width: 100%; padding: 15px; border: none; border-radius: 14px;
+    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; }
+  .detail-btn.primary { background: linear-gradient(135deg, #4ade80, #16a34a); color: #000; }
+  .detail-btn.sell { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000; }
+  .detail-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
+  .detail-btn:disabled { background: #1a1a1a !important; color: #444 !important; cursor: not-allowed; }
+
+  /* WALLET input */
+  .input-field { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: #fff;
+    font-size: 13px; font-family: 'Courier New', monospace; outline: none; margin-bottom: 12px; }
+  .input-field:focus { border-color: rgba(74,222,128,0.5); }
+  .btn-primary { width: 100%; padding: 14px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #4a9eff, #0066cc); color: #fff;
+    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; }
+
+  /* LOOTBOX ANIMATION */
   .loot-anim-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
     display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
   .loot-anim-overlay.active { display: flex; }
@@ -252,8 +305,7 @@
   .loot-anim-box { font-size: 140px; margin-bottom: 30px; position: relative; z-index: 2;
     filter: drop-shadow(0 0 40px rgba(255,204,0,0.6)); }
   .loot-anim-box.shaking { animation: boxShake 0.4s ease-in-out infinite; }
-  @keyframes boxShake { 0%, 100% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(-8deg) scale(1.05); }
-    75% { transform: rotate(8deg) scale(1.05); } }
+  @keyframes boxShake { 0%,100% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(-8deg) scale(1.05); } 75% { transform: rotate(8deg) scale(1.05); } }
   .loot-anim-box.burst { animation: boxBurst 0.5s ease-out forwards; }
   @keyframes boxBurst { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
   .loot-anim-particles { position: absolute; top: 50%; left: 50%; pointer-events: none; z-index: 1; }
@@ -263,7 +315,7 @@
   .loot-anim-reveal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
     opacity: 0; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s; z-index: 3; }
   .loot-anim-reveal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  .loot-reveal-card { width: 200px; height: 240px; border-radius: 24px; padding: 20px;
+  .loot-reveal-card { width: 210px; height: 260px; border-radius: 24px; padding: 20px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: linear-gradient(160deg, #1a1a2a, #0a0a15); border: 3px solid; }
   .loot-reveal-card.rarity-common { border-color: #888; }
@@ -275,34 +327,34 @@
     background: #0a0a0a; border: 2px solid rgba(255,255,255,0.15); }
   .loot-reveal-visual img { width: 100%; height: 100%; object-fit: cover; }
   .loot-reveal-visual .emoji-fallback { font-size: 70px; }
-  .loot-reveal-rarity { font-size: 11px; font-weight: 900; letter-spacing: 2px;
-    text-transform: uppercase; margin-bottom: 4px; }
+  .loot-reveal-rarity { font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
   .loot-reveal-name { font-size: 18px; font-weight: 900; color: #fff; text-align: center; }
+  .loot-reveal-serial { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800;
+    color: #ffcc00; margin-top: 6px; letter-spacing: 2px; }
   .loot-reveal-continue { margin-top: 30px; padding: 14px 40px; background: #fff; color: #000;
     border: none; border-radius: 999px; font-size: 15px; font-weight: 900;
     letter-spacing: 2px; cursor: pointer; opacity: 0; transition: opacity 0.3s; z-index: 4; }
   .loot-reveal-continue.show { opacity: 1; }
   .loot-reveal-title { font-size: 16px; color: #ffcc00; font-weight: 800; letter-spacing: 3px;
     text-transform: uppercase; opacity: 0; transition: opacity 0.3s; position: absolute;
-    top: 18%; left: 50%; transform: translateX(-50%); z-index: 4; text-shadow: 0 0 20px rgba(255,204,0,0.6); }
+    top: 15%; left: 50%; transform: translateX(-50%); z-index: 4; text-shadow: 0 0 20px rgba(255,204,0,0.6); }
   .loot-reveal-title.show { opacity: 1; }
 
+  /* ADMIN */
   .admin-trigger { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
     border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    color: #555; font-size: 14px; }
-  .admin-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95);
-    backdrop-filter: blur(15px); display: none; align-items: center; justify-content: center;
-    z-index: 10001; padding: 20px; }
-  .admin-modal.active { display: flex; }
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; font-size: 14px; }
   .admin-panel { background: linear-gradient(160deg, #1a0a0a, #000);
-    border: 2px solid rgba(255,50,50,0.4); border-radius: 24px; padding: 26px;
-    max-width: 420px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; }
+    border: 1px solid rgba(255,50,50,0.3); border-radius: 24px; padding: 26px;
+    max-width: 440px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; }
   .admin-title { font-size: 22px; font-weight: 900; color: #ff4444; text-align: center; margin-bottom: 6px; }
-  .admin-sub { font-size: 11px; color: #888; letter-spacing: 2px; text-align: center;
-    text-transform: uppercase; margin-bottom: 22px; }
-  .admin-section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .admin-sub { font-size: 11px; color: #888; letter-spacing: 2px; text-align: center; text-transform: uppercase; margin-bottom: 22px; }
+  .admin-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
+  .admin-tab { padding: 8px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08); color: #888; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .admin-tab.active { background: #ff3333; color: #fff; border-color: #ff3333; }
+  .admin-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; padding: 16px; margin-bottom: 12px; }
   .admin-section-title { font-size: 12px; color: #ff8800; font-weight: 800;
     letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
   .admin-field { margin-bottom: 10px; }
@@ -314,20 +366,33 @@
     text-align: center; padding: 14px; }
   .admin-btn { width: 100%; padding: 12px; border: none; border-radius: 10px;
     background: linear-gradient(135deg, #ffcc00, #ff9900); color: #000;
-    font-size: 14px; font-weight: 900; cursor: pointer; margin-top: 4px; }
+    font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 4px; }
   .admin-btn.danger { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; }
   .admin-btn.success { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
+  .admin-btn.small { padding: 8px 12px; font-size: 12px; width: auto; flex: 1; }
   .admin-row { display: flex; gap: 8px; }
   .admin-row > * { flex: 1; }
-  .admin-close { position: absolute; top: 12px; right: 12px;
-    width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 16px; cursor: pointer; }
   .admin-status { text-align: center; font-size: 12px; padding: 8px;
     border-radius: 8px; margin-top: 10px; display: none; }
   .admin-status.show { display: block; }
   .admin-status.success { background: rgba(74,222,128,0.1); color: #4ade80; }
   .admin-status.error { background: rgba(255,50,50,0.1); color: #ff5555; }
+  .admin-req { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .admin-req-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .admin-req-skin { font-size: 14px; font-weight: 800; color: #fff; }
+  .admin-req-price { font-size: 14px; font-weight: 800; color: #ffcc00; font-family: 'Courier New', monospace; }
+  .admin-req-wallet { font-family: 'Courier New', monospace; font-size: 10px; color: #888; word-break: break-all; margin-bottom: 8px; }
+  .admin-req-status { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; }
+  .admin-req-status.pending { background: rgba(255,204,0,0.15); color: #ffcc00; }
+  .admin-req-status.processing { background: rgba(74,158,255,0.15); color: #4a9eff; }
+  .admin-req-status.paid { background: rgba(74,222,128,0.15); color: #4ade80; }
+  .admin-req-status.rejected { background: rgba(255,50,50,0.15); color: #ff5555; }
+  .admin-wallet-info { background: rgba(74,158,255,0.08); border: 1px solid rgba(74,158,255,0.2);
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa; }
+  .admin-wallet-info b { color: #4ade80; font-size: 16px; font-family: 'Courier New', monospace; }
 
+  /* SKILLS */
   #skillsScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .skills-wrap { width: 100%; max-width: 440px; margin: 0 auto;
@@ -337,12 +402,10 @@
   .skills-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
   .token-bar { display: flex; justify-content: space-between; align-items: center;
     background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.06));
-    border: 1px solid rgba(255,204,0,0.35); border-radius: 16px; padding: 14px 20px;
-    margin-bottom: 20px; }
+    border: 1px solid rgba(255,204,0,0.35); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; }
   .token-bar .lbl { font-size: 12px; color: #ffcc00; letter-spacing: 1px; font-weight: 700; }
   .token-bar .val { font-size: 24px; font-weight: 900; color: #ffcc00; }
-  .skill-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 18px;
-    padding: 18px; margin-bottom: 14px; }
+  .skill-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 18px; padding: 18px; margin-bottom: 14px; }
   .skill-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .skill-nm { font-size: 16px; font-weight: 800; color: #fff; }
   .skill-lv { font-size: 11px; color: #ffcc00; background: rgba(255,204,0,0.12);
@@ -357,11 +420,45 @@
   .upgrade-btn:disabled { background: #111; color: #444; border-color: #1a1a1a; cursor: not-allowed; }
   .upgrade-btn.maxed { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
 
+  /* SHOP */
+  #shopScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .shop-wrap { width: 100%; max-width: 440px; margin: 0 auto;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 20px; overflow-y: auto; height: 100%; }
+  .shop-title { font-size: 26px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+  .shop-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
+  .shop-wallet { background: rgba(74,158,255,0.06); border: 1px solid rgba(74,158,255,0.2);
+    border-radius: 14px; padding: 12px 16px; margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .shop-wallet .lbl { color: #888; }
+  .shop-wallet .val { color: #4ade80; font-family: 'Courier New', monospace; font-weight: 800; font-size: 11px;
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shop-empty { text-align: center; padding: 60px 20px; color: #555; }
+  .shop-empty .icon { font-size: 60px; opacity: 0.4; margin-bottom: 16px; }
+  .shop-empty .txt { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+  .shop-item { background: linear-gradient(160deg, #14141f, #08080f); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .shop-item-visual { width: 64px; height: 64px; border-radius: 50%; background: #0a0a0a;
+    border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0; }
+  .shop-item-visual img { width: 100%; height: 100%; object-fit: cover; }
+  .shop-item-visual .emoji-fallback { font-size: 30px; }
+  .shop-item-info { flex: 1; min-width: 0; }
+  .shop-item-name { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+  .shop-item-serial { font-family: 'Courier New', monospace; font-size: 11px; color: #ffcc00; letter-spacing: 1px; }
+  .shop-item-price { font-family: 'Courier New', monospace; font-size: 13px; color: #4ade80; font-weight: 800; margin-top: 4px; }
+  .shop-item-price small { color: #666; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; }
+  .shop-sell-btn { padding: 10px 16px; background: linear-gradient(135deg, #ffcc00, #ff8800);
+    border: none; border-radius: 10px; color: #000; font-size: 12px; font-weight: 900;
+    letter-spacing: 1px; cursor: pointer; flex-shrink: 0; }
+  .shop-sell-btn:disabled { background: #1a1a1a; color: #555; cursor: not-allowed; }
+
   .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 16px; color: #444; padding: 40px 20px; text-align: center; }
   .placeholder .icon { font-size: 60px; opacity: 0.5; }
   .placeholder .txt { font-size: 16px; font-weight: 700; color: #666; letter-spacing: 1px; }
 
+  /* GAME */
   #gameScreen { padding: 0; }
   #gameScreen.active { display: block; }
   #gameCanvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #000; }
@@ -377,12 +474,10 @@
   .leaderboard { position: absolute; top: calc(46px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right)); background: rgba(0,0,0,0.8);
     border: 1px solid #1a1a1a; border-radius: 14px; padding: 8px 12px; z-index: 30;
-    min-width: 130px; max-width: 170px; font-size: 11px; font-weight: 600;
-    backdrop-filter: blur(10px); }
+    min-width: 130px; max-width: 170px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px); }
   .lb-title { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase;
     margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .lb-row { display: flex; justify-content: space-between; align-items: center;
-    padding: 2px 0; gap: 6px; font-variant-numeric: tabular-nums; }
+  .lb-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; gap: 6px; }
   .lb-row.you { color: #ffcc00; font-weight: 800; }
   .lb-rank { color: #555; min-width: 16px; }
   .lb-row.you .lb-rank { color: #ffcc00; }
@@ -390,37 +485,29 @@
   .lb-row.you .lb-name { color: #ffcc00; }
   .lb-score { color: #888; font-weight: 700; }
   .lb-row.you .lb-score { color: #ffcc00; }
-
   #joystick { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom));
     left: calc(20px + env(safe-area-inset-left)); width: 130px; height: 130px;
     z-index: 40; display: none; touch-action: none; }
   #joystick.visible { display: block; }
-  .joy-base { position: absolute; inset: 0; border-radius: 50%;
-    background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.12); }
+  .joy-base { position: absolute; inset: 0; border-radius: 50%; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.12); }
   .joy-knob { position: absolute; top: 50%; left: 50%; width: 52px; height: 52px;
     border-radius: 50%; background: rgba(255,255,255,0.15);
-    border: 2px solid rgba(255,255,255,0.4); transform: translate(-50%, -50%);
-    pointer-events: none; }
+    border: 2px solid rgba(255,255,255,0.4); transform: translate(-50%, -50%); pointer-events: none; }
   .action-btn { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05);
     border: 2px solid rgba(255,255,255,0.2); color: #fff; display: none;
     align-items: center; justify-content: center; z-index: 40; touch-action: none;
     cursor: pointer; font-weight: 900; }
   .action-btn.visible { display: flex; }
   .action-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
-  #splitBtn { bottom: calc(30px + env(safe-area-inset-bottom)); right: calc(30px + env(safe-area-inset-right));
-    width: 76px; height: 76px; font-size: 22px; }
-  #ejectBtn { bottom: calc(116px + env(safe-area-inset-bottom)); right: calc(46px + env(safe-area-inset-right));
-    width: 50px; height: 50px; font-size: 16px; }
+  #splitBtn { bottom: calc(30px + env(safe-area-inset-bottom)); right: calc(30px + env(safe-area-inset-right)); width: 76px; height: 76px; font-size: 22px; }
+  #ejectBtn { bottom: calc(116px + env(safe-area-inset-bottom)); right: calc(46px + env(safe-area-inset-right)); width: 50px; height: 50px; font-size: 16px; }
 
-  #gameOverScreen { z-index: 100; background: rgba(0,0,0,0.92);
-    align-items: center; justify-content: center; padding: 20px; }
-  .go-panel { background: #000; border: 1px solid #1a1a1a; border-radius: 24px;
-    padding: 28px 22px; max-width: 340px; width: 100%; text-align: center; }
+  #gameOverScreen { z-index: 100; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 20px; }
+  .go-panel { background: #000; border: 1px solid #1a1a1a; border-radius: 24px; padding: 28px 22px; max-width: 340px; width: 100%; text-align: center; }
   .go-panel h1 { font-size: 20px; color: #fff; font-weight: 900; letter-spacing: 3px; margin-bottom: 18px; }
   .go-score { font-size: 54px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
   .go-lbl { font-size: 10px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px; }
-  .go-stats { display: flex; justify-content: space-around; padding: 14px 0;
-    border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; margin-bottom: 18px; }
+  .go-stats { display: flex; justify-content: space-around; padding: 14px 0; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; margin-bottom: 18px; }
   .go-stat .sv { font-size: 16px; font-weight: 800; color: #fff; }
   .go-stat .sl { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase; margin-top: 3px; }
   .token-earned { display: flex; justify-content: space-between; align-items: center;
@@ -429,15 +516,22 @@
   .token-earned .lbl { font-size: 12px; color: #ffcc00; font-weight: 700; }
   .token-earned .val { font-size: 22px; font-weight: 900; color: #ffcc00; }
   .play-btn { width: 100%; padding: 16px; border: none; border-radius: 999px;
-    background: #fff; color: #000; font-size: 16px; font-weight: 900;
-    letter-spacing: 2px; cursor: pointer; }
-  .menu-btn { width: 100%; padding: 14px; margin-top: 8px;
-    border: 1px solid #1a1a1a; border-radius: 999px; background: transparent;
-    color: #fff; font-size: 14px; font-weight: 700; letter-spacing: 2px; cursor: pointer; }
+    background: #fff; color: #000; font-size: 16px; font-weight: 900; letter-spacing: 2px; cursor: pointer; }
+  .menu-btn { width: 100%; padding: 14px; margin-top: 8px; border: 1px solid #1a1a1a;
+    border-radius: 999px; background: transparent; color: #fff; font-size: 14px;
+    font-weight: 700; letter-spacing: 2px; cursor: pointer; }
   #errOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); color: #ff4444;
     padding: 20px; font-family: monospace; font-size: 12px; display: none;
     z-index: 99999; overflow: auto; white-space: pre-wrap; }
   #errOverlay.show { display: block; }
+
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
+    padding: 14px 22px; font-size: 13px; font-weight: 700; color: #fff; z-index: 10001;
+    opacity: 0; transition: all 0.3s; pointer-events: none; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(74,222,128,0.4); color: #4ade80; }
+  .toast.error { border-color: rgba(255,50,50,0.4); color: #ff5555; }
 
   @media (orientation: landscape) and (max-height: 500px) {
     #joystick { width: 100px; height: 100px; bottom: 10px; left: 10px; }
@@ -460,9 +554,10 @@
 <body>
 
 <div id="errOverlay"></div>
+<div class="toast" id="toast"></div>
 <div id="app">
 
-  <!-- LOADING SCREEN -->
+  <!-- LOADING -->
   <div id="loadingScreen" class="screen active">
     <canvas id="loadingCanvas"></canvas>
     <div class="loading-content">
@@ -495,11 +590,9 @@
         </div>
       </div>
       <div class="page-title">Planet.io</div>
-
       <div class="main-area">
         <div class="token-counter">
-          <span class="token-icon">🪙</span>
-          <span id="menuTokens">0</span>
+          <span>🪙</span><span id="menuTokens">0</span>
         </div>
         <div class="skin-preview-wrap">
           <div class="skin-glow"></div>
@@ -535,8 +628,7 @@
         <div class="season-progress"><div class="season-progress-fill"></div></div>
       </div>
       <div class="premium-badge">
-        <span class="icon">💎</span>
-        <span>Premium:</span>
+        <span>💎</span><span>Premium:</span>
         <span class="status"><span class="dot"></span>Active</span>
       </div>
     </div>
@@ -546,8 +638,8 @@
   <!-- INVENTORY -->
   <div id="inventoryScreen" class="screen">
     <div class="inv-header">
-      <div class="inv-title">🎒 Locker</div>
-      <div class="inv-count" id="invCount">0 / 0</div>
+      <div class="inv-title">🎒 Locker<span class="count" id="invCount">0</span></div>
+      <div class="inv-tokens">🪙 <span id="invTokens">0</span></div>
     </div>
     <div class="inv-tabs">
       <div class="inv-tab active" data-filter="all">All</div>
@@ -561,13 +653,28 @@
         <div class="lootbox-tags" id="lootboxTags"></div>
         <div class="lootbox-icon">🎁</div>
         <div class="lootbox-title">Mystery Lootbox</div>
-        <div class="lootbox-sub">Get a random <b style="color:#ffcc00">locked</b> skin!</div>
+        <div class="lootbox-sub">Random locked skin + <b style="color:#ffcc00">unique serial</b></div>
         <div class="lootbox-price"><span>💎</span><span id="lootboxPrice">0.01</span><span>TON</span></div>
         <div class="lootbox-remaining" id="lootboxRemaining"></div>
+        <div class="lootbox-serial-hint" id="lootboxSerialHint"></div>
         <button class="lootbox-btn-buy" id="openLootboxBtn">🔓 OPEN LOOTBOX</button>
       </div>
     </div>
     <div class="tab-bar" id="invTabBar"></div>
+  </div>
+
+  <!-- SHOP -->
+  <div id="shopScreen" class="screen">
+    <div class="shop-wrap">
+      <div class="shop-title">🛍️ Shop</div>
+      <div class="shop-sub">Sell your skins for TON</div>
+      <div class="shop-wallet">
+        <span class="lbl">Your TON wallet</span>
+        <span class="val" id="shopWallet">Not set</span>
+      </div>
+      <div id="shopList"></div>
+    </div>
+    <div class="tab-bar" id="shopTabBar"></div>
   </div>
 
   <!-- SKILLS -->
@@ -600,14 +707,6 @@
       </div>
     </div>
     <div class="tab-bar" id="skillsTabBar"></div>
-  </div>
-
-  <div id="shopScreen" class="screen">
-    <div class="placeholder">
-      <div class="icon">🛍️</div>
-      <div class="txt">SHOP</div>
-    </div>
-    <div class="tab-bar" id="shopTabBar"></div>
   </div>
 
   <div id="seasonScreen" class="screen">
@@ -656,9 +755,9 @@
   </div>
 
   <!-- TON MODAL -->
-  <div class="ton-modal" id="tonModal">
-    <div class="ton-modal-content">
-      <button class="ton-modal-close" id="closeTonModal">✕</button>
+  <div class="modal-overlay" id="tonModal">
+    <div class="modal-content ton-modal-content">
+      <button class="modal-close" id="closeTonModal">✕</button>
       <div class="ton-modal-icon">💎</div>
       <h2 class="ton-modal-title">Send TON</h2>
       <p class="ton-modal-sub">Send exactly <b id="tonAmount">0.01</b> TON</p>
@@ -678,6 +777,40 @@
     </div>
   </div>
 
+  <!-- DETAIL MODAL -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal-content detail-content">
+      <button class="modal-close" id="closeDetailModal">✕</button>
+      <div class="detail-visual" id="detailVisual"></div>
+      <div class="detail-name" id="detailName">Skin</div>
+      <div class="detail-serial" id="detailSerial">#000000</div>
+      <div><span class="detail-rarity" id="detailRarity">RARE</span></div>
+      <div class="detail-row">
+        <span class="lbl">Source</span>
+        <span class="val" id="detailSource">lootbox</span>
+      </div>
+      <div class="detail-row" id="detailPriceRow" style="display:none;">
+        <span class="lbl">Sell Price</span>
+        <span class="detail-price" id="detailPrice">0.00 TON</span>
+      </div>
+      <button class="detail-btn primary" id="detailSelectBtn">✓ SELECT</button>
+      <button class="detail-btn sell" id="detailSellBtn" style="display:none;">💰 SELL FOR TON</button>
+      <button class="detail-btn secondary" id="detailCloseBtn">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- WALLET MODAL -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeWalletModal">✕</button>
+      <div class="modal-title">💼 Your TON Wallet</div>
+      <div class="modal-sub">Enter the address where you want to receive TON</div>
+      <input type="text" class="input-field" id="walletInput" placeholder="UQ... or EQ..." />
+      <button class="btn-primary" id="saveWalletBtn">SAVE WALLET</button>
+    </div>
+  </div>
+
+  <!-- LOOTBOX ANIMATION -->
   <div class="loot-anim-overlay" id="lootAnimOverlay">
     <div class="loot-anim-stage">
       <div class="loot-anim-particles" id="lootParticles"></div>
@@ -688,59 +821,88 @@
           <div class="loot-reveal-visual" id="lootRevealVisual"></div>
           <div class="loot-reveal-rarity" id="lootRevealRarity">RARE</div>
           <div class="loot-reveal-name" id="lootRevealName">Fire</div>
+          <div class="loot-reveal-serial" id="lootRevealSerial">#000042</div>
         </div>
       </div>
       <button class="loot-reveal-continue" id="lootContinueBtn">CONTINUE</button>
     </div>
   </div>
 
-  <div class="admin-modal" id="adminModal">
+  <!-- ADMIN MODAL -->
+  <div class="modal-overlay" id="adminModal">
     <div class="admin-panel">
-      <button class="admin-close" id="adminCloseBtn">✕</button>
+      <button class="modal-close" id="adminCloseBtn">✕</button>
       <div class="admin-title">👑 ADMIN PANEL</div>
       <div class="admin-sub">Authorized Access Only</div>
       <div id="adminPassStep">
         <div class="admin-field">
           <label>Enter Password</label>
-          <input type="password" class="admin-input code" id="adminPasswordInput" placeholder="●●●●●●" maxlength="6">
+          <input type="password" class="admin-input code" id="adminPasswordInput" placeholder="●●●●●●" maxlength="12">
         </div>
         <button class="admin-btn" id="adminLoginBtn">🔓 Unlock</button>
       </div>
       <div id="adminControls" style="display:none;">
-        <div class="admin-section">
-          <div class="admin-section-title">💰 Lootbox</div>
-          <div class="admin-field">
-            <label>Price (TON)</label>
-            <input type="number" step="0.001" class="admin-input" id="adminPriceInput">
-          </div>
-          <div class="admin-field">
-            <label>Remaining (-1 = unlimited)</label>
-            <input type="number" class="admin-input" id="adminRemainingInput">
-          </div>
-          <button class="admin-btn success" id="adminSaveSettingsBtn">💾 Save</button>
+        <div class="admin-tabs">
+          <div class="admin-tab active" data-atab="lootbox">Lootbox</div>
+          <div class="admin-tab" data-atab="requests">Requests</div>
+          <div class="admin-tab" data-atab="prices">Prices</div>
+          <div class="admin-tab" data-atab="actions">Actions</div>
         </div>
-        <div class="admin-section">
-          <div class="admin-section-title">🏷️ Tag</div>
-          <div class="admin-row">
-            <button class="admin-btn" onclick="setLootboxTag('new')">NEW</button>
-            <button class="admin-btn" onclick="setLootboxTag('hot')">HOT</button>
+
+        <div class="admin-pane" id="adminPaneLootbox">
+          <div class="admin-section">
+            <div class="admin-section-title">💰 Lootbox Settings</div>
+            <div class="admin-field">
+              <label>Price (TON)</label>
+              <input type="number" step="0.001" class="admin-input" id="adminPriceInput">
+            </div>
+            <div class="admin-field">
+              <label>Remaining (-1 = unlimited)</label>
+              <input type="number" class="admin-input" id="adminRemainingInput">
+            </div>
+            <button class="admin-btn success" id="adminSaveSettingsBtn">💾 Save</button>
           </div>
-          <div class="admin-row" style="margin-top:6px;">
-            <button class="admin-btn" onclick="setLootboxTag('sale')">SALE</button>
-            <button class="admin-btn" onclick="setLootboxTag('')">NONE</button>
+          <div class="admin-section">
+            <div class="admin-section-title">🏷️ Tag</div>
+            <div class="admin-row">
+              <button class="admin-btn small" data-tag="new">NEW</button>
+              <button class="admin-btn small" data-tag="hot">HOT</button>
+            </div>
+            <div class="admin-row" style="margin-top:6px;">
+              <button class="admin-btn small" data-tag="sale">SALE</button>
+              <button class="admin-btn small" data-tag="">NONE</button>
+            </div>
           </div>
         </div>
-        <div class="admin-section">
-          <div class="admin-section-title">⚡ Actions</div>
-          <button class="admin-btn" id="adminAddTokensBtn">+1000 🪙</button>
-          <button class="admin-btn" style="margin-top:6px;" id="adminUnlockAllBtn">🔓 Unlock All</button>
+
+        <div class="admin-pane" id="adminPaneRequests" style="display:none;">
+          <div class="admin-wallet-info">
+            Hot wallet balance: <b id="adminWalletBalance">loading...</b> TON
+          </div>
+          <button class="admin-btn" id="adminRefreshRequestsBtn">🔄 Refresh Requests</button>
+          <div id="adminRequestsList" style="margin-top:12px;"></div>
         </div>
-        <div class="admin-section" style="border-color: rgba(255,50,50,0.3);">
-          <div class="admin-section-title" style="color:#ff3333;">⚠️ Danger</div>
-          <button class="admin-btn danger" id="adminWipeAllBtn">🗑️ Wipe ALL</button>
-          <button class="admin-btn danger" style="margin-top:6px;" id="adminWipeSkinsBtn">🗑️ Reset Skins</button>
+
+        <div class="admin-pane" id="adminPanePrices" style="display:none;">
+          <div class="admin-section">
+            <div class="admin-section-title">🏷️ Skin Prices</div>
+            <div id="adminPricesList"></div>
+          </div>
         </div>
-        <div class="admin-status" id="adminStatus2"></div>
+
+        <div class="admin-pane" id="adminPaneActions" style="display:none;">
+          <div class="admin-section">
+            <div class="admin-section-title">⚡ Actions</div>
+            <button class="admin-btn" id="adminAddTokensBtn">+1000 🪙</button>
+            <button class="admin-btn" style="margin-top:6px;" id="adminUnlockAllBtn">🔓 Unlock All</button>
+          </div>
+          <div class="admin-section" style="border-color: rgba(255,50,50,0.3);">
+            <div class="admin-section-title" style="color:#ff3333;">⚠️ Danger</div>
+            <button class="admin-btn danger" id="adminWipeAllBtn">🗑️ Wipe ALL</button>
+          </div>
+        </div>
+
+        <div class="admin-status" id="adminStatus"></div>
       </div>
     </div>
   </div>
@@ -765,14 +927,11 @@ var MIN_SPLIT_MASS = 36, MIN_EJECT_MASS = 34, EJECT_MASS_AMOUNT = 14, EJECT_COST
 var MAX_CELLS = 16, MERGE_TIME = 20, SPLIT_LAUNCH_SPEED = 1300;
 var EAT_MASS_RATIO = 1.15, EAT_OVERLAP = 0.4, FOOD_MASS = 1;
 var MASS_DECAY_RATE = 0.002, MASS_DECAY_MIN = 40;
-var MAX_VELOCITY = 2200;
 var MAX_SPEED_LEVEL = 50, SPEED_PER_LEVEL = 0.05;
 var SPEED_UPGRADE_BASE_COST = 100, SPEED_UPGRADE_COST_STEP = 50;
 var TOKEN_PER_SECOND = 0.5, TOKEN_PER_200_MASS = 1, TOKEN_PER_KILL = 10;
 var TOKEN_BONUS_2MIN = 30, TOKEN_BONUS_5MIN = 100;
-var ADMIN_PASSWORD = '262626';
-var TON_WALLET = 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
-var TON_API = 'https://toncenter.com/api/v2/getTransactions';
+var LOOTBOX_MAX_SERIAL = 999;
 
 var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
 
@@ -786,13 +945,18 @@ var SKINS = [
 
 var SKIN_IMAGES = {};
 
-/* ============ SAVE (synced with server) ============ */
+/* ============ SAVE ============ */
 var Save = {
   userId: null,
   tokens: 0, speedLevel: 0, massLevel: 0,
-  unlockedSkins: ['default'], currentSkin: 'default',
+  unlockedSkins: [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }],
+  currentSkin: 'default',
+  currentSerial: null,
   totalKills: 0, highScore: 0,
+  walletAddress: '',
   lootboxPrice: 0.01, lootboxRemaining: -1, lootboxTag: '',
+  serialStatus: { next: 1, soldOut: false },
+  skinPrices: {},
   dirty: false,
 
   applyServerData: function(u) {
@@ -800,11 +964,39 @@ var Save = {
     this.tokens = u.tokens || 0;
     this.speedLevel = u.speedLevel || 0;
     this.massLevel = u.massLevel || 0;
-    this.unlockedSkins = u.unlockedSkins || ['default'];
+    this.unlockedSkins = this.normalizeSkins(u.unlockedSkins);
     this.currentSkin = u.currentSkin || 'default';
     this.totalKills = u.totalKills || 0;
     this.highScore = u.highScore || 0;
-    if (this.unlockedSkins.indexOf('default') < 0) this.unlockedSkins.unshift('default');
+    this.walletAddress = u.walletAddress || '';
+    // find currentSerial
+    var match = this.unlockedSkins.find(function(s) { return s.id === Save.currentSkin; });
+    this.currentSerial = match ? match.serial : null;
+  },
+
+  normalizeSkins: function(input) {
+    var arr = input;
+    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch (e) { arr = []; } }
+    if (!Array.isArray(arr)) arr = [];
+    var out = [];
+    var hasDefault = false;
+    for (var i = 0; i < arr.length; i++) {
+      var s = arr[i];
+      if (typeof s === 'string') {
+        out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
+        if (s === 'default') hasDefault = true;
+      } else if (s && s.id) {
+        out.push({
+          id: String(s.id),
+          serial: (typeof s.serial === 'number') ? s.serial : null,
+          source: s.source || 'unknown',
+          acquiredAt: s.acquiredAt || 0
+        });
+        if (s.id === 'default') hasDefault = true;
+      }
+    }
+    if (!hasDefault) out.unshift({ id: 'default', serial: null, source: 'starter', acquiredAt: 0 });
+    return out;
   },
 
   applySettings: function(s) {
@@ -829,7 +1021,28 @@ var Save = {
     this.dirty = false;
   },
 
-  isUnlocked: function(id) { return this.unlockedSkins.indexOf(id) >= 0; },
+  // Check if at least one instance with given id exists
+  isUnlocked: function(id) {
+    for (var i = 0; i < this.unlockedSkins.length; i++)
+      if (this.unlockedSkins[i].id === id) return true;
+    return false;
+  },
+  countSkin: function(id) {
+    var c = 0;
+    for (var i = 0; i < this.unlockedSkins.length; i++)
+      if (this.unlockedSkins[i].id === id) c++;
+    return c;
+  },
+  getInstances: function(id) {
+    return this.unlockedSkins.filter(function(s) { return s.id === id; });
+  },
+  setCurrent: function(id, serial) {
+    this.currentSkin = id;
+    this.currentSerial = (typeof serial === 'number') ? serial : null;
+    this.markDirty();
+    this.syncToServer();
+  },
+
   getSpeedCost: function() { return SPEED_UPGRADE_BASE_COST + this.speedLevel * SPEED_UPGRADE_COST_STEP; },
   upgradeSpeed: function() {
     if (this.speedLevel >= MAX_SPEED_LEVEL) return false;
@@ -854,6 +1067,7 @@ var Save = {
 
 /* ============ STATE ============ */
 var selectedSkin = 'default';
+var selectedSerial = null;
 var selectedMode = 'classic';
 var socket = null;
 var isOnline = false;
@@ -869,6 +1083,10 @@ var tgWebApp = null;
 var deviceId = null;
 var connectionAttempts = 0;
 var MAX_ATTEMPTS = 12;
+var isBotMapMode = false;
+var adminPassword = '';
+var adminCurrentTab = 'lootbox';
+var detailContext = { skinId: null, serial: null, instance: null };
 
 /* ============ UTILS ============ */
 function $(id) { return document.getElementById(id); }
@@ -883,10 +1101,12 @@ function fmtTime(sec) {
   var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
   return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
 }
-function massToRadius(mass) { return Math.sqrt(mass) * 4.5; }
-function massToSpeed(mass) {
-  return 22 * Math.pow(Math.max(10, mass), -0.32) * 4.5 * Save.getSpeedMultiplier();
+function fmtSerial(s) {
+  if (s === null || s === undefined || s === 0) return '#------';
+  return '#' + String(s).padStart(6, '0');
 }
+function massToRadius(mass) { return Math.sqrt(mass) * 4.5; }
+function massToSpeed(mass) { return 22 * Math.pow(Math.max(10, mass), -0.32) * 4.5 * Save.getSpeedMultiplier(); }
 function isPortrait() { return window.innerHeight > window.innerWidth; }
 function getSkinById(id) {
   for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
@@ -903,7 +1123,6 @@ function getImageForColor(c) {
   if (img && img.complete && img.naturalWidth > 0) return img;
   return null;
 }
-
 function randomWorldPos(margin) {
   margin = margin || 30;
   var maxR = Math.max(50, WORLD_RADIUS - margin);
@@ -911,8 +1130,6 @@ function randomWorldPos(margin) {
   var r = Math.sqrt(Math.random()) * maxR;
   return { x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r };
 }
-function distFromCenter(x, y) { var dx = x - CX, dy = y - CY; return Math.sqrt(dx*dx + dy*dy); }
-
 function preloadSkinImages() {
   for (var i = 0; i < SKINS.length; i++) {
     if (SKINS[i].img) {
@@ -926,12 +1143,19 @@ function preloadSkinImages() {
   }
 }
 
-/* ============ STARFIELD BACKGROUND ============ */
+function toast(msg, type) {
+  var el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { el.className = 'toast'; }, 2600);
+}
+
+/* ============ STARS ============ */
 var stars = [];
 function initStars() {
   stars = [];
-  var count = 200;
-  for (var i = 0; i < count; i++) {
+  for (var i = 0; i < 200; i++) {
     stars.push({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
@@ -940,20 +1164,6 @@ function initStars() {
       alpha: 0.3 + Math.random() * 0.7,
       pulse: Math.random() * Math.PI * 2
     });
-  }
-}
-function drawStars(ctx, time) {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-  for (var i = 0; i < stars.length; i++) {
-    var s = stars[i];
-    s.y += s.speed;
-    if (s.y > window.innerHeight) { s.y = 0; s.x = Math.random() * window.innerWidth; }
-    var alpha = s.alpha * (0.6 + 0.4 * Math.sin(time * 0.002 + s.pulse));
-    ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fill();
   }
 }
 
@@ -985,45 +1195,44 @@ function getTelegramInitData() {
   if (tgWebApp && tgWebApp.initData && tgWebApp.initData.length > 0) return tgWebApp.initData;
   return null;
 }
+function getPlayerName() {
+  if (tgWebApp && tgWebApp.initDataUnsafe && tgWebApp.initDataUnsafe.user)
+    return tgWebApp.initDataUnsafe.user.first_name || 'Player';
+  return 'Guest';
+}
 
 /* ============ SOCKET ============ */
 function initSocket() {
-  if (typeof io === 'undefined') {
-    showLoadingError('Server library not loaded');
-    return;
-  }
-
+  if (typeof io === 'undefined') { showLoadingError('Server library not loaded'); return; }
   connectionAttempts++;
   $('loadingAttempt').textContent = connectionAttempts > 1 ? 'Attempt ' + connectionAttempts + ' / ' + MAX_ATTEMPTS : '';
   $('loadingText').textContent = connectionAttempts > 1 ? 'Server is waking up...' : 'Connecting to server...';
-
   socket = io({
-    reconnection: true,
-    reconnectionAttempts: MAX_ATTEMPTS,
-    reconnectionDelay: 3000,
-    timeout: 20000
+    reconnection: true, reconnectionAttempts: MAX_ATTEMPTS,
+    reconnectionDelay: 3000, timeout: 20000
   });
 
   socket.on('connect', function() {
     $('loadingText').textContent = 'Authenticating...';
     $('loadingRetryBtn').classList.remove('show');
     connectionAttempts = 0;
-    socket.emit('auth', {
-      initData: getTelegramInitData(),
-      deviceId: getDeviceId()
-    });
+    socket.emit('auth', { initData: getTelegramInitData(), deviceId: getDeviceId() });
   });
 
   socket.on('auth_ok', function(data) {
     Save.applyServerData(data.user);
     Save.applySettings(data.settings);
+    if (data.skinPrices) Save.skinPrices = data.skinPrices;
+    if (data.serialStatus) Save.serialStatus = data.serialStatus;
     selectedSkin = Save.currentSkin;
+    selectedSerial = Save.currentSerial;
     $('loadingText').textContent = 'Loading...';
     setTimeout(function() {
       openScreen('menuScreen');
       updateSkinPreview();
       updateMenuTokens();
       renderInventory();
+      renderShop();
     }, 400);
   });
 
@@ -1039,19 +1248,21 @@ function initSocket() {
     renderInventory();
   });
 
-  socket.on('connect_error', function(err) {
-    if (connectionAttempts >= MAX_ATTEMPTS) {
-      showLoadingError('Cannot reach server');
-    }
+  socket.on('skin_prices_update', function(prices) {
+    Save.skinPrices = prices || {};
+    renderShop();
+  });
+
+  socket.on('connect_error', function() {
+    if (connectionAttempts >= MAX_ATTEMPTS) showLoadingError('Cannot reach server');
   });
 
   socket.on('disconnect', function() {
     if (isOnline && running) {
-      isOnline = false;
-      running = false;
+      isOnline = false; running = false;
       if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
       openScreen('menuScreen');
-      alert('Disconnected from server');
+      toast('Disconnected from server', 'error');
     }
   });
 
@@ -1062,13 +1273,10 @@ function initSocket() {
     WORLD_RADIUS = data.worldRadius || 1200;
     CX = data.centerX || 1500;
     CY = data.centerY || 1500;
-    World.players = [];
-    World.food = [];
-    World.player = null;
+    World.players = []; World.food = []; World.player = null;
     World.startTime = performance.now() / 1000;
     World.gameOverTriggered = false;
-    World.tokensEarned = 0;
-    World.massForTokens = 0;
+    World.tokensEarned = 0; World.massForTokens = 0;
     World.bonusGiven = { twoMin: false, fiveMin: false };
 
     var skin = getSkinById(selectedSkin);
@@ -1091,7 +1299,6 @@ function initSocket() {
     isOnline = true;
     isBotMapMode = true;
 
-    // Setup UI
     var j1 = $('joystick'), k1 = $('joyKnob');
     if (j1) j1.style.display = 'block';
     JoystickP1 = new Joystick(j1, k1);
@@ -1108,7 +1315,6 @@ function initSocket() {
     Input.mouse.x = window.innerWidth / 2;
     Input.mouse.y = window.innerHeight / 2;
     Input.useMouseAim = false;
-    $('playBtn').textContent = '▶';
     running = true;
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -1123,7 +1329,9 @@ function initSocket() {
     }, 50);
   });
 
+  // *** BUG FIX: ignore state in classic mode ***
   socket.on('state', function(data) {
+    if (!isOnline) return;
     networkPlayers = {};
     for (var i = 0; i < data.players.length; i++) {
       var sp = data.players[i];
@@ -1153,13 +1361,9 @@ function initSocket() {
                 }
               }
             }
-          } else {
-            World.player.alive = false;
-          }
+          } else { World.player.alive = false; }
         }
-      } else {
-        networkPlayers[sp.id] = sp;
-      }
+      } else { networkPlayers[sp.id] = sp; }
     }
     if (data.food) {
       World.food = [];
@@ -1171,20 +1375,88 @@ function initSocket() {
       }
     }
   });
-}
 
-var isBotMapMode = false;
+  socket.on('lootbox_claim_result', function(res) {
+    if (!res || !res.ok) {
+      $('tonStatus').innerHTML = '❌ ' + (res && res.message ? res.message : 'Failed');
+      $('tonStatus').className = 'ton-status error';
+      stopTonCheck();
+      return;
+    }
+    // success
+    Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+    Save.serialStatus.next = (res.serial || 0) + 1;
+    if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
+    if (Save.lootboxRemaining > 0) Save.lootboxRemaining--;
+    stopTonCheck();
+    $('tonStatus').innerHTML = '✅ Confirmed!';
+    $('tonStatus').className = 'ton-status success';
+    setTimeout(function() {
+      closeTonModal();
+      playLootboxAnimation(res.skinId, res.serial);
+      renderInventory();
+    }, 900);
+  });
+
+  socket.on('sell_result', function(res) {
+    if (!res || !res.ok) {
+      toast(res && res.message ? res.message : 'Sell failed', 'error');
+      return;
+    }
+    Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+    Save.walletAddress = res.wallet || Save.walletAddress;
+    toast('✅ Sell request created — waiting for admin', 'success');
+    closeDetailModal();
+    renderInventory();
+    renderShop();
+  });
+
+  socket.on('wallet_saved', function(res) {
+    if (res && res.ok) {
+      Save.walletAddress = res.wallet;
+      toast('✅ Wallet saved', 'success');
+      closeWalletModal();
+      renderShop();
+    } else {
+      toast('❌ Invalid wallet', 'error');
+    }
+  });
+
+  socket.on('my_requests', function(list) { /* reserved */ });
+
+  socket.on('admin_requests', function(list) {
+    renderAdminRequests(list || []);
+  });
+
+  socket.on('admin_pay_result', function(res) {
+    if (res && res.ok) {
+      toast('✅ Paid ' + res.amount + ' TON', 'success');
+      refreshAdminRequests();
+      refreshAdminBalance();
+    } else {
+      toast('❌ ' + (res && res.message ? res.message : 'Pay failed'), 'error');
+    }
+  });
+
+  socket.on('admin_reject_result', function(res) {
+    if (res && res.ok) { toast('Rejected & skin returned', 'success'); refreshAdminRequests(); }
+    else toast('Reject failed', 'error');
+  });
+
+  socket.on('admin_wallet_balance', function(res) {
+    if (res && res.ok) $('adminWalletBalance').textContent = (res.balance !== null ? res.balance.toFixed(4) : '—');
+    else $('adminWalletBalance').textContent = 'error';
+  });
+
+  socket.on('admin_skin_price_result', function(res) {
+    if (res && res.ok) toast('✅ Price saved', 'success');
+    else toast('❌ Failed', 'error');
+  });
+}
 
 function showLoadingError(msg) {
   $('loadingText').textContent = msg;
   $('loadingRetryBtn').classList.add('show');
-}
-
-function getPlayerName() {
-  if (tgWebApp && tgWebApp.initDataUnsafe && tgWebApp.initDataUnsafe.user) {
-    return tgWebApp.initDataUnsafe.user.first_name || 'Player';
-  }
-  return 'Guest';
 }
 
 /* ============ JOYSTICK ============ */
@@ -1217,9 +1489,7 @@ function Joystick(el, knob) {
     for (var i = 0; i < e.changedTouches.length; i++) {
       var t = e.changedTouches[i];
       if (t.identifier === self.touchId) {
-        self.touchId = null;
-        self.active = false;
-        self.magnitude = 0;
+        self.touchId = null; self.active = false; self.magnitude = 0;
         self.knob.style.transform = 'translate(-50%, -50%)';
       }
     }
@@ -1260,9 +1530,7 @@ var Input = {
   init: function(canvas) {
     var self = this;
     canvas.addEventListener('mousemove', function(e) {
-      self.mouse.x = e.clientX;
-      self.mouse.y = e.clientY;
-      self.useMouseAim = true;
+      self.mouse.x = e.clientX; self.mouse.y = e.clientY; self.useMouseAim = true;
     });
     window.addEventListener('keydown', function(e) {
       var k = e.key.toLowerCase();
@@ -1299,11 +1567,9 @@ Camera.follow = function(t, dt) {
   if (!t) return;
   this.x = lerp(this.x, t.cx, 0.2);
   this.y = lerp(this.y, t.cy, 0.2);
-  var portrait = isPortrait();
   var m = Math.max(30, t.totalMass);
-  var bz = portrait ? 0.85 : 0.6;
-  var tz = bz * Math.pow(30 / m, 0.13);
-  this.targetZoom = clamp(tz, 0.3, 1.6);
+  var bz = isPortrait() ? 0.85 : 0.6;
+  this.targetZoom = clamp(bz * Math.pow(30 / m, 0.13), 0.3, 1.6);
   this.zoom = lerp(this.zoom, this.targetZoom, 0.08);
 };
 
@@ -1338,64 +1604,41 @@ Cell.prototype.draw = function(ctx, cam) {
   if (r < 1) return;
   var isP = (this.owner === World.player);
   var img = getImageForColor(this.color);
-
   if (img) {
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
     ctx.drawImage(img, s.x - r, s.y - r, r * 2, r * 2);
     ctx.restore();
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(s.x, s.y, r - 1, 0, Math.PI * 2); ctx.stroke();
-    if (isP) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(s.x, s.y, r + 2, 0, Math.PI * 2); ctx.stroke();
-    }
+    if (isP) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r + 2, 0, Math.PI * 2); ctx.stroke(); }
     if (this.mergeTimer > 0 && r > 20) {
       var p = 1 - (this.mergeTimer / MERGE_TIME);
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(s.x, s.y, r - 4, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke();
     }
     return;
   }
-
-  // Default circle
   var g = ctx.createRadialGradient(s.x, s.y, r * 0.8, s.x, s.y, r * 1.5);
-  g.addColorStop(0, this.color + '40');
-  g.addColorStop(1, 'transparent');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.5, 0, Math.PI * 2); ctx.fill();
-
-  ctx.fillStyle = this.color;
-  ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
-
+  g.addColorStop(0, this.color + '40'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
   var g2 = ctx.createRadialGradient(s.x - r*0.3, s.y - r*0.3, r*0.1, s.x, s.y, r);
   g2.addColorStop(0, 'rgba(255,255,255,0.35)');
   g2.addColorStop(0.6, 'rgba(255,255,255,0.02)');
   g2.addColorStop(1, 'rgba(0,0,0,0.25)');
-  ctx.fillStyle = g2;
-  ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
-
-  if (isP) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(s.x, s.y, r + 2, 0, Math.PI * 2); ctx.stroke();
-  }
+  ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
+  if (isP) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r + 2, 0, Math.PI * 2); ctx.stroke(); }
   if (this.mergeTimer > 0 && r > 20) {
     var pct = 1 - (this.mergeTimer / MERGE_TIME);
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(s.x, s.y, r - 4, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2); ctx.stroke();
   }
   if (r > 16) {
     ctx.font = Math.floor(r * 0.85) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(this.emoji || '🪐', s.x, s.y + r * 0.05);
   }
 };
@@ -1407,14 +1650,18 @@ function Player(name, color, emoji, isBot) {
   this.alive = true; this.kills = 0; this.maxMass = 0;
   this.botTimer = 0;
 }
-Object.defineProperty(Player.prototype, 'totalMass', { get: function() { var s = 0; for (var i = 0; i < this.cells.length; i++) s += this.cells[i].mass; return s; } });
-Object.defineProperty(Player.prototype, 'cx', { get: function() { var tot = 0, sx = 0; for (var i = 0; i < this.cells.length; i++) { tot += this.cells[i].mass; sx += this.cells[i].x * this.cells[i].mass; } return tot > 0 ? sx / tot : 0; } });
-Object.defineProperty(Player.prototype, 'cy', { get: function() { var tot = 0, sy = 0; for (var i = 0; i < this.cells.length; i++) { tot += this.cells[i].mass; sy += this.cells[i].y * this.cells[i].mass; } return tot > 0 ? sy / tot : 0; } });
+Object.defineProperty(Player.prototype, 'totalMass', { get: function() {
+  var s = 0; for (var i = 0; i < this.cells.length; i++) s += this.cells[i].mass; return s; } });
+Object.defineProperty(Player.prototype, 'cx', { get: function() {
+  var tot = 0, sx = 0; for (var i = 0; i < this.cells.length; i++) { tot += this.cells[i].mass; sx += this.cells[i].x * this.cells[i].mass; }
+  return tot > 0 ? sx / tot : 0; } });
+Object.defineProperty(Player.prototype, 'cy', { get: function() {
+  var tot = 0, sy = 0; for (var i = 0; i < this.cells.length; i++) { tot += this.cells[i].mass; sy += this.cells[i].y * this.cells[i].mass; }
+  return tot > 0 ? sy / tot : 0; } });
 Player.prototype.spawn = function(x, y, mass) {
   mass = mass || BASE_START_MASS;
   this.cells = [new Cell(x, y, mass, this.color, this, this.emoji)];
-  this.alive = true;
-  this.maxMass = mass;
+  this.alive = true; this.maxMass = mass;
 };
 Player.prototype.split = function() {
   if (!this.alive) return;
@@ -1448,8 +1695,7 @@ Player.prototype.eject = function() {
     if (c.mass < MIN_EJECT_MASS) continue;
     c.mass -= EJECT_COST;
     var e = new Food(c.x + dX * c.radius, c.y + dY * c.radius, this.color, EJECT_MASS_AMOUNT, true);
-    e.vx = dX * 1000;
-    e.vy = dY * 1000;
+    e.vx = dX * 1000; e.vy = dY * 1000;
     World.food.push(e);
   }
 };
@@ -1457,8 +1703,7 @@ Player.prototype.update = function(dt) {
   if (!this.alive) return;
   for (var i = 0; i < this.cells.length; i++) {
     var cell = this.cells[i];
-    var dx = this.targetX - cell.x;
-    var dy = this.targetY - cell.y;
+    var dx = this.targetX - cell.x, dy = this.targetY - cell.y;
     var d = Math.sqrt(dx*dx + dy*dy);
     if (d < 0.5) continue;
     var sp = massToSpeed(cell.mass) * 10;
@@ -1478,10 +1723,11 @@ Player.prototype.update = function(dt) {
     if (cell.mass > MASS_DECAY_MIN) cell.mass -= cell.mass * MASS_DECAY_RATE * dt;
     if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
   }
-  // Merge cells
-  for (var a = 0; a < this.cells.length; a++) {
-    for (var b = a + 1; b < this.cells.length; b++) {
-      if (a >= this.cells.length || b >= this.cells.length) break;
+  // Reverse loop merge
+  for (var a = this.cells.length - 1; a >= 0; a--) {
+    if (a >= this.cells.length) continue;
+    for (var b = a - 1; b >= 0; b--) {
+      if (b >= this.cells.length || a >= this.cells.length) continue;
       var ca = this.cells[a], cb = this.cells[b];
       if (!ca || !cb) continue;
       var dxm = cb.x - ca.x, dym = cb.y - ca.y;
@@ -1493,7 +1739,8 @@ Player.prototype.update = function(dt) {
           var small = ca.mass >= cb.mass ? cb : ca;
           big.mass += small.mass;
           this.cells.splice(this.cells.indexOf(small), 1);
-          b = a; break;
+          a = this.cells.length;
+          break;
         } else {
           var nx = dxm / dm, ny = dym / dm, push = ov * 0.5;
           ca.x -= nx * push; ca.y -= ny * push;
@@ -1522,7 +1769,6 @@ var World = {
       var pos = randomWorldPos(30);
       this.food.push(new Food(pos.x, pos.y));
     }
-    // Bots
     var used = {};
     for (var j = 0; j < BOT_COUNT; j++) {
       var name, tries = 0;
@@ -1562,7 +1808,6 @@ var World = {
       if (el >= 120 && !this.bonusGiven.twoMin) { this.tokensEarned += TOKEN_BONUS_2MIN; this.bonusGiven.twoMin = true; }
       if (el >= 300 && !this.bonusGiven.fiveMin) { this.tokensEarned += TOKEN_BONUS_5MIN; this.bonusGiven.fiveMin = true; }
     }
-    // Player input
     if (this.player && this.player.alive) {
       var p = this.player;
       if (JoystickP1 && JoystickP1.active && JoystickP1.magnitude > 0.12) {
@@ -1574,14 +1819,10 @@ var World = {
         p.targetX = w.x; p.targetY = w.y;
       } else { p.targetX = p.cx; p.targetY = p.cy; }
     }
-    // Bot AI
-    for (var b = 0; b < this.players.length; b++) {
+    for (var b = 0; b < this.players.length; b++)
       if (this.players[b].isBot && this.players[b].alive) botThink(this.players[b], this, dt);
-    }
-    // Update all
     for (var k = 0; k < this.players.length; k++)
       if (this.players[k].alive) this.players[k].update(dt);
-    // Eat food
     for (var pi = 0; pi < this.players.length; pi++) {
       var pl = this.players[pi];
       if (!pl.alive) continue;
@@ -1591,10 +1832,7 @@ var World = {
         for (var fi = this.food.length - 1; fi >= 0; fi--) {
           var fd = this.food[fi];
           var dx = fd.x - c.x, dy = fd.y - c.y;
-          if (dx*dx + dy*dy < cr2) {
-            c.mass += fd.mass;
-            this.food.splice(fi, 1);
-          }
+          if (dx*dx + dy*dy < cr2) { c.mass += fd.mass; this.food.splice(fi, 1); }
         }
       }
     }
@@ -1602,7 +1840,6 @@ var World = {
       var pos = randomWorldPos(30);
       this.food.push(new Food(pos.x, pos.y));
     }
-    // PvP
     for (var a = 0; a < this.players.length; a++) {
       var A = this.players[a];
       if (!A.alive) continue;
@@ -1611,12 +1848,10 @@ var World = {
         if (!B.alive) continue;
         for (var ca = A.cells.length - 1; ca >= 0; ca--) {
           if (ca >= A.cells.length) continue;
-          var cA = A.cells[ca];
-          if (!cA) continue;
+          var cA = A.cells[ca]; if (!cA) continue;
           for (var cb = B.cells.length - 1; cb >= 0; cb--) {
             if (cb >= B.cells.length) continue;
-            var cB = B.cells[cb];
-            if (!cB) continue;
+            var cB = B.cells[cb]; if (!cB) continue;
             var dx2 = cB.x - cA.x, dy2 = cB.y - cA.y;
             var d2 = dx2*dx2 + dy2*dy2;
             if (cA.mass > cB.mass * EAT_MASS_RATIO) {
@@ -1643,12 +1878,10 @@ var World = {
         }
       }
     }
-    // Respawn dead bots
     for (var r = 0; r < this.players.length; r++) {
       var rp = this.players[r];
       if (!rp.alive && rp.isBot) {
-        rp.maxMass = 0;
-        rp.kills = 0;
+        rp.maxMass = 0; rp.kills = 0;
         rp.color = randChoice(COLORS);
         rp.emoji = randChoice(SKINS).emoji;
         rp.name = randChoice(BOT_NAMES) + randInt(1, 99);
@@ -1669,13 +1902,11 @@ var World = {
       World.player.targetY = World.player.cy + Math.sin(JoystickP1.angle) * d;
     } else if (Input.useMouseAim) {
       var w = Camera.screenToWorld(Input.mouse.x, Input.mouse.y);
-      World.player.targetX = w.x;
-      World.player.targetY = w.y;
+      World.player.targetX = w.x; World.player.targetY = w.y;
     } else {
       World.player.targetX = World.player.cx;
       World.player.targetY = World.player.cy;
     }
-    // Local prediction
     for (var i = 0; i < World.player.cells.length; i++) {
       var cell = World.player.cells[i];
       var dx = World.player.targetX - cell.x;
@@ -1736,25 +1967,19 @@ var World = {
 
 var BOT_NAMES = ['Nova','Orion','Luna','Vega','Atlas','Cosmo','Nebula','Astro','Stella','Pulsar','Comet','Quasar','Galaxy','Titan','Phoenix','Zephyr','Hydra','Draco','Aurora','Eclipse','Falcon','Raptor'];
 
-/* ============ BOT AI (CLIENT) ============ */
 function botThink(bot, world, dt) {
   if (!bot.alive || bot.cells.length === 0) return;
   bot.botTimer -= dt;
   if (bot.botTimer > 0) return;
   bot.botTimer = 0.15 + Math.random() * 0.15;
-
   var bc = { x: bot.cx, y: bot.cy };
   var bm = bot.totalMass;
-
-  // Find best food
   var bestFood = null, bestFoodD = Infinity;
   for (var i = 0; i < world.food.length; i += 3) {
     var f = world.food[i];
     var d2 = (f.x - bc.x) ** 2 + (f.y - bc.y) ** 2;
     if (d2 < bestFoodD && d2 < 400 * 400) { bestFoodD = d2; bestFood = f; }
   }
-
-  // Threat & prey
   var threat = null, threatD = Infinity;
   var prey = null, preyD = Infinity;
   for (var j = 0; j < world.players.length; j++) {
@@ -1764,33 +1989,19 @@ function botThink(bot, world, dt) {
     var om = o.totalMass;
     var d2o = (oc.x - bc.x) ** 2 + (oc.y - bc.y) ** 2;
     if (d2o > 400 * 400) continue;
-    if (om > bm * 1.15) {
-      if (d2o < threatD) { threatD = d2o; threat = oc; }
-    } else if (bm > om * 1.3) {
-      if (d2o < preyD) { preyD = d2o; prey = oc; }
-    }
+    if (om > bm * 1.15) { if (d2o < threatD) { threatD = d2o; threat = oc; } }
+    else if (bm > om * 1.3) { if (d2o < preyD) { preyD = d2o; prey = oc; } }
   }
-
   var tx = bc.x, ty = bc.y;
-  if (threat && threatD < 300 * 300) {
-    tx = bc.x + (bc.x - threat.x);
-    ty = bc.y + (bc.y - threat.y);
-  } else if (prey && preyD < 350 * 350 && Math.random() < 0.7) {
-    tx = prey.x; ty = prey.y;
-  } else if (bestFood) {
-    tx = bestFood.x; ty = bestFood.y;
-  } else {
-    tx = bc.x + rand(-200, 200);
-    ty = bc.y + rand(-200, 200);
-  }
-
+  if (threat && threatD < 300 * 300) { tx = bc.x + (bc.x - threat.x); ty = bc.y + (bc.y - threat.y); }
+  else if (prey && preyD < 350 * 350 && Math.random() < 0.7) { tx = prey.x; ty = prey.y; }
+  else if (bestFood) { tx = bestFood.x; ty = bestFood.y; }
+  else { tx = bc.x + rand(-200, 200); ty = bc.y + rand(-200, 200); }
   var tdx = tx - CX, tdy = ty - CY;
   var td = Math.sqrt(tdx*tdx + tdy*tdy);
   var maxTD = WORLD_RADIUS - 100;
   if (td > maxTD) { tx = CX + (tdx/td)*maxTD; ty = CY + (tdy/td)*maxTD; }
-
-  bot.targetX = tx;
-  bot.targetY = ty;
+  bot.targetX = tx; bot.targetY = ty;
 }
 
 /* ============ CANVAS ============ */
@@ -1810,13 +2021,8 @@ function resizeGame() {
   GameCanvas.style.height = h + 'px';
   GameCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-window.addEventListener('resize', function() {
-  resizeGame();
-  initStars();
-});
-window.addEventListener('orientationchange', function() {
-  setTimeout(function() { resizeGame(); initStars(); }, 200);
-});
+window.addEventListener('resize', function() { resizeGame(); initStars(); });
+window.addEventListener('orientationchange', function() { setTimeout(function() { resizeGame(); initStars(); }, 200); });
 
 /* ============ RENDER ============ */
 function render() {
@@ -1825,18 +2031,10 @@ function render() {
   var W = window.innerWidth, H = window.innerHeight;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-
   var sC = Camera.worldToScreen(CX, CY);
   var sR = WORLD_RADIUS * Camera.zoom;
-
-  // Star field inside map too
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(sC.x, sC.y, sR, 0, Math.PI * 2);
-  ctx.clip();
-
-  // Draw subtle stars inside
-  var starTime = performance.now();
+  ctx.beginPath(); ctx.arc(sC.x, sC.y, sR, 0, Math.PI * 2); ctx.clip();
   for (var si = 0; si < stars.length; si++) {
     var st = stars[si];
     var sx = (st.x - Camera.x * 0.3) % W;
@@ -1844,25 +2042,15 @@ function render() {
     if (sx < 0) sx += W;
     if (sy < 0) sy += H;
     ctx.fillStyle = 'rgba(255,255,255,' + (st.alpha * 0.3) + ')';
-    ctx.beginPath();
-    ctx.arc(sx, sy, st.r * 0.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, st.r * 0.5, 0, Math.PI * 2); ctx.fill();
   }
-
   drawGrid(ctx);
-
-  // Food
   for (var i = 0; i < World.food.length; i++) World.food[i].draw(ctx, Camera);
-
-  // Collect cells
   var ac = [];
   for (var p = 0; p < World.players.length; p++) {
     var pl = World.players[p];
     if (!pl.alive) continue;
-    for (var c = 0; c < pl.cells.length; c++) {
-      pl.cells[c]._p = pl;
-      ac.push(pl.cells[c]);
-    }
+    for (var c = 0; c < pl.cells.length; c++) { pl.cells[c]._p = pl; ac.push(pl.cells[c]); }
   }
   if (isOnline) {
     for (var id in networkPlayers) {
@@ -1880,35 +2068,26 @@ function render() {
       }
     }
   }
-
   ac.sort(function(x, y) { return x.mass - y.mass; });
   for (var k = 0; k < ac.length; k++) ac[k].draw(ctx, Camera);
-
-  // Names
   for (var n = 0; n < ac.length; n++) {
     var cn = ac[n], pn = cn._p;
     var s = Camera.worldToScreen(cn.x, cn.y);
     var r = massToRadius(cn.mass) * Camera.zoom;
     if (r > 22) {
       ctx.font = '600 ' + Math.max(10, Math.min(14, r * 0.35)) + 'px "Segoe UI", Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = (pn === World.player) ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)';
       ctx.fillText(pn.name, s.x, s.y + r + 4);
     }
   }
-
   ctx.restore();
-
-  // Border
   ctx.save();
   ctx.strokeStyle = 'rgba(80, 200, 255, 0.7)';
   ctx.lineWidth = 4;
   ctx.shadowColor = 'rgba(80, 200, 255, 0.9)';
   ctx.shadowBlur = 25;
-  ctx.beginPath();
-  ctx.arc(sC.x, sC.y, sR, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.beginPath(); ctx.arc(sC.x, sC.y, sR, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
 
@@ -1929,7 +2108,6 @@ function drawGrid(ctx) {
   }
 }
 
-/* ============ INTERPOLATION ============ */
 function updateNetworkInterpolation(dt) {
   var sp = 15 * dt;
   for (var id in networkPlayers) {
@@ -1947,9 +2125,7 @@ function updateNetworkInterpolation(dt) {
     }
     displays.length = np.cells.length;
   }
-  for (var id2 in networkCellDisplay) {
-    if (!networkPlayers[id2]) delete networkCellDisplay[id2];
-  }
+  for (var id2 in networkCellDisplay) if (!networkPlayers[id2]) delete networkCellDisplay[id2];
 }
 
 /* ============ HUD ============ */
@@ -1988,14 +2164,8 @@ function gameLoop(now) {
   if (!running) return;
   var dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
-
-  if (isOnline) {
-    World.updateOnline(dt);
-    updateNetworkInterpolation(dt);
-  } else {
-    World.updateClassic(dt);
-  }
-
+  if (isOnline) { World.updateOnline(dt); updateNetworkInterpolation(dt); }
+  else { World.updateClassic(dt); }
   render();
   updateHUD(dt);
   if (running) requestAnimationFrame(gameLoop);
@@ -2004,11 +2174,8 @@ function gameLoop(now) {
 /* ============ GAME FLOW ============ */
 function playGame() {
   var name = getPlayerName();
-  if (selectedMode === 'online' && socket && socket.connected) {
-    startOnlineGame(name);
-  } else {
-    startClassicGame(name);
-  }
+  if (selectedMode === 'online' && socket && socket.connected) startOnlineGame(name);
+  else startClassicGame(name);
 }
 
 function startClassicGame(name) {
@@ -2016,7 +2183,6 @@ function startClassicGame(name) {
   isBotMapMode = false;
   World.initClassic();
   World.spawnPlayerClassic(name, selectedSkin);
-
   var j1 = $('joystick'), k1 = $('joyKnob');
   if (j1) j1.style.display = 'block';
   JoystickP1 = new Joystick(j1, k1);
@@ -2040,12 +2206,7 @@ function startClassicGame(name) {
 
 function startOnlineGame(name) {
   var skin = getSkinById(selectedSkin);
-  $('playBtn').textContent = '⏳';
-  socket.emit('join', {
-    name: name,
-    color: skin.color,
-    startMass: Save.getStartMass()
-  });
+  socket.emit('join', { name: name, color: skin.color, startMass: Save.getStartMass() });
 }
 
 function handlePlayerDeath() {
@@ -2076,9 +2237,7 @@ function handlePlayerDeath() {
 function goToMenu() {
   running = false;
   if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
-  if (isOnline && socket) {
-    try { socket.emit('disconnect_player'); } catch (e) {}
-  }
+  if (isOnline && socket) { try { socket.emit('disconnect_player'); } catch (e) {} }
   isOnline = false;
   isBotMapMode = false;
   networkCellDisplay = {};
@@ -2094,12 +2253,10 @@ function goToMenu() {
 
 function bindControlButtons() {
   var sb = $('splitBtn'), eb = $('ejectBtn');
-  var ns = sb.cloneNode(true);
-  var ne = eb.cloneNode(true);
+  var ns = sb.cloneNode(true), ne = eb.cloneNode(true);
   sb.parentNode.replaceChild(ns, sb);
   eb.parentNode.replaceChild(ne, eb);
-  sb = ns;
-  eb = ne;
+  sb = ns; eb = ne;
   var so = function(e) { e.preventDefault(); triggerSplit(); };
   var eo = function(e) { e.preventDefault(); triggerEject(); };
   sb.addEventListener('touchstart', so, { passive: false });
@@ -2118,9 +2275,9 @@ function tabBarHTML(activeTab) {
   function cls(t) { return 'tab-item' + (activeTab === t ? ' active' : ''); }
   return ''
     + '<div class="' + cls('home') + '" data-tab="home"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v10h-5v-6h-2v6H6V11H3l9-8z"/></svg></div><span class="tab-label">Home</span></div>'
-    + '<div class="' + cls('shop') + '" data-tab="shop"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span class="tab-badge green">SALE</span></div><span class="tab-label">Shop</span></div>'
+    + '<div class="' + cls('shop') + '" data-tab="shop"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span class="tab-badge green">TON</span></div><span class="tab-label">Shop</span></div>'
     + '<div class="' + cls('season') + '" data-tab="season"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg><span class="tab-badge dark">ENDED</span></div><span class="tab-label">Season</span></div>'
-    + '<div class="' + cls('inventory') + '" data-tab="inventory"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="tab-badge" id="invBadge">4</span></div><span class="tab-label">Locker</span></div>'
+    + '<div class="' + cls('inventory') + '" data-tab="inventory"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div><span class="tab-label">Locker</span></div>'
     + '<div class="' + cls('profile') + '" data-tab="profile"><div class="tab-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg></div><span class="tab-label">Skills</span></div>';
 }
 
@@ -2144,78 +2301,113 @@ function switchTab(tab) {
   currentTab = tab;
   if (tab === 'home') openScreen('menuScreen');
   else if (tab === 'inventory') { openScreen('inventoryScreen'); renderInventory(); }
-  else if (tab === 'shop') openScreen('shopScreen');
+  else if (tab === 'shop') { openScreen('shopScreen'); renderShop(); }
   else if (tab === 'season') openScreen('seasonScreen');
   else if (tab === 'profile') { openScreen('skillsScreen'); updateSkillsUI(); }
 }
 
-/* ============ INVENTORY ============ */
+/* ============ INVENTORY (REDESIGNED) ============ */
 var invFilter = 'all';
 function renderInventory() {
   var grid = $('invGrid');
   if (!grid) return;
   grid.innerHTML = '';
-  var filtered = SKINS.filter(function(s) { return invFilter === 'all' || s.rarity === invFilter; });
-  filtered.forEach(function(skin) {
-    var unlocked = Save.isUnlocked(skin.id);
+
+  // Group instances by skin id
+  var grouped = {};
+  var order = [];
+  for (var i = 0; i < Save.unlockedSkins.length; i++) {
+    var s = Save.unlockedSkins[i];
+    if (!grouped[s.id]) { grouped[s.id] = []; order.push(s.id); }
+    grouped[s.id].push(s);
+  }
+
+  var idx = 0;
+  order.forEach(function(skinId) {
+    var instances = grouped[skinId];
+    var skin = getSkinById(skinId);
+    if (!skin) return;
+    if (invFilter !== 'all' && skin.rarity !== invFilter) return;
+
+    var isSelected = (Save.currentSkin === skinId);
     var card = document.createElement('div');
-    card.className = 'inv-card' + (selectedSkin === skin.id ? ' selected' : '') + (unlocked ? '' : ' locked');
+    card.className = 'inv-card' + (isSelected ? ' selected' : '');
+    card.style.animationDelay = (idx * 40) + 'ms';
+    card.style.setProperty('--glow', skin.color);
+
     var r = document.createElement('div');
     r.className = 'inv-card-rarity rarity-' + skin.rarity;
     r.textContent = skin.rarity;
     card.appendChild(r);
+
     var v = document.createElement('div');
     v.className = 'inv-card-visual';
     var img = SKIN_IMAGES[skin.id];
     if (img && img.complete && img.naturalWidth > 0) {
-      var i = document.createElement('img');
-      i.src = skin.img;
-      v.appendChild(i);
+      var im = document.createElement('img');
+      im.src = skin.img;
+      v.appendChild(im);
     } else {
-      var s = document.createElement('span');
-      s.className = 'emoji-fallback';
-      s.textContent = skin.emoji;
-      v.appendChild(s);
+      var sp = document.createElement('span');
+      sp.className = 'emoji-fallback';
+      sp.textContent = skin.emoji;
+      v.appendChild(sp);
     }
     card.appendChild(v);
-    var n = document.createElement('div');
-    n.className = 'inv-card-name';
-    n.textContent = skin.name;
-    card.appendChild(n);
-    if (unlocked) {
-      card.addEventListener('click', function() {
-        selectedSkin = skin.id;
-        Save.currentSkin = skin.id;
-        Save.markDirty();
-        Save.syncToServer();
-        updateSkinPreview();
-        renderInventory();
-      });
+
+    var info = document.createElement('div');
+    info.className = 'inv-card-info';
+    var nm = document.createElement('div');
+    nm.className = 'inv-card-name';
+    nm.textContent = skin.name;
+    info.appendChild(nm);
+    var sr = document.createElement('div');
+    sr.className = 'inv-card-serial';
+    var firstSerial = instances[0].serial;
+    var serialTxt = fmtSerial(firstSerial);
+    if (instances.length > 1) serialTxt += ' +' + (instances.length - 1);
+    sr.textContent = serialTxt;
+    info.appendChild(sr);
+    card.appendChild(info);
+
+    if (instances.length > 1) {
+      var cnt = document.createElement('div');
+      cnt.className = 'inv-card-count';
+      cnt.textContent = '×' + instances.length;
+      card.appendChild(cnt);
     }
+
+    card.addEventListener('click', function() { openDetailModal(skinId); });
     grid.appendChild(card);
+    idx++;
   });
-  $('invCount').textContent = Save.unlockedSkins.length + ' / ' + SKINS.length;
+
+  $('invCount').textContent = Save.unlockedSkins.length;
+  $('invTokens').textContent = Save.tokens;
+
+  // Lootbox state
   var lockedCount = getLockedSkins().length;
-  var lootboxBtn = $('openLootboxBtn');
-  if (lootboxBtn) {
-    if (lockedCount === 0) {
-      lootboxBtn.disabled = true;
-      lootboxBtn.textContent = '✅ ALL UNLOCKED';
+  var btn = $('openLootboxBtn');
+  if (btn) {
+    if (Save.serialStatus.soldOut) {
+      btn.disabled = true; btn.textContent = '🚫 ALL 999 SOLD OUT';
+    } else if (lockedCount === 0) {
+      btn.disabled = true; btn.textContent = '✅ ALL UNLOCKED';
     } else if (Save.lootboxRemaining === 0) {
-      lootboxBtn.disabled = true;
-      lootboxBtn.textContent = '🚫 SOLD OUT';
+      btn.disabled = true; btn.textContent = '🚫 SOLD OUT';
     } else {
-      lootboxBtn.disabled = false;
-      lootboxBtn.textContent = '🔓 OPEN LOOTBOX';
+      btn.disabled = false; btn.textContent = '🔓 OPEN LOOTBOX';
     }
   }
-  var priceEl = $('lootboxPrice');
-  if (priceEl) priceEl.textContent = Save.lootboxPrice.toString();
-  var remEl = $('lootboxRemaining');
-  if (remEl) {
-    if (Save.lootboxRemaining < 0) remEl.textContent = '♾️ Unlimited Stock';
-    else if (Save.lootboxRemaining === 0) remEl.textContent = '🚫 SOLD OUT';
-    else remEl.textContent = '📦 ' + Save.lootboxRemaining + ' remaining';
+  if ($('lootboxPrice')) $('lootboxPrice').textContent = Save.lootboxPrice.toString();
+  if ($('lootboxRemaining')) {
+    if (Save.lootboxRemaining < 0) $('lootboxRemaining').textContent = '♾️ Unlimited Stock';
+    else if (Save.lootboxRemaining === 0) $('lootboxRemaining').textContent = '🚫 SOLD OUT';
+    else $('lootboxRemaining').textContent = '📦 ' + Save.lootboxRemaining + ' remaining';
+  }
+  if ($('lootboxSerialHint')) {
+    if (Save.serialStatus.soldOut) $('lootboxSerialHint').textContent = 'SOLD OUT';
+    else $('lootboxSerialHint').textContent = 'Next serial: ' + fmtSerial(Save.serialStatus.next) + ' / 999';
   }
   var tagsEl = $('lootboxTags');
   if (tagsEl) {
@@ -2228,6 +2420,7 @@ function renderInventory() {
     }
   }
 }
+
 function initInvTabs() {
   document.querySelectorAll('.inv-tab').forEach(function(tab) {
     tab.addEventListener('click', function() {
@@ -2241,8 +2434,200 @@ function initInvTabs() {
 function getLockedSkins() {
   var locked = [];
   for (var i = 0; i < SKINS.length; i++)
-    if (Save.unlockedSkins.indexOf(SKINS[i].id) < 0) locked.push(SKINS[i]);
+    if (!Save.isUnlocked(SKINS[i].id) && SKINS[i].id !== 'default') locked.push(SKINS[i]);
   return locked;
+}
+
+/* ============ DETAIL MODAL ============ */
+function openDetailModal(skinId) {
+  var instances = Save.getInstances(skinId);
+  if (instances.length === 0) return;
+  var skin = getSkinById(skinId);
+  if (!skin) return;
+
+  // default: pick first instance; if multiple, cycle on click? just pick first.
+  var inst = instances[0];
+
+  detailContext.skinId = skinId;
+  detailContext.serial = inst.serial;
+  detailContext.instance = inst;
+
+  var v = $('detailVisual');
+  v.innerHTML = '';
+  var img = SKIN_IMAGES[skin.id];
+  if (img && img.complete && img.naturalWidth > 0) {
+    var im = document.createElement('img');
+    im.src = skin.img;
+    v.appendChild(im);
+  } else {
+    var sp = document.createElement('span');
+    sp.className = 'emoji-fallback';
+    sp.textContent = skin.emoji;
+    v.appendChild(sp);
+  }
+  $('detailName').textContent = skin.name;
+  $('detailSerial').textContent = fmtSerial(inst.serial);
+  var rr = $('detailRarity');
+  rr.textContent = skin.rarity;
+  rr.className = 'detail-rarity rarity-' + skin.rarity;
+  $('detailSource').textContent = inst.source || 'unknown';
+
+  // Price info
+  var priceInfo = Save.skinPrices[skinId];
+  var priceRow = $('detailPriceRow');
+  var sellBtn = $('detailSellBtn');
+  var isDefault = skinId === 'default';
+  if (!isDefault && priceInfo && priceInfo.isSellable && priceInfo.sellPrice > 0) {
+    priceRow.style.display = 'flex';
+    $('detailPrice').textContent = priceInfo.sellPrice.toFixed(4) + ' TON';
+    sellBtn.style.display = 'block';
+  } else {
+    priceRow.style.display = 'none';
+    sellBtn.style.display = 'none';
+  }
+
+  var isCurrent = (Save.currentSkin === skinId);
+  var selBtn = $('detailSelectBtn');
+  if (isCurrent) {
+    selBtn.textContent = '✓ CURRENTLY SELECTED';
+    selBtn.disabled = true;
+  } else {
+    selBtn.textContent = '✓ SELECT';
+    selBtn.disabled = false;
+  }
+
+  $('detailModal').classList.add('active');
+}
+function closeDetailModal() { $('detailModal').classList.remove('active'); }
+function selectDetailSkin() {
+  if (!detailContext.skinId) return;
+  Save.setCurrent(detailContext.skinId, detailContext.serial);
+  selectedSkin = detailContext.skinId;
+  selectedSerial = detailContext.serial;
+  updateSkinPreview();
+  renderInventory();
+  closeDetailModal();
+}
+function sellDetailSkin() {
+  if (!detailContext.skinId) return;
+  if (!Save.walletAddress) {
+    closeDetailModal();
+    openWalletModal();
+    toast('Set your TON wallet first', 'error');
+    return;
+  }
+  if (!confirm('Sell ' + getSkinById(detailContext.skinId).name + ' ' + fmtSerial(detailContext.serial) + ' for TON?\n\nThis will create a sell request for admin approval.')) return;
+  socket.emit('sell_skin', {
+    skinId: detailContext.skinId,
+    skinSerial: detailContext.serial,
+    walletAddress: Save.walletAddress
+  });
+}
+
+/* ============ WALLET MODAL ============ */
+function openWalletModal() {
+  $('walletInput').value = Save.walletAddress || '';
+  $('walletModal').classList.add('active');
+}
+function closeWalletModal() { $('walletModal').classList.remove('active'); }
+function saveWallet() {
+  var w = $('walletInput').value.trim();
+  if (!w) { toast('Enter a wallet address', 'error'); return; }
+  socket.emit('save_wallet', { wallet: w });
+}
+
+/* ============ SHOP ============ */
+function renderShop() {
+  if ($('shopWallet')) $('shopWallet').textContent = Save.walletAddress || 'Not set';
+  var list = $('shopList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  var sellable = [];
+  for (var i = 0; i < Save.unlockedSkins.length; i++) {
+    var s = Save.unlockedSkins[i];
+    if (s.id === 'default') continue;
+    var pi = Save.skinPrices[s.id];
+    if (pi && pi.isSellable && pi.sellPrice > 0) sellable.push(s);
+  }
+
+  if (sellable.length === 0) {
+    var empty = document.createElement('div');
+    empty.className = 'shop-empty';
+    empty.innerHTML = '<div class="icon">📭</div><div class="txt">NO SKINS AVAILABLE TO SELL</div>';
+    list.appendChild(empty);
+    return;
+  }
+
+  sellable.forEach(function(inst) {
+    var skin = getSkinById(inst.id);
+    var pi = Save.skinPrices[inst.id];
+    if (!skin || !pi) return;
+    var item = document.createElement('div');
+    item.className = 'shop-item';
+
+    var v = document.createElement('div');
+    v.className = 'shop-item-visual';
+    var img = SKIN_IMAGES[skin.id];
+    if (img && img.complete && img.naturalWidth > 0) {
+      var im = document.createElement('img'); im.src = skin.img; v.appendChild(im);
+    } else {
+      var sp = document.createElement('span'); sp.className = 'emoji-fallback'; sp.textContent = skin.emoji;
+      v.appendChild(sp);
+    }
+    item.appendChild(v);
+
+    var info = document.createElement('div');
+    info.className = 'shop-item-info';
+    info.innerHTML = '<div class="shop-item-name">' + escapeHtml(skin.name) + '</div>' +
+      '<div class="shop-item-serial">' + fmtSerial(inst.serial) + '</div>' +
+      '<div class="shop-item-price">' + pi.sellPrice.toFixed(4) + ' <small>TON</small></div>';
+    item.appendChild(info);
+
+    var btn = document.createElement('button');
+    btn.className = 'shop-sell-btn';
+    btn.textContent = 'SELL';
+    btn.addEventListener('click', function() {
+      if (!Save.walletAddress) { openWalletModal(); toast('Set wallet first', 'error'); return; }
+      if (!confirm('Sell ' + skin.name + ' ' + fmtSerial(inst.serial) + '?')) return;
+      socket.emit('sell_skin', {
+        skinId: inst.id,
+        skinSerial: inst.serial,
+        walletAddress: Save.walletAddress
+      });
+    });
+    item.appendChild(btn);
+    list.appendChild(item);
+  });
+}
+
+/* ============ SKILLS ============ */
+function updateSkillsUI() {
+  $('skillsTokens').textContent = Save.tokens;
+  $('speedLevel').textContent = Save.speedLevel;
+  $('speedBonus').textContent = '+' + Math.round(Save.speedLevel * SPEED_PER_LEVEL * 100) + '%';
+  $('speedProgress').style.width = (Save.speedLevel / MAX_SPEED_LEVEL * 100) + '%';
+  var sBtn = $('upgradeSpeedBtn');
+  if (Save.speedLevel >= MAX_SPEED_LEVEL) {
+    sBtn.textContent = '✅ MAX LEVEL'; sBtn.disabled = true; sBtn.classList.add('maxed');
+  } else {
+    var sCost = Save.getSpeedCost();
+    sBtn.textContent = 'Upgrade (' + sCost + ' 🪙)';
+    sBtn.disabled = Save.tokens < sCost;
+    sBtn.classList.remove('maxed');
+  }
+  $('massLevel').textContent = Save.massLevel;
+  $('massBonus').textContent = Save.getStartMass();
+  $('massProgress').style.width = (Save.massLevel / MAX_MASS_LEVEL * 100) + '%';
+  var mBtn = $('upgradeMassBtn');
+  if (Save.massLevel >= MAX_MASS_LEVEL) {
+    mBtn.textContent = '✅ MAX LEVEL'; mBtn.disabled = true; mBtn.classList.add('maxed');
+  } else {
+    var mCost = Save.getMassCost();
+    mBtn.textContent = 'Upgrade (' + mCost + ' 🪙)';
+    mBtn.disabled = Save.tokens < mCost;
+    mBtn.classList.remove('maxed');
+  }
 }
 
 /* ============ SKIN PREVIEW ============ */
@@ -2255,13 +2640,11 @@ function updateSkinPreview() {
   var img = SKIN_IMAGES[skin.id];
   if (img && img.complete && img.naturalWidth > 0) {
     var el = document.createElement('img');
-    el.src = skin.img;
-    el.alt = skin.id;
+    el.src = skin.img; el.alt = skin.id;
     preview.appendChild(el);
   } else {
     var span = document.createElement('span');
-    span.className = 'emoji-fallback';
-    span.textContent = skin.emoji;
+    span.className = 'emoji-fallback'; span.textContent = skin.emoji;
     preview.appendChild(span);
   }
   var idx = 0;
@@ -2278,50 +2661,16 @@ function cycleSkin(dir) {
     tries++;
   }
   selectedSkin = SKINS[idx].id;
-  Save.currentSkin = selectedSkin;
-  Save.markDirty();
-  Save.syncToServer();
+  var inst = Save.getInstances(selectedSkin)[0];
+  selectedSerial = inst ? inst.serial : null;
+  Save.setCurrent(selectedSkin, selectedSerial);
   updateSkinPreview();
 }
 function updateMenuTokens() {
-  var el = $('menuTokens');
-  if (el) el.textContent = Save.tokens;
+  if ($('menuTokens')) $('menuTokens').textContent = Save.tokens;
 }
 
-/* ============ SKILLS UI ============ */
-function updateSkillsUI() {
-  $('skillsTokens').textContent = Save.tokens;
-  $('speedLevel').textContent = Save.speedLevel;
-  $('speedBonus').textContent = '+' + Math.round(Save.speedLevel * SPEED_PER_LEVEL * 100) + '%';
-  $('speedProgress').style.width = (Save.speedLevel / MAX_SPEED_LEVEL * 100) + '%';
-  var sBtn = $('upgradeSpeedBtn');
-  if (Save.speedLevel >= MAX_SPEED_LEVEL) {
-    sBtn.textContent = '✅ MAX LEVEL';
-    sBtn.disabled = true;
-    sBtn.classList.add('maxed');
-  } else {
-    var sCost = Save.getSpeedCost();
-    sBtn.textContent = 'Upgrade (' + sCost + ' 🪙)';
-    sBtn.disabled = Save.tokens < sCost;
-    sBtn.classList.remove('maxed');
-  }
-  $('massLevel').textContent = Save.massLevel;
-  $('massBonus').textContent = Save.getStartMass();
-  $('massProgress').style.width = (Save.massLevel / MAX_MASS_LEVEL * 100) + '%';
-  var mBtn = $('upgradeMassBtn');
-  if (Save.massLevel >= MAX_MASS_LEVEL) {
-    mBtn.textContent = '✅ MAX LEVEL';
-    mBtn.disabled = true;
-    mBtn.classList.add('maxed');
-  } else {
-    var mCost = Save.getMassCost();
-    mBtn.textContent = 'Upgrade (' + mCost + ' 🪙)';
-    mBtn.disabled = Save.tokens < mCost;
-    mBtn.classList.remove('maxed');
-  }
-}
-
-/* ============ MENU BACKGROUND (STARFIELD) ============ */
+/* ============ MENU BG ============ */
 function initMenuCanvas() {
   var canvas = $('menuCanvas');
   if (!canvas) return;
@@ -2336,41 +2685,29 @@ function initMenuCanvas() {
   }
   resize();
   window.addEventListener('resize', resize);
-
   var localStars = [];
   for (var i = 0; i < 250; i++) {
-    localStars.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: 0.3 + Math.random() * 1.8,
-      speed: 0.05 + Math.random() * 0.25,
-      alpha: 0.3 + Math.random() * 0.7,
-      pulse: Math.random() * Math.PI * 2
-    });
+    localStars.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+      r: 0.3 + Math.random() * 1.8, speed: 0.05 + Math.random() * 0.25,
+      alpha: 0.3 + Math.random() * 0.7, pulse: Math.random() * Math.PI * 2 });
   }
-
   function draw(t) {
     var ms = $('menuScreen');
     if (!ms || !ms.classList.contains('active')) { requestAnimationFrame(draw); return; }
     var W = window.innerWidth, H = window.innerHeight;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     for (var k = 0; k < localStars.length; k++) {
       var s = localStars[k];
       s.y += s.speed;
       if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
       var alpha = s.alpha * (0.6 + 0.4 * Math.sin(t * 0.001 + s.pulse));
-      ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
     }
     requestAnimationFrame(draw);
   }
   requestAnimationFrame(draw);
 }
-
-/* ============ LOADING BACKGROUND (STARFIELD) ============ */
 function initLoadingCanvas() {
   var canvas = $('loadingCanvas');
   if (!canvas) return;
@@ -2385,41 +2722,30 @@ function initLoadingCanvas() {
   }
   resize();
   window.addEventListener('resize', resize);
-
   var localStars = [];
   for (var i = 0; i < 150; i++) {
-    localStars.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: 0.3 + Math.random() * 1.6,
-      speed: 0.05 + Math.random() * 0.2,
-      alpha: 0.2 + Math.random() * 0.6,
-      pulse: Math.random() * Math.PI * 2
-    });
+    localStars.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+      r: 0.3 + Math.random() * 1.6, speed: 0.05 + Math.random() * 0.2,
+      alpha: 0.2 + Math.random() * 0.6, pulse: Math.random() * Math.PI * 2 });
   }
-
   function draw(t) {
     var ls = $('loadingScreen');
     if (!ls || !ls.classList.contains('active')) { requestAnimationFrame(draw); return; }
     var W = window.innerWidth, H = window.innerHeight;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     for (var k = 0; k < localStars.length; k++) {
       var s = localStars[k];
       s.y += s.speed;
       if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
       var alpha = s.alpha * (0.6 + 0.4 * Math.sin(t * 0.001 + s.pulse));
-      ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
     }
     requestAnimationFrame(draw);
   }
   requestAnimationFrame(draw);
 }
 
-/* ============ ONLINE COUNT ============ */
 function updateOnlineCount() {
   var el = $('onlineCount');
   if (!el) return;
@@ -2428,7 +2754,7 @@ function updateOnlineCount() {
 }
 
 /* ============ TON LOOTBOX ============ */
-var tonPayment = { isChecking: false, checkCount: 0, checkTimer: null, currentMemo: null, unlockedSkinId: null };
+var tonPayment = { isChecking: false, checkCount: 0, checkTimer: null, currentMemo: null };
 
 function generateMemo() {
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2436,16 +2762,15 @@ function generateMemo() {
   for (var i = 0; i < 6; i++) memo += chars[Math.floor(Math.random() * chars.length)];
   return memo;
 }
-
 function openTonModal() {
   var locked = getLockedSkins();
-  if (locked.length === 0) { alert('🎉 All skins already unlocked!'); return; }
-  if (Save.lootboxRemaining === 0) { alert('🚫 Lootbox sold out!'); return; }
+  if (locked.length === 0) { toast('🎉 All skins already unlocked!', 'success'); return; }
+  if (Save.serialStatus.soldOut) { toast('🚫 All 999 sold out', 'error'); return; }
+  if (Save.lootboxRemaining === 0) { toast('🚫 Lootbox sold out', 'error'); return; }
   tonPayment.currentMemo = generateMemo();
   tonPayment.checkCount = 0;
   tonPayment.isChecking = false;
-  tonPayment.unlockedSkinId = locked[Math.floor(Math.random() * locked.length)].id;
-  $('tonAddress').textContent = TON_WALLET;
+  $('tonAddress').textContent = 'See server TON wallet';
   $('tonMemo').textContent = tonPayment.currentMemo;
   $('tonAmount').textContent = Save.lootboxPrice;
   $('tonStatus').innerHTML = '<span class="spinner"></span> Waiting...';
@@ -2465,54 +2790,23 @@ function startTonCheck() {
   if (tonPayment.isChecking) return;
   tonPayment.isChecking = true;
   checkTonTransaction();
-  tonPayment.checkTimer = setInterval(checkTonTransaction, 2000);
+  tonPayment.checkTimer = setInterval(checkTonTransaction, 3000);
 }
 function checkTonTransaction() {
   if (!tonPayment.isChecking) return;
   tonPayment.checkCount++;
-  if (tonPayment.checkCount > 150) {
-    $('tonStatus').innerHTML = '⏱️ Timeout.';
+  if (tonPayment.checkCount > 100) {
+    $('tonStatus').innerHTML = '⏱️ Timeout. Try again.';
     $('tonStatus').className = 'ton-status error';
     stopTonCheck();
     return;
   }
-  $('tonStatus').innerHTML = '<span class="spinner"></span> Checking... (' + tonPayment.checkCount + ')';
-  fetch(TON_API + '?address=' + encodeURIComponent(TON_WALLET) + '&limit=15')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.ok || !data.result) return;
-      for (var i = 0; i < data.result.length; i++) {
-        var tx = data.result[i];
-        var msg = tx.in_msg;
-        if (!msg) continue;
-        var amount = parseInt(msg.value) / 1e9;
-        if (Math.abs(amount - Save.lootboxPrice) > 0.0001) continue;
-        var comment = msg.message || '';
-        if (comment.trim() !== tonPayment.currentMemo) continue;
-        onTonPaymentConfirmed();
-        return;
-      }
-    })
-    .catch(function() {});
-}
-function onTonPaymentConfirmed() {
-  stopTonCheck();
-  $('tonStatus').innerHTML = '✅ Confirmed!';
-  $('tonStatus').className = 'ton-status success';
-  if (Save.lootboxRemaining > 0) Save.lootboxRemaining--;
-  if (tonPayment.unlockedSkinId && !Save.isUnlocked(tonPayment.unlockedSkinId)) {
-    Save.unlockedSkins.push(tonPayment.unlockedSkinId);
-  }
-  Save.markDirty();
-  Save.syncToServer();
-  if (socket) socket.emit('admin_set', { key: 'lootbox_remaining', value: Save.lootboxRemaining });
-  setTimeout(function() {
-    closeTonModal();
-    playLootboxAnimation(tonPayment.unlockedSkinId);
-  }, 1200);
+  $('tonStatus').innerHTML = '<span class="spinner"></span> Checking payment... (' + tonPayment.checkCount + ')';
+  socket.emit('claim_lootbox', { memo: tonPayment.currentMemo });
 }
 
-function playLootboxAnimation(skinId) {
+/* ============ LOOTBOX ANIMATION ============ */
+function playLootboxAnimation(skinId, serial) {
   var skin = getSkinById(skinId);
   var overlay = $('lootAnimOverlay');
   var box = $('lootBox');
@@ -2521,9 +2815,11 @@ function playLootboxAnimation(skinId) {
   var revealVisual = $('lootRevealVisual');
   var revealRarity = $('lootRevealRarity');
   var revealName = $('lootRevealName');
+  var revealSerial = $('lootRevealSerial');
   var revealTitle = $('lootRevealTitle');
   var continueBtn = $('lootContinueBtn');
   var particleContainer = $('lootParticles');
+
   overlay.classList.add('active');
   box.className = 'loot-anim-box shaking';
   box.textContent = '🎁';
@@ -2532,22 +2828,23 @@ function playLootboxAnimation(skinId) {
   revealTitle.classList.remove('show');
   continueBtn.classList.remove('show');
   particleContainer.innerHTML = '';
+
   revealCard.className = 'loot-reveal-card rarity-' + skin.rarity;
   revealRarity.textContent = skin.rarity;
-  revealRarity.style.color = skin.rarity === 'legendary' ? '#ffcc00' : (skin.rarity === 'rare' ? '#4a9eff' : (skin.rarity === 'epic' ? '#a55cff' : '#aaa'));
+  revealRarity.style.color = skin.rarity === 'legendary' ? '#ffcc00' :
+    (skin.rarity === 'rare' ? '#4a9eff' : (skin.rarity === 'epic' ? '#a55cff' : '#aaa'));
   revealName.textContent = skin.name;
+  revealSerial.textContent = fmtSerial(serial);
+
   revealVisual.innerHTML = '';
   var img = SKIN_IMAGES[skin.id];
   if (img && img.complete && img.naturalWidth > 0) {
-    var i = document.createElement('img');
-    i.src = skin.img;
-    revealVisual.appendChild(i);
+    var im = document.createElement('img'); im.src = skin.img; revealVisual.appendChild(im);
   } else {
-    var s = document.createElement('span');
-    s.className = 'emoji-fallback';
-    s.textContent = skin.emoji;
-    revealVisual.appendChild(s);
+    var sp = document.createElement('span'); sp.className = 'emoji-fallback'; sp.textContent = skin.emoji;
+    revealVisual.appendChild(sp);
   }
+
   setTimeout(function() {
     box.className = 'loot-anim-box burst';
     spawnBurstParticles(particleContainer);
@@ -2558,6 +2855,7 @@ function playLootboxAnimation(skinId) {
       setTimeout(function() { continueBtn.classList.add('show'); }, 500);
     }, 400);
   }, 1200);
+
   continueBtn.onclick = function() {
     overlay.classList.remove('active');
     box.style.display = '';
@@ -2612,15 +2910,18 @@ function openAdminModal() {
 }
 function closeAdminModal() { $('adminModal').classList.remove('active'); }
 function adminLogin() {
-  if ($('adminPasswordInput').value === ADMIN_PASSWORD) {
-    $('adminPassStep').style.display = 'none';
-    $('adminControls').style.display = 'block';
-    $('adminPriceInput').value = Save.lootboxPrice;
-    $('adminRemainingInput').value = Save.lootboxRemaining;
-  }
+  adminPassword = $('adminPasswordInput').value;
+  if (!adminPassword) return;
+  $('adminPassStep').style.display = 'none';
+  $('adminControls').style.display = 'block';
+  $('adminPriceInput').value = Save.lootboxPrice;
+  $('adminRemainingInput').value = Save.lootboxRemaining;
+  renderAdminPrices();
+  refreshAdminBalance();
+  refreshAdminRequests();
 }
 function showAdminStatus(msg, type) {
-  var el = $('adminStatus2');
+  var el = $('adminStatus');
   if (el) {
     el.textContent = msg;
     el.className = 'admin-status show ' + type;
@@ -2630,72 +2931,162 @@ function showAdminStatus(msg, type) {
 function adminSaveSettings() {
   var price = parseFloat($('adminPriceInput').value);
   var remaining = parseInt($('adminRemainingInput').value);
-  if (isNaN(price) || price < 0) { showAdminStatus('❌ Invalid', 'error'); return; }
-  if (isNaN(remaining) || remaining < -1) { showAdminStatus('❌ Invalid', 'error'); return; }
+  if (isNaN(price) || price < 0) { showAdminStatus('❌ Invalid price', 'error'); return; }
+  if (isNaN(remaining) || remaining < -1) { showAdminStatus('❌ Invalid remaining', 'error'); return; }
   Save.lootboxPrice = price;
   Save.lootboxRemaining = remaining;
   if (socket) {
-    socket.emit('admin_set', { key: 'lootbox_price', value: price });
-    socket.emit('admin_set', { key: 'lootbox_remaining', value: remaining });
+    socket.emit('admin_set', { key: 'lootbox_price', value: price, password: adminPassword });
+    socket.emit('admin_set', { key: 'lootbox_remaining', value: remaining, password: adminPassword });
   }
   renderInventory();
   showAdminStatus('✅ Saved!', 'success');
 }
 function setLootboxTag(tag) {
   Save.lootboxTag = tag;
-  if (socket) socket.emit('admin_set', { key: 'lootbox_tag', value: tag });
+  if (socket) socket.emit('admin_set', { key: 'lootbox_tag', value: tag, password: adminPassword });
   renderInventory();
   showAdminStatus(tag ? '✅ ' + tag.toUpperCase() : '✅ Removed', 'success');
 }
 function adminAddTokens() {
   Save.tokens += 1000;
-  Save.markDirty();
-  Save.syncToServer();
-  updateMenuTokens();
-  updateSkillsUI();
+  Save.markDirty(); Save.syncToServer();
+  updateMenuTokens(); updateSkillsUI(); renderInventory();
   showAdminStatus('✅ +1000', 'success');
 }
 function adminUnlockAll() {
   for (var i = 0; i < SKINS.length; i++) {
-    if (!Save.isUnlocked(SKINS[i].id)) Save.unlockedSkins.push(SKINS[i].id);
+    if (!Save.isUnlocked(SKINS[i].id)) {
+      Save.unlockedSkins.push({ id: SKINS[i].id, serial: null, source: 'admin', acquiredAt: Date.now() });
+    }
   }
-  Save.markDirty();
-  Save.syncToServer();
+  Save.markDirty(); Save.syncToServer();
   renderInventory();
   showAdminStatus('✅ All unlocked', 'success');
 }
 function adminWipeAll() {
-  if (!confirm('⚠️ Delete ALL?')) return;
+  if (!confirm('⚠️ Delete ALL progress?')) return;
   Save.tokens = 0; Save.speedLevel = 0; Save.massLevel = 0;
-  Save.unlockedSkins = ['default']; Save.currentSkin = 'default';
+  Save.unlockedSkins = [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }];
+  Save.currentSkin = 'default'; Save.currentSerial = null;
   Save.totalKills = 0; Save.highScore = 0;
   Save.markDirty(); Save.syncToServer();
   selectedSkin = 'default';
   updateSkinPreview(); updateMenuTokens(); renderInventory(); updateSkillsUI();
   showAdminStatus('🗑️ Wiped', 'success');
 }
-function adminWipeSkins() {
-  if (!confirm('⚠️ Reset skins?')) return;
-  Save.unlockedSkins = ['default']; Save.currentSkin = 'default';
-  Save.markDirty(); Save.syncToServer();
-  selectedSkin = 'default';
-  updateSkinPreview(); renderInventory();
-  showAdminStatus('🗑️ Reset', 'success');
+function refreshAdminRequests() {
+  if (!socket || !adminPassword) return;
+  socket.emit('admin_get_requests', { password: adminPassword });
+}
+function refreshAdminBalance() {
+  if (!socket || !adminPassword) return;
+  socket.emit('admin_get_wallet_balance', { password: adminPassword });
+}
+function renderAdminRequests(list) {
+  var el = $('adminRequestsList');
+  if (!el) return;
+  el.innerHTML = '';
+  if (list.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:#666;padding:20px;font-size:12px;">No requests</div>';
+    return;
+  }
+  list.forEach(function(r) {
+    var div = document.createElement('div');
+    div.className = 'admin-req';
+    div.innerHTML =
+      '<div class="admin-req-hdr">' +
+        '<span class="admin-req-skin">' + escapeHtml(r.skin_id) + ' ' + fmtSerial(r.skin_serial) + '</span>' +
+        '<span class="admin-req-price">' + parseFloat(r.price_ton).toFixed(4) + ' TON</span>' +
+      '</div>' +
+      '<div class="admin-req-wallet">' + escapeHtml(r.user_wallet) + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+        '<span class="admin-req-status ' + r.status + '">' + r.status + '</span>' +
+        (r.status === 'pending' ?
+          '<div style="display:flex;gap:6px;">' +
+            '<button class="admin-btn success small" data-action="pay" data-id="' + r.id + '">💰 Pay</button>' +
+            '<button class="admin-btn danger small" data-action="reject" data-id="' + r.id + '">✕ Reject</button>' +
+          '</div>' : '') +
+      '</div>';
+    el.appendChild(div);
+  });
+  el.querySelectorAll('button[data-action]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = parseInt(btn.getAttribute('data-id'));
+      var action = btn.getAttribute('data-action');
+      if (action === 'pay') {
+        if (!confirm('Send TON for request #' + id + '?')) return;
+        socket.emit('admin_pay_request', { requestId: id, password: adminPassword });
+      } else if (action === 'reject') {
+        if (!confirm('Reject and return skin to user?')) return;
+        socket.emit('admin_reject_request', { requestId: id, password: adminPassword });
+      }
+    });
+  });
+}
+function renderAdminPrices() {
+  var el = $('adminPricesList');
+  if (!el) return;
+  el.innerHTML = '';
+  ['fire','mind','knight','rage'].forEach(function(sid) {
+    var skin = getSkinById(sid);
+    if (!skin) return;
+    var info = Save.skinPrices[sid] || { sellPrice: 0, isSellable: false };
+    var div = document.createElement('div');
+    div.style.marginBottom = '12px';
+    div.innerHTML =
+      '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">' + skin.emoji + ' ' + skin.name + '</div>' +
+      '<div class="admin-row">' +
+        '<input type="number" step="0.001" class="admin-input" value="' + (info.sellPrice || 0) + '" data-sid="' + sid + '" data-field="price">' +
+        '<select class="admin-input" data-sid="' + sid + '" data-field="sellable" style="min-width:100px;">' +
+          '<option value="1"' + (info.isSellable ? ' selected' : '') + '>Sellable</option>' +
+          '<option value="0"' + (!info.isSellable ? ' selected' : '') + '>Locked</option>' +
+        '</select>' +
+        '<button class="admin-btn small" data-sid="' + sid + '" data-action="saveprice">Save</button>' +
+      '</div>';
+    el.appendChild(div);
+  });
+  el.querySelectorAll('button[data-action="saveprice"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var sid = btn.getAttribute('data-sid');
+      var priceInput = el.querySelector('input[data-sid="' + sid + '"]');
+      var selInput = el.querySelector('select[data-sid="' + sid + '"]');
+      socket.emit('admin_set_skin_price', {
+        skinId: sid,
+        price: parseFloat(priceInput.value),
+        sellable: selInput.value === '1',
+        password: adminPassword
+      });
+    });
+  });
+}
+function initAdminTabs() {
+  document.querySelectorAll('.admin-tab').forEach(function(t) {
+    t.addEventListener('click', function() {
+      document.querySelectorAll('.admin-tab').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      var tab = t.getAttribute('data-atab');
+      adminCurrentTab = tab;
+      document.querySelectorAll('.admin-pane').forEach(function(p) { p.style.display = 'none'; });
+      var paneId = 'adminPane' + tab.charAt(0).toUpperCase() + tab.slice(1);
+      var pane = $(paneId);
+      if (pane) pane.style.display = 'block';
+      if (tab === 'requests') { refreshAdminRequests(); refreshAdminBalance(); }
+      if (tab === 'prices') renderAdminPrices();
+    });
+  });
 }
 
 /* ============ MODE BUTTONS ============ */
 function initModeButtons() {
-  var classicBtn = $('modeClassicBtn');
-  var onlineBtn = $('modeOnlineBtn');
+  var classicBtn = $('modeClassicBtn'), onlineBtn = $('modeOnlineBtn');
   classicBtn.addEventListener('click', function() {
     selectedMode = 'classic';
-    classicBtn.classList.add('active');
-    onlineBtn.classList.remove('active');
+    classicBtn.classList.add('active'); onlineBtn.classList.remove('active');
   });
   onlineBtn.addEventListener('click', function() {
     selectedMode = 'online';
-    onlineBtn.classList.add('active');
-    classicBtn.classList.remove('active');
+    onlineBtn.classList.add('active'); classicBtn.classList.remove('active');
   });
 }
 
@@ -2714,6 +3105,7 @@ function init() {
     initTabBars();
     initInvTabs();
     initModeButtons();
+    initAdminTabs();
 
     $('playBtn').addEventListener('click', playGame);
     $('restartBtn').addEventListener('click', playGame);
@@ -2732,30 +3124,33 @@ function init() {
       initSocket();
     });
     $('upgradeSpeedBtn').addEventListener('click', function() {
-      if (Save.upgradeSpeed()) {
-        updateSkillsUI();
-        updateMenuTokens();
-        Save.syncToServer();
-      }
+      if (Save.upgradeSpeed()) { updateSkillsUI(); updateMenuTokens(); Save.syncToServer(); }
     });
     $('upgradeMassBtn').addEventListener('click', function() {
-      if (Save.upgradeMass()) {
-        updateSkillsUI();
-        updateMenuTokens();
-        Save.syncToServer();
-      }
+      if (Save.upgradeMass()) { updateSkillsUI(); updateMenuTokens(); Save.syncToServer(); }
     });
 
     $('openLootboxBtn').addEventListener('click', openTonModal);
     $('closeTonModal').addEventListener('click', closeTonModal);
     $('cancelTonBtn').addEventListener('click', closeTonModal);
     $('copyAddressBtn').addEventListener('click', function() {
-      copyToClipboard(TON_WALLET, $('copyAddressBtn'));
+      copyToClipboard('See server config', $('copyAddressBtn'));
     });
     $('copyMemoBtn').addEventListener('click', function() {
       copyToClipboard(tonPayment.currentMemo || '', $('copyMemoBtn'));
     });
 
+    // Detail modal
+    $('closeDetailModal').addEventListener('click', closeDetailModal);
+    $('detailCloseBtn').addEventListener('click', closeDetailModal);
+    $('detailSelectBtn').addEventListener('click', selectDetailSkin);
+    $('detailSellBtn').addEventListener('click', sellDetailSkin);
+
+    // Wallet modal
+    $('closeWalletModal').addEventListener('click', closeWalletModal);
+    $('saveWalletBtn').addEventListener('click', saveWallet);
+
+    // Admin
     $('adminTrigger').addEventListener('click', openAdminModal);
     $('adminCloseBtn').addEventListener('click', closeAdminModal);
     $('adminLoginBtn').addEventListener('click', adminLogin);
@@ -2766,13 +3161,16 @@ function init() {
     $('adminAddTokensBtn').addEventListener('click', adminAddTokens);
     $('adminUnlockAllBtn').addEventListener('click', adminUnlockAll);
     $('adminWipeAllBtn').addEventListener('click', adminWipeAll);
-    $('adminWipeSkinsBtn').addEventListener('click', adminWipeSkins);
+    $('adminRefreshRequestsBtn').addEventListener('click', function() {
+      refreshAdminRequests(); refreshAdminBalance();
+    });
+    document.querySelectorAll('.admin-btn[data-tag]').forEach(function(btn) {
+      btn.addEventListener('click', function() { setLootboxTag(btn.getAttribute('data-tag')); });
+    });
 
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-
     setInterval(updateOnlineCount, 1000);
     setInterval(function() { if (Save.dirty) Save.syncToServer(); }, 10000);
-
     setTimeout(updateSkinPreview, 500);
     setTimeout(updateSkinPreview, 1500);
 
