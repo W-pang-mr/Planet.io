@@ -1,4 +1,4 @@
-// server.js - Planet.io Online v3.2
+// server.js - Planet.io Online v3.2.1
 'use strict';
 const express = require('express');
 const http = require('http');
@@ -25,6 +25,7 @@ const TON_MNEMONIC = process.env.TON_MNEMONIC || '';
 const TON_API_KEY = process.env.TON_API_KEY || '';
 const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
 const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
+const TON_WALLET_ADDRESS = process.env.TON_WALLET_ADDRESS || 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '262626';
 const LOOTBOX_MAX_SERIAL = 999;
 
@@ -81,7 +82,6 @@ async function initDatabase() {
         last_seen BIGINT
       );
     `);
-    // Add wallet_address column for existing DBs
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT DEFAULT '';`);
 
     await db.query(`
@@ -116,14 +116,16 @@ async function initDatabase() {
         is_sellable BOOLEAN DEFAULT FALSE
       );
     `);
-    // Default prices (disabled, 0)
-    const skins = ['fire','mind','knight','rage'];
-    for (const s of skins) {
+    // Seed default prices for available skins (no fire anymore)
+    const seedSkins = ['mind', 'knight', 'rage'];
+    for (const s of seedSkins) {
       await db.query(
         `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, 0, FALSE) ON CONFLICT (skin_id) DO NOTHING;`,
         [s]
       );
     }
+    // Remove fire from DB if it exists
+    await db.query(`DELETE FROM skin_prices WHERE skin_id = 'fire';`);
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS claimed_memos (
@@ -153,9 +155,11 @@ function normalizeSkins(skins) {
   let hasDefault = false;
   for (const s of arr) {
     if (typeof s === 'string') {
+      if (s === 'fire') continue; // removed
       out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
       if (s === 'default') hasDefault = true;
     } else if (s && s.id) {
+      if (s.id === 'fire') continue; // removed
       out.push({
         id: String(s.id),
         serial: (typeof s.serial === 'number') ? s.serial : null,
@@ -272,6 +276,11 @@ async function initTonWallet() {
     });
     tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
     console.log('✅ TON wallet V5R1 ready: ' + hotWallet.address.toString());
+    if (hotWallet.address.toString() !== TON_WALLET_ADDRESS) {
+      console.warn('⚠️ TON_WALLET_ADDRESS env does not match derived wallet address!');
+      console.warn('   Env:     ' + TON_WALLET_ADDRESS);
+      console.warn('   Derived: ' + hotWallet.address.toString());
+    }
   } catch (e) {
     console.error('❌ TON wallet init failed:', e.message);
   }
@@ -312,9 +321,8 @@ async function sendTonToUser(toAddress, amountTon) {
 }
 
 async function verifyTonPayment(memo, expectedAmount) {
-  if (!hotWallet) return null;
-  const walletAddr = hotWallet.address.toString();
-  const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=25';
+  const walletAddr = TON_WALLET_ADDRESS;
+  const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=30';
   const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
   try {
     const r = await fetch(url, { headers });
@@ -465,9 +473,11 @@ function tick(dt) {
     if (!p.alive) continue;
     for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
 
-    for (let a = 0; a < p.cells.length; a++) {
-      for (let b = a + 1; b < p.cells.length; b++) {
-        if (a >= p.cells.length || b >= p.cells.length) break;
+    // Reverse merge
+    for (let a = p.cells.length - 1; a >= 0; a--) {
+      if (a >= p.cells.length) continue;
+      for (let b = a - 1; b >= 0; b--) {
+        if (b >= p.cells.length || a >= p.cells.length) continue;
         const ca = p.cells[a], cb = p.cells[b];
         if (!ca || !cb) continue;
         const dx = cb.x - ca.x, dy = cb.y - ca.y;
@@ -479,7 +489,8 @@ function tick(dt) {
             const small = ca.mass >= cb.mass ? cb : ca;
             big.mass += small.mass;
             p.cells.splice(p.cells.indexOf(small), 1);
-            b = a; break;
+            a = p.cells.length;
+            break;
           } else {
             const nx = dx / d, ny = dy / d, push = ov * 0.5;
             ca.x -= nx * push; ca.y -= ny * push;
@@ -609,7 +620,7 @@ function initBots() {
 initBots();
 
 /* ================= SKIN HELPERS ================= */
-const ALL_SKINS = ['default','fire','mind','knight','rage'];
+const ALL_SKINS = ['default', 'mind', 'knight', 'rage'];
 
 async function getSkinPrices() {
   if (!dbReady) return {};
@@ -617,6 +628,7 @@ async function getSkinPrices() {
     const r = await db.query('SELECT skin_id, sell_price, is_sellable FROM skin_prices');
     const out = {};
     for (const row of r.rows) {
+      if (row.skin_id === 'fire') continue; // legacy removed
       out[row.skin_id] = {
         sellPrice: parseFloat(row.sell_price),
         isSellable: row.is_sellable
@@ -632,7 +644,6 @@ async function getNextSerial() {
     const r = await db.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
     return parseInt(r.rows[0].serial);
   } catch (e) {
-    // Sequence exceeded
     return null;
   }
 }
@@ -640,9 +651,11 @@ async function getNextSerial() {
 async function getSerialStatus() {
   if (!dbReady) return { next: null, soldOut: false };
   try {
-    const r = await db.query(`SELECT last_value FROM lootbox_serial_seq`);
+    const r = await db.query(`SELECT last_value, is_called FROM lootbox_serial_seq`);
     const last = parseInt(r.rows[0].last_value);
-    return { next: last + 1, soldOut: last >= LOOTBOX_MAX_SERIAL };
+    const called = r.rows[0].is_called;
+    const current = called ? last : 0;
+    return { next: current + 1, soldOut: current >= LOOTBOX_MAX_SERIAL };
   } catch (e) {
     return { next: 1, soldOut: false };
   }
@@ -690,7 +703,8 @@ io.on('connection', (socket) => {
       },
       settings: settings,
       skinPrices: prices,
-      serialStatus: serialStatus
+      serialStatus: serialStatus,
+      tonWalletAddress: TON_WALLET_ADDRESS
     });
   });
 
@@ -702,7 +716,7 @@ io.on('connection', (socket) => {
   socket.on('save_wallet', async (data) => {
     if (!currentUserId || !data || !data.wallet) return;
     try {
-      Address.parse(data.wallet); // validates
+      Address.parse(data.wallet);
     } catch (e) {
       socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' });
       return;
@@ -716,12 +730,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ============ LOOTBOX CLAIM (SERVER-SIDE SERIAL) ============
+  // ============ LOOTBOX CLAIM ============
   socket.on('claim_lootbox', async (data) => {
     if (!currentUserId || !data || !data.memo) return;
     if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
 
-    // Check if memo already claimed
     const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
     if (existing.rows.length > 0) {
       socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
@@ -731,34 +744,29 @@ io.on('connection', (socket) => {
     const settings = await getAdminSettings();
     const price = parseFloat(settings.lootbox_price) || 0.01;
 
-    // Verify payment on chain
     const txHash = await verifyTonPayment(data.memo, price);
     if (!txHash) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain' });
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
       return;
     }
 
-    // Assign next serial
     const serial = await getNextSerial();
     if (serial === null) {
       socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 sold out' });
       return;
     }
 
-    // Get user, pick a random locked skin
     const user = await getOrCreateUser(currentUserId, '', '');
     if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
     const currentSkins = normalizeSkins(user.unlocked_skins);
     const ownedIds = new Set(currentSkins.map(s => s.id));
     const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
     if (locked.length === 0) {
-      // Nothing to unlock, but consume serial? Better: don't consume. 
       socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
       return;
     }
     const picked = locked[Math.floor(Math.random() * locked.length)];
 
-    // Add skin with serial
     currentSkins.push({
       id: picked,
       serial: serial,
@@ -766,7 +774,6 @@ io.on('connection', (socket) => {
       acquiredAt: Date.now()
     });
 
-    // Save
     await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
       [JSON.stringify(currentSkins), currentUserId]);
     await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
@@ -790,12 +797,14 @@ io.on('connection', (socket) => {
       socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
       return;
     }
+    if (skinId === 'fire') {
+      socket.emit('sell_result', { ok: false, message: 'Skin not available' });
+      return;
+    }
 
-    // Validate wallet
     try { Address.parse(walletAddress); }
     catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
 
-    // Check skin price/sellable
     const prices = await getSkinPrices();
     const priceInfo = prices[skinId];
     if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
@@ -803,7 +812,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Get user & check ownership
     const user = await getOrCreateUser(currentUserId, '', '');
     if (!user) { socket.emit('sell_result', { ok: false }); return; }
     const skins = normalizeSkins(user.unlocked_skins);
@@ -813,7 +821,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check no pending request for this skin
     const pending = await db.query(
       `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
       [currentUserId, skinId, skinSerial]
@@ -823,17 +830,14 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Remove skin from inventory (immediately)
-    const removed = skins.splice(idx, 1)[0];
+    skins.splice(idx, 1);
 
-    // Create sell request
     const ins = await db.query(
       `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
        VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
       [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
     );
 
-    // Save updated skins + wallet
     await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
       [JSON.stringify(skins), walletAddress, currentUserId]);
 
@@ -843,10 +847,10 @@ io.on('connection', (socket) => {
       skinId: skinId,
       skinSerial: skinSerial,
       price: priceInfo.sellPrice,
-      unlockedSkins: skins
+      unlockedSkins: skins,
+      wallet: walletAddress
     });
 
-    // Notify all admins (no direct way, but emit to admin room if we had one; broadcast for now)
     io.emit('admin_new_request', { requestId: ins.rows[0].id });
   });
 
@@ -889,7 +893,6 @@ io.on('connection', (socket) => {
     const reqId = parseInt(data.requestId);
     if (!reqId) return;
 
-    // Lock the request row atomically
     let req;
     try {
       const lock = await db.query(
@@ -912,12 +915,11 @@ io.on('connection', (socket) => {
     try {
       const balance = await getHotWalletBalance();
       if (balance === null || balance < amount + 0.01) {
-        // Rollback
         await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
         socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'Insufficient hot wallet balance' });
         return;
       }
-      const result = await sendTonToUser(recipient, amount);
+      await sendTonToUser(recipient, amount);
       const txHash = 'sent_' + Date.now();
       await db.query(
         `UPDATE sell_requests SET status = 'paid', tx_hash = $1, paid_at = $2 WHERE id = $3`,
@@ -926,7 +928,6 @@ io.on('connection', (socket) => {
       socket.emit('admin_pay_result', { ok: true, requestId: reqId, txHash: txHash, to: recipient, amount: amount });
     } catch (e) {
       console.error('Pay error:', e.message);
-      // Rollback to pending
       await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
       socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: e.message });
     }
@@ -947,7 +948,6 @@ io.on('connection', (socket) => {
         return;
       }
       const req = lock.rows[0];
-      // Return skin to user
       const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
       if (u.rows.length > 0) {
         const skins = normalizeSkins(u.rows[0].unlocked_skins);
@@ -969,6 +969,7 @@ io.on('connection', (socket) => {
   socket.on('admin_set_skin_price', async (data) => {
     if (!checkAdmin(data && data.password)) return;
     if (!dbReady || !data.skinId) return;
+    if (data.skinId === 'fire') { socket.emit('admin_skin_price_result', { ok: false }); return; }
     try {
       await db.query(
         `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, $2, $3)
@@ -989,7 +990,7 @@ io.on('connection', (socket) => {
     socket.emit('admin_wallet_balance', {
       ok: balance !== null,
       balance: balance,
-      address: hotWallet ? hotWallet.address.toString() : null
+      address: TON_WALLET_ADDRESS
     });
   });
 
@@ -1075,9 +1076,10 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.2 on ' + PORT);
+    console.log('🪐 Planet.io v3.2.1 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
     console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
+    console.log('   TON_WALLET_ADDRESS: ' + TON_WALLET_ADDRESS);
   });
 })();
