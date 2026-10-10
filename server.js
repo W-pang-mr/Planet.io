@@ -15,7 +15,7 @@ const WORLD_RADIUS = 1400;
 const CX = 1500, CY = 1500;
 const FOOD_COUNT = 400;
 const TICK_RATE = 60;
-const BROADCAST_RATE = 30;
+const BROADCAST_RATE = 20; // ← کاهش از ۳۰ به ۲۰
 
 const START_MASS = 22;
 const MAX_CELLS = 16;
@@ -145,7 +145,6 @@ function tick(dt) {
     if (!p.alive) continue;
     for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
 
-    // Merge cells
     for (let a = 0; a < p.cells.length; a++) {
       for (let b = a + 1; b < p.cells.length; b++) {
         if (a >= p.cells.length || b >= p.cells.length) break;
@@ -174,7 +173,6 @@ function tick(dt) {
     if (p.cells.length === 0) p.alive = false;
   }
 
-  // Eat food
   for (const [, p] of players) {
     if (!p.alive) continue;
     for (const cell of p.cells) {
@@ -192,7 +190,6 @@ function tick(dt) {
   }
   while (food.length < FOOD_COUNT) food.push(spawnFood());
 
-  // Player vs player
   const list = [...players.values()].filter(p => p.alive);
   for (let i = 0; i < list.length; i++) {
     const A = list[i];
@@ -336,11 +333,16 @@ setInterval(() => {
   tick(dt);
 }, 1000 / TICK_RATE);
 
-let bc = 0;
+// Broadcast at 20 FPS (every 3rd tick)
+let broadcastCounter = 0;
 setInterval(() => {
-  bc++;
-  if (bc % 2 !== 0) return;
-  const snapshot = { players: [], food: food.slice(0, 600) };
+  broadcastCounter++;
+  if (broadcastCounter % 3 !== 0) return;
+
+  const snapshot = {
+    players: [],
+    food: food.slice(0, 250) // ← کاهش از ۶۰۰ به ۲۵۰
+  };
   for (const [, p] of players) {
     if (!p.alive) continue;
     snapshot.players.push({
@@ -358,7 +360,7 @@ setInterval(() => {
     });
   }
   io.emit('state', snapshot);
-}, 1000 / BROADCAST_RATE);
+}, 1000 / 60); // 60Hz timer for %3 filter → 20 Hz broadcast
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
