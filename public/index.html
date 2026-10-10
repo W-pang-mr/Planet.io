@@ -813,7 +813,7 @@
       <div id="adminPassStep">
         <div class="admin-field">
           <label>Enter Password</label>
-          <input type="password" class="admin-input code" id="adminPasswordInput" placeholder="●●●●●●" maxlength="12">
+          <input type="password" class="admin-input code" id="adminPasswordInput" placeholder="●●●●●●" maxlength="32">
         </div>
         <button class="admin-btn" id="adminLoginBtn">🔓 Unlock</button>
       </div>
@@ -1248,6 +1248,74 @@ function initSocket() {
     }
   });
 
+  // ============ ADMIN HANDLERS (server-validated) ============
+  socket.on('admin_login_result', function(res) {
+    var btn = $('adminLoginBtn');
+    if (btn) { btn.textContent = '🔓 Unlock'; btn.disabled = false; }
+    if (!res || !res.ok) {
+      adminPassword = '';
+      $('adminPasswordInput').value = '';
+      toast('❌ Wrong password', 'error');
+      return;
+    }
+    toast('✅ Admin unlocked', 'success');
+    $('adminPassStep').style.display = 'none';
+    $('adminControls').style.display = 'block';
+    $('adminPriceInput').value = Save.lootboxPrice;
+    $('adminRemainingInput').value = Save.lootboxRemaining;
+    renderAdminPrices();
+    refreshAdminBalance();
+    refreshAdminRequests();
+  });
+
+  socket.on('admin_add_tokens_result', function(res) {
+    if (res && res.ok) {
+      Save.tokens = res.tokens;
+      updateMenuTokens();
+      updateSkillsUI();
+      renderInventory();
+      showAdminStatus('✅ +1000 tokens', 'success');
+    } else {
+      showAdminStatus('❌ Failed', 'error');
+    }
+  });
+
+  socket.on('admin_unlock_all_result', function(res) {
+    if (res && res.ok) {
+      Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+      renderInventory();
+      showAdminStatus('✅ All unlocked', 'success');
+    } else {
+      showAdminStatus('❌ Failed', 'error');
+    }
+  });
+
+  socket.on('admin_wipe_all_result', function(res) {
+    if (res && res.ok) {
+      Save.tokens = 0;
+      Save.speedLevel = 0;
+      Save.massLevel = 0;
+      Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+      Save.currentSkin = 'default';
+      Save.currentSerial = null;
+      Save.totalKills = 0;
+      Save.highScore = 0;
+      selectedSkin = 'default';
+      updateSkinPreview();
+      updateMenuTokens();
+      renderInventory();
+      updateSkillsUI();
+      showAdminStatus('🗑️ Wiped', 'success');
+    } else {
+      showAdminStatus('❌ Failed', 'error');
+    }
+  });
+
+  socket.on('admin_set_result', function(res) {
+    if (res && res.ok) showAdminStatus('✅ Saved', 'success');
+    else showAdminStatus('❌ Save failed', 'error');
+  });
+
   socket.on('init', function(data) {
     myPlayerId = data.playerId;
     networkPlayers = {};
@@ -1311,7 +1379,6 @@ function initSocket() {
     }, 50);
   });
 
-  // BUG FIX: ignore state in classic mode
   socket.on('state', function(data) {
     if (!isOnline) return;
     networkPlayers = {};
@@ -1358,7 +1425,6 @@ function initSocket() {
     }
   });
 
-  // FIXED: uses server-authoritative lootboxRemaining and saves progress
   socket.on('lootbox_claim_result', function(res) {
     if (!res || !res.ok) {
       onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
@@ -1433,7 +1499,7 @@ function initSocket() {
 
   socket.on('admin_wallet_balance', function(res) {
     if (res && res.ok) $('adminWalletBalance').textContent = (res.balance !== null ? res.balance.toFixed(4) : '—');
-    else $('adminWalletBalance').textContent = 'error';
+    else $('adminWalletBalance').textContent = 'login first';
   });
 
   socket.on('admin_skin_price_result', function(res) {
@@ -2920,18 +2986,20 @@ function openAdminModal() {
   $('adminPassStep').style.display = 'block';
   $('adminControls').style.display = 'none';
   $('adminPasswordInput').value = '';
+  adminPassword = '';
 }
-function closeAdminModal() { $('adminModal').classList.remove('active'); }
+function closeAdminModal() {
+  $('adminModal').classList.remove('active');
+  adminPassword = '';
+}
 function adminLogin() {
-  adminPassword = $('adminPasswordInput').value;
-  if (!adminPassword) return;
-  $('adminPassStep').style.display = 'none';
-  $('adminControls').style.display = 'block';
-  $('adminPriceInput').value = Save.lootboxPrice;
-  $('adminRemainingInput').value = Save.lootboxRemaining;
-  renderAdminPrices();
-  refreshAdminBalance();
-  refreshAdminRequests();
+  var pw = $('adminPasswordInput').value;
+  if (!pw) { toast('Enter password', 'error'); return; }
+  var btn = $('adminLoginBtn');
+  btn.textContent = '⏳ Checking...';
+  btn.disabled = true;
+  adminPassword = pw;
+  socket.emit('admin_login', { password: pw });
 }
 function showAdminStatus(msg, type) {
   var el = $('adminStatus');
@@ -2942,6 +3010,7 @@ function showAdminStatus(msg, type) {
   }
 }
 function adminSaveSettings() {
+  if (!adminPassword) { showAdminStatus('❌ Login first', 'error'); return; }
   var price = parseFloat($('adminPriceInput').value);
   var remaining = parseInt($('adminRemainingInput').value);
   if (isNaN(price) || price < 0) { showAdminStatus('❌ Invalid price', 'error'); return; }
@@ -2956,44 +3025,39 @@ function adminSaveSettings() {
   showAdminStatus('✅ Saved!', 'success');
 }
 function setLootboxTag(tag) {
+  if (!adminPassword) { showAdminStatus('❌ Login first', 'error'); return; }
   Save.lootboxTag = tag;
   if (socket) socket.emit('admin_set', { key: 'lootbox_tag', value: tag, password: adminPassword });
   renderInventory();
   showAdminStatus(tag ? '✅ ' + tag.toUpperCase() : '✅ Removed', 'success');
 }
 function adminAddTokens() {
-  Save.tokens += 1000;
-  Save.markDirty(); Save.syncToServer();
-  updateMenuTokens(); updateSkillsUI(); renderInventory();
-  showAdminStatus('✅ +1000', 'success');
+  if (!adminPassword) { toast('Login first', 'error'); return; }
+  socket.emit('admin_add_tokens', { password: adminPassword });
 }
 function adminUnlockAll() {
-  for (var i = 0; i < SKINS.length; i++) {
-    if (!Save.isUnlocked(SKINS[i].id)) {
-      Save.unlockedSkins.push({ id: SKINS[i].id, serial: null, source: 'admin', acquiredAt: Date.now() });
-    }
-  }
-  Save.markDirty(); Save.syncToServer();
-  renderInventory();
-  showAdminStatus('✅ All unlocked', 'success');
+  if (!adminPassword) { toast('Login first', 'error'); return; }
+  socket.emit('admin_unlock_all', { password: adminPassword });
 }
 function adminWipeAll() {
+  if (!adminPassword) { toast('Login first', 'error'); return; }
   if (!confirm('⚠️ Delete ALL progress?')) return;
-  Save.tokens = 0; Save.speedLevel = 0; Save.massLevel = 0;
-  Save.unlockedSkins = [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }];
-  Save.currentSkin = 'default'; Save.currentSerial = null;
-  Save.totalKills = 0; Save.highScore = 0;
-  Save.markDirty(); Save.syncToServer();
-  selectedSkin = 'default';
-  updateSkinPreview(); updateMenuTokens(); renderInventory(); updateSkillsUI();
-  showAdminStatus('🗑️ Wiped', 'success');
+  socket.emit('admin_wipe_all', { password: adminPassword });
 }
 function refreshAdminRequests() {
-  if (!socket || !adminPassword) return;
+  if (!socket || !adminPassword) {
+    var el = $('adminRequestsList');
+    if (el) el.innerHTML = '<div style="text-align:center;color:#ff5555;padding:20px;font-size:12px;">Login first</div>';
+    return;
+  }
   socket.emit('admin_get_requests', { password: adminPassword });
 }
 function refreshAdminBalance() {
-  if (!socket || !adminPassword) return;
+  if (!socket || !adminPassword) {
+    var el = $('adminWalletBalance');
+    if (el) el.textContent = 'login first';
+    return;
+  }
   socket.emit('admin_get_wallet_balance', { password: adminPassword });
 }
 function renderAdminRequests(list) {
@@ -3061,6 +3125,7 @@ function renderAdminPrices() {
   });
   el.querySelectorAll('button[data-action="saveprice"]').forEach(function(btn) {
     btn.addEventListener('click', function() {
+      if (!adminPassword) { toast('Login first', 'error'); return; }
       var sid = btn.getAttribute('data-sid');
       var priceInput = el.querySelector('input[data-sid="' + sid + '"]');
       var selInput = el.querySelector('select[data-sid="' + sid + '"]');
