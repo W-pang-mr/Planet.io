@@ -1,1148 +1,1710 @@
-// server.js - Planet.io Online v3.3.0
-'use strict';
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const crypto = require('crypto');
-const { Pool } = require('pg');
-const { TonClient, WalletContractV5R1, internal, SendMode, Address } = require('@ton/ton');
-const { mnemonicToPrivateKey } = require('@ton/crypto');
-
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' },
-  pingInterval: 10000,
-  pingTimeout: 20000
-});
-app.use(express.static('public'));
-
-/* ================= CONFIG ================= */
-const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN || '';
-const DATABASE_URL = process.env.DATABASE_URL || '';
-const TON_MNEMONIC = process.env.TON_MNEMONIC || '';
-const TON_API_KEY = process.env.TON_API_KEY || '';
-const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
-const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
-const TON_WALLET_ADDRESS = process.env.TON_WALLET_ADDRESS || 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '262626');
-const LOOTBOX_MAX_SERIAL = 999;
-
-const WORLD_RADIUS = 1200;
-const CX = 1500, CY = 1500;
-const FOOD_COUNT = 500;
-const BOT_COUNT = 18;
-const TICK_RATE = 60;
-
-const START_MASS = 22;
-const MAX_CELLS = 16;
-const MERGE_TIME = 20;
-const MIN_SPLIT_MASS = 36;
-const MIN_EJECT_MASS = 34;
-const EJECT_MASS_AMOUNT = 14;
-const EJECT_COST = 18;
-const EAT_MASS_RATIO = 1.15;
-const EAT_OVERLAP = 0.4;
-const SPLIT_LAUNCH_SPEED = 1300;
-const MASS_DECAY_RATE = 0.002;
-const MASS_DECAY_MIN = 40;
-
-/* ================= DATABASE ================= */
-let db = null;
-let dbReady = false;
-
-if (DATABASE_URL) {
-  db = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 5
-  });
-  initDatabase();
-} else {
-  console.warn('⚠️ DATABASE_URL not set — memory only');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>TON Wallet</title>
+<style>
+:root {
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --primary: #2481cc;
+  --primary2: #3390ec;
+  --text: #1a1a1a;
+  --muted: #6b7280;
+  --green: #22c55e;
+  --red: #ef4444;
+  --grad: linear-gradient(135deg, #1e5cbe 0%, #3b9eff 100%);
+  --shadow: 0 10px 40px rgba(30, 92, 190, 0.25);
+  --radius: 24px;
 }
 
-async function initDatabase() {
-  try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        telegram_id TEXT PRIMARY KEY,
-        username TEXT,
-        first_name TEXT,
-        tokens INTEGER DEFAULT 0,
-        speed_level INTEGER DEFAULT 0,
-        mass_level INTEGER DEFAULT 0,
-        unlocked_skins TEXT DEFAULT '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
-        current_skin TEXT DEFAULT 'default',
-        total_kills INTEGER DEFAULT 0,
-        high_score INTEGER DEFAULT 0,
-        wallet_address TEXT DEFAULT '',
-        created_at BIGINT,
-        last_seen BIGINT
-      );
-    `);
-    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT DEFAULT '';`);
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+}
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS admin_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_price', '0.01') ON CONFLICT (key) DO NOTHING;`);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_remaining', '-1') ON CONFLICT (key) DO NOTHING;`);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_tag', '') ON CONFLICT (key) DO NOTHING;`);
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS sell_requests (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT,
-        user_wallet TEXT,
-        skin_id TEXT,
-        skin_serial INTEGER,
-        price_ton NUMERIC(12,6),
-        status TEXT DEFAULT 'pending',
-        tx_hash TEXT,
-        created_at BIGINT,
-        paid_at BIGINT
-      );
-    `);
+body {
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS skin_prices (
-        skin_id TEXT PRIMARY KEY,
-        sell_price NUMERIC(12,6) DEFAULT 0,
-        is_sellable BOOLEAN DEFAULT FALSE
-      );
-    `);
-    const seedSkins = ['mind', 'knight', 'rage'];
-    for (const s of seedSkins) {
-      await db.query(
-        `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, 0, FALSE) ON CONFLICT (skin_id) DO NOTHING;`,
-        [s]
-      );
-    }
-    await db.query(`DELETE FROM skin_prices WHERE skin_id = 'fire';`);
+/* ========== LOADING SCREEN ========== */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, #1e5cbe, #3b9eff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: white;
+  transition: opacity 0.5s ease, visibility 0.5s;
+}
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS claimed_memos (
-        memo TEXT PRIMARY KEY,
-        user_id TEXT,
-        claimed_at BIGINT
-      );
-    `);
+#loading.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 
-    await db.query(`CREATE SEQUENCE IF NOT EXISTS lootbox_serial_seq START 1 MAXVALUE ${LOOTBOX_MAX_SERIAL};`);
+.loader-diamond {
+  font-size: 64px;
+  animation: pulse 1.4s ease-in-out infinite;
+  margin-bottom: 24px;
+}
 
-    dbReady = true;
-    console.log('✅ Database ready');
-  } catch (e) {
-    console.error('❌ DB init error:', e.message);
-    dbReady = false;
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.7; }
+}
+
+.loader-text {
+  font-size: 18px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.loader-bar {
+  width: 180px;
+  height: 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 4px;
+  margin-top: 28px;
+  overflow: hidden;
+}
+
+.loader-bar-inner {
+  height: 100%;
+  width: 30%;
+  background: white;
+  border-radius: 4px;
+  animation: loadingBar 1.2s ease-in-out infinite;
+}
+
+@keyframes loadingBar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* ========== APP CONTAINER ========== */
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 0 16px 40px;
+  position: relative;
+}
+
+/* ========== TOP BAR ========== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding-top: env(safe-area-inset-top);
+}
+
+.topbar h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.icon-btn:active {
+  background: rgba(0,0,0,0.06);
+  transform: scale(0.92);
+}
+
+/* ========== WALLET CARD ========== */
+.wallet-card {
+  position: relative;
+  height: 210px;
+  border-radius: 28px;
+  background: var(--grad);
+  color: white;
+  padding: 28px 24px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  animation: cardEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-function normalizeSkins(skins) {
-  let arr = skins;
-  if (typeof arr === 'string') {
-    try { arr = JSON.parse(arr); } catch (e) { arr = null; }
-  }
-  if (!Array.isArray(arr)) arr = [];
-  const out = [];
-  let hasDefault = false;
-  for (const s of arr) {
-    if (typeof s === 'string') {
-      if (s === 'fire') continue;
-      out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
-      if (s === 'default') hasDefault = true;
-    } else if (s && s.id) {
-      if (s.id === 'fire') continue;
-      out.push({
-        id: String(s.id),
-        serial: (typeof s.serial === 'number') ? s.serial : null,
-        source: s.source || 'unknown',
-        acquiredAt: s.acquiredAt || 0
-      });
-      if (s.id === 'default') hasDefault = true;
-    }
-  }
-  if (!hasDefault) out.unshift({ id: 'default', serial: null, source: 'starter', acquiredAt: 0 });
-  return out;
+.wallet-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255,255,255,0.4), transparent 50%),
+    repeating-radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0 3px, transparent 3px 12px);
+  pointer-events: none;
 }
 
-async function getOrCreateUser(id, username, firstName) {
-  if (!dbReady) return {
-    telegram_id: id, username, first_name: firstName,
-    tokens: 0, speed_level: 0, mass_level: 0,
-    unlocked_skins: '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
-    current_skin: 'default', total_kills: 0, high_score: 0,
-    wallet_address: ''
-  };
-  try {
-    const r = await db.query('SELECT * FROM users WHERE telegram_id = $1', [id]);
-    if (r.rows.length === 0) {
-      await db.query(
-        `INSERT INTO users (telegram_id, username, first_name, created_at, last_seen)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [id, username, firstName, Date.now(), Date.now()]
-      );
-      const r2 = await db.query('SELECT * FROM users WHERE telegram_id = $1', [id]);
-      return r2.rows[0];
+.wallet-card::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -80%;
+  width: 50%;
+  height: 220%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  transform: rotate(25deg);
+  animation: shine 6s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0%, 70% { left: -80%; }
+  100% { left: 140%; }
+}
+
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  position: relative;
+  z-index: 2;
+}
+
+.balance-row svg {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+
+.balance-amount {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.balance-unit {
+  font-size: 28px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-left: 6px;
+}
+
+.usd-value {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 500;
+  opacity: 0.9;
+  position: relative;
+  z-index: 2;
+}
+
+.wallet-handle {
+  position: absolute;
+  bottom: 22px;
+  left: 24px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+  z-index: 2;
+}
+
+.address-vertical {
+  position: absolute;
+  right: 12px;
+  top: 18px;
+  bottom: 18px;
+  writing-mode: vertical-rl;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.qr-btn {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 58px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.9);
+  border: none;
+  font-size: 24px;
+  color: #1e5cbe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.qr-btn:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+/* ========== ACTION BUTTONS ========== */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.action-btn {
+  flex: 1;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  background: var(--grad);
+  color: white;
+  font-size: 17px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(36, 129, 204, 0.35);
+  transition: transform 0.15s, box-shadow 0.2s;
+  animation: btnEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.action-btn:nth-child(1) { animation-delay: 0.1s; }
+.action-btn:nth-child(2) { animation-delay: 0.18s; }
+
+@keyframes btnEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.action-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 12px rgba(36, 129, 204, 0.3);
+}
+
+.action-btn.ghost {
+  background: #e8f1fb;
+  color: var(--primary);
+  box-shadow: none;
+}
+
+/* ========== TRANSACTIONS ========== */
+.tx-section {
+  background: var(--card);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  animation: fadeUp 0.5s 0.25s both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tx-header {
+  padding: 18px 20px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tx-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s;
+  animation: txSlide 0.4s both;
+}
+
+.tx-item:last-child {
+  border-bottom: none;
+}
+
+.tx-item:active {
+  background: #f8fafc;
+}
+
+@keyframes txSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tx-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--grad);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.tx-avatar.in {
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+}
+
+.tx-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.tx-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tx-amount {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tx-amount.in {
+  color: var(--green);
+}
+
+.empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* ========== BOTTOM SHEETS ========== */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sheet {
+  background: white;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 28px 28px 0 0;
+  padding: 24px 20px calc(28px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sheet-overlay.show .sheet {
+  transform: translateY(0);
+}
+
+.sheet h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.sheet p {
+  color: var(--muted);
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+.address-box {
+  background: #f1f5f9;
+  border-radius: 16px;
+  padding: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  word-break: break-all;
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.full-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 27px;
+  border: none;
+  background: var(--grad);
+  color: white;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  transition: transform 0.15s;
+}
+
+.full-btn:active {
+  transform: scale(0.97);
+}
+
+.full-btn.ghost {
+  background: #e8f1fb;
+  color: var(--primary);
+}
+
+/* ========== MENU ========== */
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+}
+
+.menu-overlay.show {
+  display: block;
+}
+
+.menu {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  width: 260px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.9);
+  transform-origin: top right;
+  transition: opacity 0.2s, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.menu-overlay.show .menu {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  font-size: 16px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.15s;
+}
+
+.menu-item:active {
+  background: #f1f5f9;
+}
+
+.menu-item small {
+  display: block;
+  font-size: 12px;
+  color: var(--green);
+  margin-top: 2px;
+}
+
+/* ========== SEND PAGE ========== */
+.send-page {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 80;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+  padding-bottom: 120px;
+}
+
+.send-page.show {
+  transform: translateX(0);
+}
+
+.send-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 60px;
+  padding: 0 16px;
+  font-size: 20px;
+  font-weight: 700;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.recipient-card {
+  background: white;
+  border-radius: 20px;
+  padding: 16px;
+  margin: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.recipient-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.recipient-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--grad);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.recipient-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.recipient-addr {
+  font-size: 13px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.input-field {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 16px;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.input-field:focus {
+  border-color: var(--primary2);
+  box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.15);
+}
+
+.amount-display {
+  text-align: center;
+  margin: 32px 0 8px;
+  font-size: 52px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.amount-display small {
+  font-size: 24px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.usd-convert {
+  text-align: center;
+  color: var(--muted);
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.balance-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  margin: 6px 0;
+}
+
+.warn-text {
+  text-align: center;
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.25s;
+}
+
+.warn-text.show {
+  height: 22px;
+  opacity: 1;
+  margin: 6px 0;
+}
+
+/* ========== KEYPAD ========== */
+.keypad {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  border-radius: 24px 24px 0 0;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(110%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 85;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.08);
+}
+
+.keypad.show {
+  transform: translateY(0);
+}
+
+.keys-grid {
+  max-width: 480px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.key {
+  height: 56px;
+  border-radius: 16px;
+  border: none;
+  background: #f1f5f9;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text);
+  transition: transform 0.12s, background 0.12s;
+}
+
+.key:active {
+  background: #dbeafe;
+  transform: scale(0.93);
+}
+
+.key.done {
+  grid-column: 1 / -1;
+  height: 52px;
+  font-size: 17px;
+  background: var(--grad);
+  color: white;
+}
+
+/* ========== SETUP / UNLOCK ========== */
+.auth-screen {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 60px 24px 40px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.auth-screen h1 {
+  text-align: center;
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.auth-screen p {
+  text-align: center;
+  color: var(--muted);
+  margin-bottom: 32px;
+  font-size: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 110px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  font-size: 16px;
+  background: #f8fafc;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+
+.form-textarea:focus {
+  border-color: var(--primary2);
+}
+
+.form-input {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 16px;
+  background: #f8fafc;
+  outline: none;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  border-color: var(--primary2);
+}
+
+.msg {
+  text-align: center;
+  font-size: 15px;
+  min-height: 22px;
+  margin-top: 12px;
+}
+
+.msg.err { color: var(--red); }
+.msg.ok { color: var(--green); }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 15px;
+  margin-top: 24px;
+  width: 100%;
+  padding: 12px;
+}
+
+/* ========== TOAST ========== */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 100px;
+  transform: translate(-50%, 30px);
+  background: rgba(30, 30, 30, 0.92);
+  color: white;
+  padding: 14px 24px;
+  border-radius: 30px;
+  font-size: 15px;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 200;
+  pointer-events: none;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ========== UTILS ========== */
+.hidden { display: none !important; }
+
+.spin {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.pop {
+  animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pop {
+  from { transform: scale(0.88); opacity: 0.6; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.shake {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  20%, 60% { transform: translateX(-7px); }
+  40%, 80% { transform: translateX(7px); }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="loader-diamond">💎</div>
+  <div class="loader-text">Loading Wallet…</div>
+  <div class="loader-bar"><div class="loader-bar-inner"></div></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- SETUP -->
+<div id="setup" class="auth-screen hidden">
+  <h1>💎 Import Wallet</h1>
+  <p>Enter your 12 or 24 secret recovery words</p>
+  <label class="form-label">Secret words</label>
+  <textarea id="words" class="form-textarea" placeholder="word1 word2 word3 ..." autocapitalize="none" autocomplete="off" spellcheck="false"></textarea>
+  <label class="form-label">Passcode (encrypts the words on this device)</label>
+  <input id="pass1" type="password" class="form-input" placeholder="Passcode (min 4 characters)">
+  <input id="pass2" type="password" class="form-input" placeholder="Repeat passcode">
+  <button class="full-btn" id="importBtn" style="margin-top:12px">Import Wallet</button>
+  <div id="setupMsg" class="msg"></div>
+</div>
+
+<!-- UNLOCK -->
+<div id="unlock" class="auth-screen hidden">
+  <h1>💎 Wallet</h1>
+  <p>Enter your passcode to unlock</p>
+  <input id="unlockPass" type="password" class="form-input" placeholder="Passcode">
+  <button class="full-btn" id="unlockBtn" style="margin-top:8px">Unlock</button>
+  <div id="unlockMsg" class="msg"></div>
+  <button class="link-btn" id="forgetBtn">Remove wallet from this device</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="main" class="app hidden">
+  <div class="topbar">
+    <h1>Wallet</h1>
+    <div style="display:flex;gap:4px">
+      <button class="icon-btn" id="refreshBtn">⟳</button>
+      <button class="icon-btn" id="menuBtn">⋮</button>
+    </div>
+  </div>
+
+  <div class="wallet-card">
+    <div class="balance-row">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M6 3h12l4 6-10 12L2 9z" fill="#bfe3ff"/>
+        <path d="M2 9h20M9 3l3 6 3-6M12 21 9 9m3 12 3-12" stroke="#fff" stroke-width="1.2"/>
+      </svg>
+      <div>
+        <span class="balance-amount" id="balN">0</span>
+        <span class="balance-unit">TON</span>
+      </div>
+    </div>
+    <div class="usd-value" id="usd">$0.00</div>
+    <div class="wallet-handle">@GIFTSDouble</div>
+    <button class="qr-btn" id="qrBtn">▣</button>
+    <div class="address-vertical" id="cardAddr"></div>
+  </div>
+
+  <div class="actions">
+    <button class="action-btn" id="addBtn">⊕ Add Funds</button>
+    <button class="action-btn" id="sendBtn">➤ Send</button>
+  </div>
+
+  <div class="tx-section">
+    <div class="tx-header">Recent Activity</div>
+    <div id="txList">
+      <div class="empty-state">Loading transactions…</div>
+    </div>
+  </div>
+</div>
+
+<!-- MENU -->
+<div class="menu-overlay" id="menuBg">
+  <div class="menu">
+    <button class="menu-item" data-m="cur">💲 Currency</button>
+    <button class="menu-item" data-m="lock">🔒 Passcode Lock</button>
+    <button class="menu-item" data-m="keys">🔑 Keys & Backup</button>
+    <button class="menu-item" data-m="apps">
+      <span>🔗 Connected Apps<small>● STON.fi</small></span>
+    </button>
+    <button class="menu-item" data-m="what">❓ What is Wallet?</button>
+  </div>
+</div>
+
+<!-- RECEIVE SHEET -->
+<div class="sheet-overlay" id="recvBg">
+  <div class="sheet">
+    <h2>Add Funds</h2>
+    <p>Send TON to this address</p>
+    <div class="address-box" id="recvAddr"></div>
+    <button class="full-btn" id="copyBtn">Copy Address</button>
+    <button class="full-btn ghost" id="recvClose">Close</button>
+  </div>
+</div>
+
+<!-- SEND PAGE -->
+<div class="send-page" id="sendPage">
+  <div class="send-header">
+    <button class="icon-btn" id="backBtn">←</button>
+    Send TON
+  </div>
+
+  <div class="recipient-card">
+    <div class="recipient-info">
+      <div class="recipient-avatar" id="rAva">?</div>
+      <div>
+        <div class="recipient-name" id="rName">Recipient</div>
+        <div class="recipient-addr" id="rAddr">Enter address below</div>
+      </div>
+    </div>
+    <input id="toAddr" class="input-field" placeholder="Wallet address (UQ… / EQ…)" autocomplete="off" autocapitalize="none">
+    <input id="memo" class="input-field" placeholder="Memo (optional)" style="margin-top:10px">
+  </div>
+
+  <div class="amount-display" id="amtBox">
+    <svg width="40" height="40" viewBox="0 0 24 24">
+      <path d="M6 3h12l4 6-10 12L2 9z" fill="#3390ec"/>
+      <path d="M2 9h20M9 3l3 6 3-6" stroke="#fff" stroke-width="1"/>
+    </svg>
+    <span id="amtV">0</span>
+    <small>TON</small>
+  </div>
+
+  <div class="usd-convert" id="conv">= $0.00</div>
+  <div class="warn-text" id="warn">Insufficient funds</div>
+  <div class="balance-hint" id="balInfo">Balance: 0 TON</div>
+  <div class="balance-hint">Network fee ≈ 0.005 TON</div>
+
+  <div style="padding: 0 16px; margin-top: 24px;">
+    <button class="full-btn" id="goBtn" disabled>Continue</button>
+  </div>
+</div>
+
+<!-- KEYPAD -->
+<div class="keypad" id="kp">
+  <div class="keys-grid" id="keys"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===================== CONFIG =====================
+  const API = "https://toncenter.com/api/v2";
+  const API_KEY = "e08b96c939bcca03c136cbc8e48e0f49d4b622013cf97b7fa00f8ad553ff9910";
+  const KEY = "ton_wallet_enc_v1";
+  const CHOICE = "ton_wallet_choice_v1";
+  const FEE = "0.01";
+
+  // ===================== STATE =====================
+  let words = null;
+  let wallet = null;
+  let kp0 = null;
+  let address = "";
+  let balNano = 0n;
+  let client = null;
+  let TON = null;
+  let CR = null;
+  let price = 0;
+  let amt = "0";
+  let wasBad = false;
+
+  // ===================== HELPERS =====================
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove("show"), 2400);
+  }
+
+  function shortAddr(a) {
+    if (!a || a.length < 12) return a || "";
+    return a.slice(0, 4) + "…" + a.slice(-4);
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function buzz() {
+    try { navigator.vibrate && navigator.vibrate(10); } catch (e) {}
+  }
+
+  // ===================== LIBRARY LOADER =====================
+  const TON_URLS = [
+    "https://esm.sh/@ton/ton@15",
+    "https://esm.sh/@ton/ton@15.2.0",
+    "https://cdn.jsdelivr.net/npm/@ton/ton@15/+esm",
+    "https://fastly.jsdelivr.net/npm/@ton/ton@15/+esm"
+  ];
+
+  const CRYPTO_URLS = [
+    "https://esm.sh/@ton/crypto@3",
+    "https://esm.sh/@ton/crypto@3.3.0",
+    "https://cdn.jsdelivr.net/npm/@ton/crypto@3/+esm",
+    "https://fastly.jsdelivr.net/npm/@ton/crypto@3/+esm"
+  ];
+
+  async function tryImport(urls, check) {
+    for (const url of urls) {
+      try {
+        const mod = await import(url);
+        if (check(mod)) return mod;
+      } catch (e) {}
     }
-    await db.query('UPDATE users SET last_seen = $1, username = $2 WHERE telegram_id = $3',
-      [Date.now(), username, id]);
-    return r.rows[0];
-  } catch (e) {
-    console.error('getOrCreateUser:', e.message);
     return null;
   }
-}
 
-async function saveProgress(id, data) {
-  if (!dbReady) return false;
-  try {
-    const normalized = normalizeSkins(data.unlockedSkins);
-    await db.query(
-      `UPDATE users SET
-        tokens = $1, speed_level = $2, mass_level = $3,
-        unlocked_skins = $4, current_skin = $5,
-        total_kills = $6, high_score = $7, last_seen = $8
-       WHERE telegram_id = $9`,
-      [
-        Math.max(0, parseInt(data.tokens) || 0),
-        Math.min(50, Math.max(0, parseInt(data.speedLevel) || 0)),
-        Math.min(15, Math.max(0, parseInt(data.massLevel) || 0)),
-        JSON.stringify(normalized),
-        data.currentSkin || 'default',
-        Math.max(0, parseInt(data.totalKills) || 0),
-        Math.max(0, parseInt(data.highScore) || 0),
-        Date.now(),
-        id
-      ]
-    );
-    return true;
-  } catch (e) {
-    console.error('saveProgress:', e.message);
-    return false;
-  }
-}
-
-async function getAdminSettings() {
-  if (!dbReady) return { lootbox_price: '0.01', lootbox_remaining: '-1', lootbox_tag: '' };
-  try {
-    const r = await db.query('SELECT key, value FROM admin_settings');
-    const out = {};
-    for (const row of r.rows) out[row.key] = row.value;
-    return out;
-  } catch (e) {
-    return { lootbox_price: '0.01', lootbox_remaining: '-1', lootbox_tag: '' };
-  }
-}
-
-async function setAdminSetting(key, value) {
-  if (!dbReady) return false;
-  try {
-    await db.query(
-      'INSERT INTO admin_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
-      [key, String(value)]
-    );
-    return true;
-  } catch (e) { return false; }
-}
-
-/* ================= TON WALLET ================= */
-let hotWallet = null;
-let hotWalletKeyPair = null;
-let tonClient = null;
-
-async function initTonWallet() {
-  if (!TON_MNEMONIC) {
-    console.warn('⚠️ TON_MNEMONIC not set — TON payouts disabled');
-    return;
-  }
-  try {
-    const words = TON_MNEMONIC.trim().split(/\s+/);
-    if (words.length !== 24) {
-      console.error('❌ TON_MNEMONIC must have 24 words, got ' + words.length);
-      return;
-    }
-    hotWalletKeyPair = await mnemonicToPrivateKey(words);
-    hotWallet = WalletContractV5R1.create({
-      workchain: 0,
-      publicKey: hotWalletKeyPair.publicKey
-    });
-    tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
-    console.log('✅ TON wallet V5R1 ready: ' + hotWallet.address.toString());
-    if (hotWallet.address.toString() !== TON_WALLET_ADDRESS) {
-      console.warn('⚠️ TON_WALLET_ADDRESS does not match derived wallet address!');
-      console.warn('   Env:     ' + TON_WALLET_ADDRESS);
-      console.warn('   Derived: ' + hotWallet.address.toString());
-    }
-  } catch (e) {
-    console.error('❌ TON wallet init failed:', e.message);
-  }
-}
-
-async function getHotWalletBalance() {
-  if (!tonClient || !hotWallet) return null;
-  try {
-    const bal = await tonClient.getBalance(hotWallet.address);
-    return Number(bal) / 1e9;
-  } catch (e) {
-    console.error('getBalance:', e.message);
-    return null;
-  }
-}
-
-async function sendTonToUser(toAddress, amountTon) {
-  if (!hotWallet || !hotWalletKeyPair || !tonClient) throw new Error('TON wallet not initialized');
-  const contract = tonClient.open(hotWallet);
-  const seqno = await contract.getSeqno();
-  const amountNano = BigInt(Math.round(amountTon * 1e9));
-  await contract.sendTransfer({
-    seqno,
-    secretKey: hotWalletKeyPair.secretKey,
-    sendMode: SendMode.PAY_GAS_SEPARATELY,
-    messages: [internal({ to: Address.parse(toAddress), value: amountNano, bounce: false, body: 'Planet.io payout' })]
-  });
-  return { ok: true, to: toAddress, amount: amountTon };
-}
-
-async function verifyTonPayment(memo, expectedAmount) {
-  const walletAddr = TON_WALLET_ADDRESS;
-  const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=30';
-  const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
-  try {
-    const r = await fetch(url, { headers });
-    const data = await r.json();
-    if (!data.ok || !Array.isArray(data.result)) return null;
-    for (const tx of data.result) {
-      const msg = tx.in_msg;
-      if (!msg) continue;
-      const amount = parseInt(msg.value) / 1e9;
-      const comment = (msg.message || '').trim();
-      if (comment === memo && Math.abs(amount - expectedAmount) < 0.001) {
-        return tx.transaction_id ? tx.transaction_id.hash : 'unknown';
+  async function loadLibraries() {
+    try {
+      if (!window.Buffer) {
+        const buf = await import("https://esm.sh/buffer@6.0.3");
+        window.Buffer = buf.Buffer || (buf.default && buf.default.Buffer);
       }
-    }
-    return null;
-  } catch (e) {
-    console.error('verifyTonPayment:', e.message);
-    return null;
-  }
-}
+    } catch (e) {}
 
-/* ================= TELEGRAM ================= */
-function validateTelegramInitData(initData) {
-  if (!initData || !BOT_TOKEN) return null;
-  try {
-    const params = new URLSearchParams(initData);
-    const hash = params.get('hash');
-    if (!hash) return null;
-    params.delete('hash');
-    const pairs = [];
-    for (const [k, v] of params.entries()) pairs.push(`${k}=${v}`);
-    pairs.sort();
-    const dataCheckString = pairs.join('\n');
-    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-    const validationHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (validationHash !== hash) return null;
-    const userJson = params.get('user');
-    if (!userJson) return null;
-    return JSON.parse(userJson);
-  } catch (e) { return null; }
-}
+    TON = await tryImport(TON_URLS, m => m.WalletContractV5R1 && m.WalletContractV4 && m.TonClient);
+    if (!TON) throw new Error("Could not load TON library. Check your connection / VPN.");
 
-/* ================= GAME STATE ================= */
-const players = new Map();
-const botPlayers = new Map();
-const food = [];
+    CR = await tryImport(CRYPTO_URLS, m => m.mnemonicToPrivateKey && m.keyPairFromSeed);
+    if (!CR) throw new Error("Could not load crypto library.");
 
-function rand(a, b) { return a + Math.random() * (b - a); }
-function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
-function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-function massToRadius(m) { return Math.sqrt(m) * 4.5; }
-function massToSpeed(m) { return 22 * Math.pow(m, -0.32) * 4.5; }
-
-function randomWorldPos(margin) {
-  margin = margin || 30;
-  const maxR = Math.max(50, WORLD_RADIUS - margin);
-  const a = Math.random() * Math.PI * 2;
-  const r = Math.sqrt(Math.random()) * maxR;
-  return { x: CX + Math.cos(a) * r, y: CY + Math.sin(a) * r };
-}
-function getTotalMass(p) { let s = 0; for (const c of p.cells) s += c.mass; return s; }
-function getCenter(p) {
-  let tot = 0, sx = 0, sy = 0;
-  for (const c of p.cells) { tot += c.mass; sx += c.x * c.mass; sy += c.y * c.mass; }
-  return tot > 0 ? { x: sx / tot, y: sy / tot } : { x: CX, y: CY };
-}
-
-function spawnFood() {
-  const pos = randomWorldPos(30);
-  return { x: pos.x, y: pos.y, r: randInt(80, 255), g: randInt(80, 255), b: randInt(80, 255) };
-}
-for (let i = 0; i < FOOD_COUNT; i++) food.push(spawnFood());
-
-function createPlayer(id, name, color, startMass, isBot) {
-  const pos = randomWorldPos(200);
-  return {
-    id, name: name || 'Player', color: color || '#4a9eff',
-    cells: [{ x: pos.x, y: pos.y, mass: startMass || START_MASS, vx: 0, vy: 0, mergeTimer: 0 }],
-    targetX: pos.x, targetY: pos.y,
-    alive: true, kills: 0, maxMass: startMass || START_MASS,
-    spawnTime: Date.now(), isBot: !!isBot, botTimer: 0
-  };
-}
-
-function updateCell(cell, dt, tx, ty) {
-  const dx = tx - cell.x, dy = ty - cell.y;
-  const d = Math.sqrt(dx * dx + dy * dy);
-  if (d < 0.5) return;
-  const speed = massToSpeed(cell.mass) * 10;
-  const dirX = dx / d, dirY = dy / d;
-  let moveSpeed = speed;
-  if (d < 40) moveSpeed = speed * (d / 40);
-  cell.x += dirX * moveSpeed * dt;
-  cell.y += dirY * moveSpeed * dt;
-  const r = massToRadius(cell.mass);
-  const dxC = cell.x - CX, dyC = cell.y - CY;
-  const distC = Math.sqrt(dxC * dxC + dyC * dyC);
-  const maxDist = WORLD_RADIUS - r;
-  if (distC > maxDist) {
-    const nx = dxC / distC, ny = dyC / distC;
-    cell.x = CX + nx * maxDist;
-    cell.y = CY + ny * maxDist;
-  }
-  if (cell.mass > MASS_DECAY_MIN) cell.mass -= cell.mass * MASS_DECAY_RATE * dt;
-  if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
-}
-
-function tick(dt) {
-  const allPlayers = [...players.values(), ...botPlayers.values()];
-
-  for (const bot of botPlayers.values()) {
-    if (!bot.alive) continue;
-    bot.botTimer -= dt;
-    if (bot.botTimer > 0) continue;
-    bot.botTimer = 0.15 + Math.random() * 0.15;
-    const bc = getCenter(bot);
-    const bm = getTotalMass(bot);
-    let bestFood = null, bestFoodD = Infinity;
-    for (let i = 0; i < food.length; i += 2) {
-      const f = food[i];
-      const d2 = (f.x - bc.x) ** 2 + (f.y - bc.y) ** 2;
-      if (d2 < bestFoodD && d2 < 500 * 500) { bestFoodD = d2; bestFood = f; }
-    }
-    let threat = null, threatD = Infinity;
-    let prey = null, preyD = Infinity;
-    for (const other of allPlayers) {
-      if (other === bot || !other.alive) continue;
-      const oc = getCenter(other);
-      const om = getTotalMass(other);
-      const d2 = (oc.x - bc.x) ** 2 + (oc.y - bc.y) ** 2;
-      if (d2 > 500 * 500) continue;
-      if (om > bm * 1.15) { if (d2 < threatD) { threatD = d2; threat = oc; } }
-      else if (bm > om * 1.3) { if (d2 < preyD) { preyD = d2; prey = oc; } }
-    }
-    let tx = bc.x, ty = bc.y;
-    if (threat && threatD < 300 * 300) { tx = bc.x + (bc.x - threat.x); ty = bc.y + (bc.y - threat.y); }
-    else if (prey && preyD < 400 * 400 && Math.random() < 0.7) { tx = prey.x; ty = prey.y; }
-    else if (bestFood) { tx = bestFood.x; ty = bestFood.y; }
-    else { tx = bc.x + rand(-200, 200); ty = bc.y + rand(-200, 200); }
-    const tdx = tx - CX, tdy = ty - CY;
-    const td = Math.sqrt(tdx * tdx + tdy * tdy);
-    const maxTD = WORLD_RADIUS - 150;
-    if (td > maxTD) { tx = CX + (tdx / td) * maxTD; ty = CY + (tdy / td) * maxTD; }
-    bot.targetX = tx; bot.targetY = ty;
+    client = new TON.TonClient({
+      endpoint: API + "/jsonRPC",
+      apiKey: API_KEY
+    });
   }
 
-  for (const p of allPlayers) {
-    if (!p.alive) continue;
-    for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
+  // ===================== ENCRYPTION =====================
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
 
-    for (let a = p.cells.length - 1; a >= 0; a--) {
-      if (a >= p.cells.length) continue;
-      for (let b = a - 1; b >= 0; b--) {
-        if (b >= p.cells.length || a >= p.cells.length) continue;
-        const ca = p.cells[a], cb = p.cells[b];
-        if (!ca || !cb) continue;
-        const dx = cb.x - ca.x, dy = cb.y - ca.y;
-        const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const ov = massToRadius(ca.mass) + massToRadius(cb.mass) - d;
-        if (ov > 0) {
-          if (ca.mergeTimer <= 0 && cb.mergeTimer <= 0) {
-            const big = ca.mass >= cb.mass ? ca : cb;
-            const small = ca.mass >= cb.mass ? cb : ca;
-            big.mass += small.mass;
-            p.cells.splice(p.cells.indexOf(small), 1);
-            a = p.cells.length;
+  function toB64(u8) {
+    let s = "";
+    for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return btoa(s);
+  }
+
+  function fromB64(s) {
+    const bin = atob(s);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  async function deriveKey(pass, salt) {
+    const material = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" },
+      material,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function encrypt(text, pass) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(pass, salt);
+    const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(text)));
+    return JSON.stringify({ s: toB64(salt), i: toB64(iv), c: toB64(cipher) });
+  }
+
+  async function decrypt(blob, pass) {
+    const obj = JSON.parse(blob);
+    const key = await deriveKey(pass, fromB64(obj.s));
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(obj.i) }, key, fromB64(obj.c));
+    return dec.decode(plain);
+  }
+
+  // ===================== KEY DERIVATION =====================
+  function toBuf(u8) {
+    return window.Buffer ? window.Buffer.from(u8) : u8;
+  }
+
+  async function hmac(key, data) {
+    const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
+    return new Uint8Array(await crypto.subtle.sign("HMAC", k, data));
+  }
+
+  async function bip39KeyPair(wordsArr) {
+    const material = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(wordsArr.join(" ").normalize("NFKD")),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const seed = new Uint8Array(await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: enc.encode("mnemonic"), iterations: 2048, hash: "SHA-512" },
+      material,
+      512
+    ));
+    let I = await hmac(enc.encode("ed25519 seed"), seed);
+    let k = I.slice(0, 32);
+    let c = I.slice(32);
+    const path = [44, 607, 0];
+    for (let i = 0; i < 3; i++) {
+      const idx = (path[i] | 0x80000000) >>> 0;
+      const data = new Uint8Array(37);
+      data.set(k, 1);
+      data[33] = (idx >>> 24) & 255;
+      data[34] = (idx >>> 16) & 255;
+      data[35] = (idx >>> 8) & 255;
+      data[36] = idx & 255;
+      I = await hmac(c, data);
+      k = I.slice(0, 32);
+      c = I.slice(32);
+    }
+    return CR.keyPairFromSeed(toBuf(k));
+  }
+
+  const CANDIDATES = [
+    { id: "ton-v5", d: "ton", v: "V5R1" },
+    { id: "bip-v5", d: "bip", v: "V5R1" },
+    { id: "ton-v4", d: "ton", v: "V4R2" },
+    { id: "bip-v4", d: "bip", v: "V4R2" }
+  ];
+
+  async function buildWallet(cand, wordsArr) {
+    const kp = cand.d === "ton"
+      ? await CR.mnemonicToPrivateKey(wordsArr)
+      : await bip39KeyPair(wordsArr);
+
+    const w = cand.v === "V5R1"
+      ? TON.WalletContractV5R1.create({ workchain: 0, publicKey: kp.publicKey })
+      : TON.WalletContractV4.create({ workchain: 0, publicKey: kp.publicKey });
+
+    return {
+      id: cand.id,
+      kp,
+      wallet: w,
+      addr: w.address.toString({ bounceable: false, urlSafe: true }),
+      label: cand.v + " / " + (cand.d === "ton" ? "TON-standard" : "BIP39")
+    };
+  }
+
+  // ===================== API =====================
+  async function api(path) {
+    const url = API + path + (path.includes("?") ? "&" : "?") + "api_key=" + API_KEY;
+    const res = await fetch(url);
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      throw new Error("HTTP " + res.status);
+    }
+    if (!json.ok) throw new Error(json.error || "API error");
+    return json.result;
+  }
+
+  // ===================== WALLET LOAD =====================
+  async function loadWallet(wordsArr) {
+    words = wordsArr;
+    let chosen = null;
+    const saved = localStorage.getItem(CHOICE);
+
+    if (saved) {
+      const found = CANDIDATES.find(c => c.id === saved);
+      if (found) chosen = await buildWallet(found, words);
+    }
+
+    if (!chosen) {
+      for (const cand of CANDIDATES) {
+        const built = await buildWallet(cand, words);
+        try {
+          const info = await api("/getAddressInformation?address=" + built.addr);
+          const bal = BigInt(info.balance || "0");
+          if (info.state !== "uninitialized" || bal > 0n) {
+            chosen = built;
+            localStorage.setItem(CHOICE, built.id);
             break;
-          } else {
-            const nx = dx / d, ny = dy / d, push = ov * 0.5;
-            ca.x -= nx * push; ca.y -= ny * push;
-            cb.x += nx * push; cb.y += ny * push;
           }
+        } catch (e) {}
+        await sleep(250);
+      }
+      if (!chosen) {
+        // fallback to first candidate (no red error shown)
+        chosen = await buildWallet(CANDIDATES[0], words);
+      }
+    }
+
+    kp0 = chosen.kp;
+    wallet = chosen.wallet;
+    address = chosen.addr;
+
+    $("cardAddr").textContent = address;
+    $("recvAddr").textContent = address;
+
+    showScreen("main");
+    refresh();
+  }
+
+  // ===================== REFRESH =====================
+  async function refresh() {
+    const btn = $("refreshBtn");
+    btn.style.opacity = "0.4";
+
+    try {
+      balNano = BigInt(await api("/getAddressBalance?address=" + address));
+      const ton = TON.fromNano(balNano);
+      $("balN").textContent = parseFloat(ton).toString();
+
+      // price
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd")
+        .then(r => r.json())
+        .then(p => {
+          price = p["the-open-network"]?.usd || 0;
+          \( ("usd").textContent = " \)" + (parseFloat(ton) * price).toFixed(2);
+          updateAmountUI();
+        })
+        .catch(() => {});
+    } catch (e) {}
+
+    await sleep(300);
+
+    try {
+      const txs = await api("/getTransactions?address=" + address + "&limit=25");
+      renderTransactions(txs);
+    } catch (e) {
+      $("txList").innerHTML = '<div class="empty-state">Could not load transactions</div>';
+    }
+
+    btn.style.opacity = "1";
+  }
+
+  function formatTime(utime) {
+    return new Date(utime * 1000).toLocaleString("en", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  }
+
+  function renderTransactions(list) {
+    const items = [];
+    list.forEach(tx => {
+      if (tx.in_msg && tx.in_msg.source) {
+        items.push({
+          dir: "in",
+          addr: tx.in_msg.source,
+          value: tx.in_msg.value,
+          memo: tx.in_msg.message,
+          time: tx.utime
+        });
+      }
+      (tx.out_msgs || []).forEach(o => {
+        if (o.destination) {
+          items.push({
+            dir: "out",
+            addr: o.destination,
+            value: o.value,
+            memo: o.message,
+            time: tx.utime
+          });
         }
-      }
-    }
-
-    if (getTotalMass(p) > p.maxMass) p.maxMass = getTotalMass(p);
-    if (p.cells.length === 0) p.alive = false;
-  }
-
-  for (const p of allPlayers) {
-    if (!p.alive) continue;
-    for (const cell of p.cells) {
-      const cr = massToRadius(cell.mass);
-      const cr2 = cr * cr;
-      for (let i = food.length - 1; i >= 0; i--) {
-        const f = food[i];
-        const dx = f.x - cell.x, dy = f.y - cell.y;
-        if (dx * dx + dy * dy < cr2) { cell.mass += 1; food.splice(i, 1); }
-      }
-    }
-  }
-  while (food.length < FOOD_COUNT) food.push(spawnFood());
-
-  for (let i = 0; i < allPlayers.length; i++) {
-    const A = allPlayers[i];
-    if (!A.alive) continue;
-    for (let j = i + 1; j < allPlayers.length; j++) {
-      const B = allPlayers[j];
-      if (!B.alive) continue;
-      for (let ca = A.cells.length - 1; ca >= 0; ca--) {
-        if (ca >= A.cells.length) continue;
-        const cellA = A.cells[ca]; if (!cellA) continue;
-        for (let cb = B.cells.length - 1; cb >= 0; cb--) {
-          if (cb >= B.cells.length) continue;
-          const cellB = B.cells[cb]; if (!cellB) continue;
-          const dx = cellB.x - cellA.x, dy = cellB.y - cellA.y;
-          const d2 = dx * dx + dy * dy;
-          const ra = massToRadius(cellA.mass), rb = massToRadius(cellB.mass);
-          if (cellA.mass > cellB.mass * EAT_MASS_RATIO) {
-            const eatDist = ra - rb * EAT_OVERLAP;
-            if (d2 < eatDist * eatDist) {
-              cellA.mass += cellB.mass;
-              B.cells.splice(cb, 1);
-              A.kills++;
-              if (B.cells.length === 0) B.alive = false;
-              continue;
-            }
-          }
-          if (cellB.mass > cellA.mass * EAT_MASS_RATIO) {
-            const eatDist = rb - ra * EAT_OVERLAP;
-            if (d2 < eatDist * eatDist) {
-              cellB.mass += cellA.mass;
-              A.cells.splice(ca, 1);
-              B.kills++;
-              if (A.cells.length === 0) A.alive = false;
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  for (const [, bot] of botPlayers) {
-    if (!bot.alive) {
-      const pos = randomWorldPos(300);
-      bot.cells = [{ x: pos.x, y: pos.y, mass: START_MASS, vx: 0, vy: 0, mergeTimer: 0 }];
-      bot.targetX = pos.x; bot.targetY = pos.y;
-      bot.alive = true; bot.kills = 0; bot.maxMass = START_MASS;
-    }
-  }
-}
-
-function doSplit(p) {
-  if (!p.alive) return;
-  const c = getCenter(p);
-  let dx = p.targetX - c.x, dy = p.targetY - c.y;
-  const m = Math.sqrt(dx * dx + dy * dy) || 1;
-  dx /= m; dy /= m;
-  let total = p.cells.length;
-  const ncs = [];
-  for (let i = 0; i < p.cells.length; i++) {
-    if (total >= MAX_CELLS) break;
-    const cell = p.cells[i];
-    if (cell.mass < MIN_SPLIT_MASS) continue;
-    const half = cell.mass / 2;
-    cell.mass = half;
-    cell.mergeTimer = MERGE_TIME;
-    const newR = massToRadius(half);
-    const nX = cell.x + dx * (newR + 5);
-    const nY = cell.y + dy * (newR + 5);
-    const lf = clamp(Math.pow(half / MIN_SPLIT_MASS, -0.15), 0.6, 1.5);
-    const ls = SPLIT_LAUNCH_SPEED * lf;
-    ncs.push({ x: nX, y: nY, mass: half, vx: dx * ls, vy: dy * ls, mergeTimer: MERGE_TIME });
-    total++;
-  }
-  for (const n of ncs) p.cells.push(n);
-}
-
-function doEject(p) {
-  if (!p.alive) return;
-  const c = getCenter(p);
-  let dx = p.targetX - c.x, dy = p.targetY - c.y;
-  const m = Math.sqrt(dx * dx + dy * dy) || 1;
-  dx /= m; dy /= m;
-  for (const cell of p.cells) {
-    if (cell.mass < MIN_EJECT_MASS) continue;
-    cell.mass -= EJECT_COST;
-    const ejX = cell.x + dx * massToRadius(cell.mass);
-    const ejY = cell.y + dy * massToRadius(cell.mass);
-    food.push({ x: ejX, y: ejY, r: 255, g: 200, b: 100, vx: dx * 1000, vy: dy * 1000, isEjected: true, life: 6 });
-  }
-}
-
-function initBots() {
-  const names = ['Nova','Orion','Luna','Vega','Atlas','Cosmo','Nebula','Astro','Stella','Pulsar','Comet','Quasar','Galaxy','Titan','Phoenix','Zephyr','Hydra','Draco'];
-  const colors = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
-  for (let i = 0; i < BOT_COUNT; i++) {
-    const bot = createPlayer('bot_' + i, names[i % names.length], colors[i % colors.length], START_MASS, true);
-    botPlayers.set('bot_' + i, bot);
-  }
-}
-initBots();
-
-/* ================= SKIN HELPERS ================= */
-const ALL_SKINS = ['default', 'mind', 'knight', 'rage'];
-
-async function getSkinPrices() {
-  if (!dbReady) return {};
-  try {
-    const r = await db.query('SELECT skin_id, sell_price, is_sellable FROM skin_prices');
-    const out = {};
-    for (const row of r.rows) {
-      if (row.skin_id === 'fire') continue;
-      out[row.skin_id] = {
-        sellPrice: parseFloat(row.sell_price),
-        isSellable: row.is_sellable
-      };
-    }
-    return out;
-  } catch (e) { return {}; }
-}
-
-async function getNextSerial() {
-  if (!dbReady) return null;
-  try {
-    const r = await db.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
-    return parseInt(r.rows[0].serial);
-  } catch (e) { return null; }
-}
-
-async function getSerialStatus() {
-  if (!dbReady) return { next: null, soldOut: false };
-  try {
-    const r = await db.query(`SELECT last_value, is_called FROM lootbox_serial_seq`);
-    const last = parseInt(r.rows[0].last_value);
-    const called = r.rows[0].is_called;
-    const current = called ? last : 0;
-    return { next: current + 1, soldOut: current >= LOOTBOX_MAX_SERIAL };
-  } catch (e) {
-    return { next: 1, soldOut: false };
-  }
-}
-
-/* ================= SOCKET.IO ================= */
-io.on('connection', (socket) => {
-  console.log('🟢 ' + socket.id);
-  let currentUserId = null;
-  let isAdminAuthed = false;
-
-  function checkAdmin(pw) { return String(pw) === ADMIN_PASSWORD; }
-
-  socket.on('auth', async (data) => {
-    let userData = null;
-    if (data.initData && BOT_TOKEN) {
-      const tgUser = validateTelegramInitData(data.initData);
-      if (tgUser) {
-        userData = { id: 'tg_' + tgUser.id, username: tgUser.username || '', firstName: tgUser.first_name || 'Player' };
-      }
-    }
-    if (!userData && data.deviceId) {
-      userData = { id: 'dev_' + data.deviceId, username: '', firstName: 'Guest' };
-    }
-    if (!userData) {
-      socket.emit('auth_error', { message: 'Auth failed' });
-      return;
-    }
-    currentUserId = userData.id;
-    const user = await getOrCreateUser(userData.id, userData.username, userData.firstName);
-    if (!user) { socket.emit('auth_error', { message: 'DB error' }); return; }
-    const settings = await getAdminSettings();
-    const prices = await getSkinPrices();
-    const serialStatus = await getSerialStatus();
-
-    socket.emit('auth_ok', {
-      user: {
-        id: user.telegram_id,
-        name: user.first_name || 'Player',
-        tokens: user.tokens || 0,
-        speedLevel: user.speed_level || 0,
-        massLevel: user.mass_level || 0,
-        unlockedSkins: normalizeSkins(user.unlocked_skins),
-        currentSkin: user.current_skin || 'default',
-        totalKills: user.total_kills || 0,
-        highScore: user.high_score || 0,
-        walletAddress: user.wallet_address || ''
-      },
-      settings: settings,
-      skinPrices: prices,
-      serialStatus: serialStatus,
-      tonWalletAddress: TON_WALLET_ADDRESS
-    });
-  });
-
-  socket.on('save_progress', async (data) => {
-    if (!currentUserId) return;
-    await saveProgress(currentUserId, data);
-  });
-
-  socket.on('save_wallet', async (data) => {
-    if (!currentUserId || !data || !data.wallet) return;
-    try { Address.parse(data.wallet); }
-    catch (e) { socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' }); return; }
-    if (!dbReady) { socket.emit('wallet_saved', { ok: false }); return; }
-    try {
-      await db.query('UPDATE users SET wallet_address = $1 WHERE telegram_id = $2', [data.wallet, currentUserId]);
-      socket.emit('wallet_saved', { ok: true, wallet: data.wallet });
-    } catch (e) { socket.emit('wallet_saved', { ok: false }); }
-  });
-
-  // ============ ADMIN LOGIN (server-validated) ============
-  socket.on('admin_login', (data) => {
-    const pw = data && data.password;
-    const ok = checkAdmin(pw);
-    isAdminAuthed = ok;
-    console.log('🔐 admin_login attempt from ' + socket.id + ' — ' + (ok ? 'OK' : 'FAILED'));
-    socket.emit('admin_login_result', { ok: ok });
-  });
-
-  // ============ ADMIN ACTIONS (server-validated) ============
-  socket.on('admin_add_tokens', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
-    try {
-      await db.query('UPDATE users SET tokens = tokens + 1000 WHERE telegram_id = $1', [currentUserId]);
-      const r = await db.query('SELECT tokens FROM users WHERE telegram_id = $1', [currentUserId]);
-      const newTokens = r.rows.length > 0 ? r.rows[0].tokens : 0;
-      socket.emit('admin_add_tokens_result', { ok: true, tokens: newTokens });
-    } catch (e) {
-      console.error('admin_add_tokens:', e.message);
-      socket.emit('admin_add_tokens_result', { ok: false });
-    }
-  });
-
-  socket.on('admin_unlock_all', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
-    try {
-      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [currentUserId]);
-      if (u.rows.length === 0) { socket.emit('admin_unlock_all_result', { ok: false }); return; }
-      const skins = normalizeSkins(u.rows[0].unlocked_skins);
-      const ownedIds = new Set(skins.map(s => s.id));
-      for (const sid of ALL_SKINS) {
-        if (!ownedIds.has(sid)) {
-          skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
-        }
-      }
-      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-        [JSON.stringify(skins), currentUserId]);
-      socket.emit('admin_unlock_all_result', { ok: true, unlockedSkins: skins });
-    } catch (e) {
-      console.error('admin_unlock_all:', e.message);
-      socket.emit('admin_unlock_all_result', { ok: false });
-    }
-  });
-
-  socket.on('admin_wipe_all', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
-    try {
-      const fresh = [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }];
-      await db.query(
-        `UPDATE users SET tokens = 0, speed_level = 0, mass_level = 0,
-         unlocked_skins = $1, current_skin = 'default',
-         total_kills = 0, high_score = 0 WHERE telegram_id = $2`,
-        [JSON.stringify(fresh), currentUserId]
-      );
-      socket.emit('admin_wipe_all_result', { ok: true, unlockedSkins: fresh });
-    } catch (e) {
-      console.error('admin_wipe_all:', e.message);
-      socket.emit('admin_wipe_all_result', { ok: false });
-    }
-  });
-
-  socket.on('admin_set', async (data) => {
-    if (!isAdminAuthed || !data || !data.key || !checkAdmin(data.password)) return;
-    const ok = await setAdminSetting(data.key, data.value);
-    if (ok) io.emit('settings_update', await getAdminSettings());
-    socket.emit('admin_set_result', { ok: ok, key: data.key });
-  });
-
-  socket.on('admin_get_requests', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_requests', []);
-      return;
-    }
-    if (!dbReady) { socket.emit('admin_requests', []); return; }
-    try {
-      const r = await db.query(
-        `SELECT id, user_id, user_wallet, skin_id, skin_serial, price_ton, status, tx_hash, created_at, paid_at
-         FROM sell_requests ORDER BY created_at DESC LIMIT 100`
-      );
-      socket.emit('admin_requests', r.rows);
-    } catch (e) {
-      console.error('admin_get_requests:', e.message);
-      socket.emit('admin_requests', []);
-    }
-  });
-
-  socket.on('admin_pay_request', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!dbReady) return;
-    const reqId = parseInt(data.requestId);
-    if (!reqId) return;
-
-    let req;
-    try {
-      const lock = await db.query(
-        `UPDATE sell_requests SET status = 'processing' WHERE id = $1 AND status = 'pending' RETURNING *`,
-        [reqId]
-      );
-      if (lock.rows.length === 0) {
-        socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'Already processed' });
-        return;
-      }
-      req = lock.rows[0];
-    } catch (e) {
-      socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'DB error' });
-      return;
-    }
-
-    const amount = parseFloat(req.price_ton);
-    const recipient = req.user_wallet;
-
-    try {
-      const balance = await getHotWalletBalance();
-      if (balance === null || balance < amount + 0.01) {
-        await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
-        socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'Insufficient hot wallet balance' });
-        return;
-      }
-      await sendTonToUser(recipient, amount);
-      const txHash = 'sent_' + Date.now();
-      await db.query(
-        `UPDATE sell_requests SET status = 'paid', tx_hash = $1, paid_at = $2 WHERE id = $3`,
-        [txHash, Date.now(), reqId]
-      );
-      socket.emit('admin_pay_result', { ok: true, requestId: reqId, txHash: txHash, to: recipient, amount: amount });
-    } catch (e) {
-      console.error('Pay error:', e.message);
-      await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
-      socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: e.message });
-    }
-  });
-
-  socket.on('admin_reject_request', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!dbReady) return;
-    const reqId = parseInt(data.requestId);
-    if (!reqId) return;
-    try {
-      const lock = await db.query(
-        `UPDATE sell_requests SET status = 'rejected' WHERE id = $1 AND status = 'pending' RETURNING *`,
-        [reqId]
-      );
-      if (lock.rows.length === 0) {
-        socket.emit('admin_reject_result', { ok: false, requestId: reqId });
-        return;
-      }
-      const req = lock.rows[0];
-      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
-      if (u.rows.length > 0) {
-        const skins = normalizeSkins(u.rows[0].unlocked_skins);
-        skins.push({ id: req.skin_id, serial: req.skin_serial, source: 'refund', acquiredAt: Date.now() });
-        await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-          [JSON.stringify(skins), req.user_id]);
-      }
-      socket.emit('admin_reject_result', { ok: true, requestId: reqId });
-    } catch (e) {
-      socket.emit('admin_reject_result', { ok: false, requestId: reqId });
-    }
-  });
-
-  socket.on('admin_set_skin_price', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!dbReady || !data.skinId) return;
-    if (data.skinId === 'fire') { socket.emit('admin_skin_price_result', { ok: false }); return; }
-    try {
-      await db.query(
-        `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, $2, $3)
-         ON CONFLICT (skin_id) DO UPDATE SET sell_price = EXCLUDED.sell_price, is_sellable = EXCLUDED.is_sellable`,
-        [data.skinId, parseFloat(data.price) || 0, !!data.sellable]
-      );
-      const prices = await getSkinPrices();
-      io.emit('skin_prices_update', prices);
-      socket.emit('admin_skin_price_result', { ok: true });
-    } catch (e) {
-      socket.emit('admin_skin_price_result', { ok: false });
-    }
-  });
-
-  socket.on('admin_get_wallet_balance', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_wallet_balance', { ok: false, balance: null, address: TON_WALLET_ADDRESS });
-      return;
-    }
-    const balance = await getHotWalletBalance();
-    socket.emit('admin_wallet_balance', {
-      ok: balance !== null,
-      balance: balance,
-      address: TON_WALLET_ADDRESS
-    });
-  });
-
-  // ============ LOOTBOX CLAIM ============
-  socket.on('claim_lootbox', async (data) => {
-    if (!currentUserId || !data || !data.memo) return;
-    if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
-
-    const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
-    if (existing.rows.length > 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
-      return;
-    }
-
-    const settings = await getAdminSettings();
-    const price = parseFloat(settings.lootbox_price) || 0.01;
-    const remaining = parseInt(settings.lootbox_remaining);
-    if (remaining === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' });
-      return;
-    }
-
-    const txHash = await verifyTonPayment(data.memo, price);
-    if (!txHash) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
-      return;
-    }
-
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
-    const currentSkins = normalizeSkins(user.unlocked_skins);
-    const ownedIds = new Set(currentSkins.map(s => s.id));
-    const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
-    if (locked.length === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
-      return;
-    }
-
-    let newRemaining = remaining;
-    if (remaining > 0) {
-      const upd = await db.query(
-        `UPDATE admin_settings SET value = (CAST(value AS INTEGER) - 1)::TEXT
-         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0
-         RETURNING value`
-      );
-      if (upd.rows.length === 0) {
-        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' });
-        return;
-      }
-      newRemaining = parseInt(upd.rows[0].value);
-    }
-
-    const serial = await getNextSerial();
-    if (serial === null) {
-      if (remaining > 0) {
-        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' });
-      return;
-    }
-
-    const picked = locked[Math.floor(Math.random() * locked.length)];
-    currentSkins.push({ id: picked, serial: serial, source: 'lootbox', acquiredAt: Date.now() });
-
-    try {
-      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-        [JSON.stringify(currentSkins), currentUserId]);
-      await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
-        [data.memo, currentUserId, Date.now()]);
-    } catch (e) {
-      console.error('Lootbox save error:', e.message);
-      if (remaining > 0) {
-        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' });
-      return;
-    }
-
-    if (remaining > 0) io.emit('settings_update', await getAdminSettings());
-
-    socket.emit('lootbox_claim_result', {
-      ok: true,
-      skinId: picked,
-      serial: serial,
-      unlockedSkins: currentSkins,
-      lootboxRemaining: newRemaining
-    });
-  });
-
-  // ============ SKIN SELLING ============
-  socket.on('sell_skin', async (data) => {
-    if (!currentUserId || !data) return;
-    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
-
-    const { skinId, skinSerial, walletAddress } = data;
-    if (!skinId || skinId === 'default') {
-      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
-      return;
-    }
-    if (skinId === 'fire') {
-      socket.emit('sell_result', { ok: false, message: 'Skin not available' });
-      return;
-    }
-
-    try { Address.parse(walletAddress); }
-    catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
-
-    const prices = await getSkinPrices();
-    const priceInfo = prices[skinId];
-    if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
-      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' });
-      return;
-    }
-
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('sell_result', { ok: false }); return; }
-    const skins = normalizeSkins(user.unlocked_skins);
-    const idx = skins.findIndex(s => s.id === skinId && s.serial === skinSerial);
-    if (idx < 0) { socket.emit('sell_result', { ok: false, message: 'Skin not found' }); return; }
-
-    const pending = await db.query(
-      `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
-      [currentUserId, skinId, skinSerial]
-    );
-    if (pending.rows.length > 0) {
-      socket.emit('sell_result', { ok: false, message: 'Already pending' });
-      return;
-    }
-
-    skins.splice(idx, 1);
-
-    const ins = await db.query(
-      `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
-      [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
-    );
-
-    await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
-      [JSON.stringify(skins), walletAddress, currentUserId]);
-
-    socket.emit('sell_result', {
-      ok: true,
-      requestId: ins.rows[0].id,
-      skinId: skinId,
-      skinSerial: skinSerial,
-      price: priceInfo.sellPrice,
-      unlockedSkins: skins,
-      wallet: walletAddress
+      });
     });
 
-    io.emit('admin_new_request', { requestId: ins.rows[0].id });
-  });
+    if (!items.length) {
+      $("txList").innerHTML = '<div class="empty-state">No transactions yet</div>';
+      return;
+    }
 
-  // ============ GAME ============
-  socket.on('join', (data) => {
-    players.delete(socket.id);
-    const p = createPlayer(socket.id, data.name, data.color, data.startMass, false);
-    players.set(socket.id, p);
-    socket.emit('init', {
-      worldRadius: WORLD_RADIUS,
-      centerX: CX, centerY: CY,
-      food: food.slice(0, 300),
-      playerId: socket.id
-    });
-  });
+    $("txList").innerHTML = items.map((x, i) => {
+      const isIn = x.dir === "in";
+      return `
+        <div class="tx-item" style="animation-delay:${i * 0.04}s">
+          <div class="tx-avatar \( {isIn ? "in" : ""}"> \){isIn ? "↓" : "↑"}</div>
+          <div class="tx-info">
+            <div class="tx-title">${esc(shortAddr(x.addr))}</div>
+            <div class="tx-subtitle">${isIn ? "Incoming" : "Outgoing"} · \( {formatTime(x.time)} \){x.memo ? " · " + esc(x.memo) : ""}</div>
+          </div>
+          <div class="tx-amount \( {isIn ? "in" : ""}"> \){isIn ? "+" : "−"}${parseFloat(TON.fromNano(BigInt(x.value)))} 💎</div>
+        </div>`;
+    }).join("");
+  }
 
-  socket.on('input', (data) => {
-    const p = players.get(socket.id);
-    if (!p || !p.alive) return;
-    p.targetX = data.targetX;
-    p.targetY = data.targetY;
-  });
-
-  socket.on('split', () => {
-    const p = players.get(socket.id);
-    if (p && p.alive) doSplit(p);
-  });
-
-  socket.on('eject', () => {
-    const p = players.get(socket.id);
-    if (p && p.alive) doEject(p);
-  });
-
-  socket.on('disconnect_player', () => { players.delete(socket.id); });
-  socket.on('disconnect', () => {
-    players.delete(socket.id);
-    console.log('🔴 ' + socket.id + ' left');
-  });
-});
-
-/* ================= LOOPS ================= */
-let lastTime = Date.now();
-setInterval(() => {
-  const now = Date.now();
-  const dt = Math.min(0.05, (now - lastTime) / 1000);
-  lastTime = now;
-  tick(dt);
-}, 1000 / TICK_RATE);
-
-let bc = 0;
-setInterval(() => {
-  bc++;
-  if (bc % 3 !== 0) return;
-  const snapshot = { players: [], food: food.slice(0, 250) };
-  for (const [, p] of players) {
-    if (!p.alive) continue;
-    snapshot.players.push({
-      id: p.id, name: p.name, color: p.color, isBot: false,
-      cells: p.cells.map(c => ({
-        x: Math.round(c.x), y: Math.round(c.y),
-        mass: Math.round(c.mass),
-        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10)
-      })),
-      kills: p.kills, maxMass: Math.round(p.maxMass)
+  // ===================== UI SCREENS =====================
+  function showScreen(name) {
+    ["setup", "unlock", "main"].forEach(id => {
+      $(id).classList.toggle("hidden", id !== name);
     });
   }
-  for (const [, b] of botPlayers) {
-    if (!b.alive) continue;
-    snapshot.players.push({
-      id: b.id, name: b.name, color: b.color, isBot: true,
-      cells: b.cells.map(c => ({
-        x: Math.round(c.x), y: Math.round(c.y),
-        mass: Math.round(c.mass),
-        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10)
-      })),
-      kills: b.kills, maxMass: Math.round(b.maxMass)
-    });
-  }
-  io.emit('state', snapshot);
-}, 1000 / 60);
 
-/* ================= START ================= */
-(async () => {
-  await initTonWallet();
-  server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.3.0 on ' + PORT);
-    console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
-    console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
-    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
-    console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626)'));
+  function setMsg(id, text, ok) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = "msg " + (ok ? "ok" : "err");
+  }
+
+  // ===================== MENU =====================
+  $("menuBtn").onclick = () => $("menuBg").classList.add("show");
+  $("menuBg").onclick = (e) => {
+    if (e.target.id === "menuBg") $("menuBg").classList.remove("show");
+  };
+
+  document.querySelectorAll("[data-m]").forEach(btn => {
+    btn.onclick = () => {
+      $("menuBg").classList.remove("show");
+      const m = btn.dataset.m;
+      if (m === "lock") {
+        words = null; wallet = null; kp0 = null;
+        showScreen("unlock");
+      } else if (m === "keys") {
+        toast("Your words are stored encrypted on this device only");
+      } else if (m === "cur") {
+        toast("Currency: USD");
+      } else if (m === "apps") {
+        toast("STON.fi is connected");
+      } else {
+        toast("Non-custodial TON wallet — only you hold the keys");
+      }
+    };
   });
+
+  // ===================== RECEIVE =====================
+  $("addBtn").onclick = $("qrBtn").onclick = () => $("recvBg").classList.add("show");
+  $("recvClose").onclick = () => $("recvBg").classList.remove("show");
+  $("recvBg").onclick = (e) => {
+    if (e.target.id === "recvBg") $("recvBg").classList.remove("show");
+  };
+
+  $("copyBtn").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      toast("Address copied");
+    } catch (e) {
+      prompt("Copy this address:", address);
+    }
+  };
+
+  $("refreshBtn").onclick = refresh;
+
+  // ===================== SEND FLOW =====================
+  const keyLabels = ["1","2","3","4","5","6","7","8","9",".","0","⌫"];
+  $("keys").innerHTML = keyLabels.map(k =>
+    `<button class="key" data-k="\( {k}"> \){k}</button>`
+  ).join("") + `<button class="key done" id="doneBtn">Done</button>`;
+
+  function showKeypad(show) {
+    $("kp").classList.toggle("show", show);
+  }
+
+  function openSend() {
+    amt = "0";
+    wasBad = false;
+    $("toAddr").value = "";
+    $("memo").value = "";
+    updateRecipient();
+    updateAmountUI();
+    $("balInfo").textContent = "Balance: " + parseFloat(TON.fromNano(balNano)) + " TON";
+    $("sendPage").classList.add("show");
+    setTimeout(() => showKeypad(true), 280);
+  }
+
+  function closeSend() {
+    showKeypad(false);
+    $("sendPage").classList.remove("show");
+  }
+
+  $("sendBtn").onclick = openSend;
+  $("backBtn").onclick = closeSend;
+  $("doneBtn").onclick = () => showKeypad(false);
+  $("amtBox").onclick = () => showKeypad(true);
+  $("toAddr").onfocus = () => showKeypad(false);
+  $("memo").onfocus = () => showKeypad(false);
+
+  function updateRecipient() {
+    const a = $("toAddr").value.trim();
+    let ok = false;
+    try {
+      TON.Address.parseFriendly(a);
+      ok = true;
+    } catch (e) {
+      try {
+        TON.Address.parse(a);
+        ok = true;
+      } catch (e2) {}
+    }
+    $("rAva").textContent = ok ? a.slice(0, 2).toUpperCase() : "?";
+    $("rName").textContent = ok ? "Recipient" : "Recipient";
+    $("rAddr").textContent = ok ? shortAddr(a) : "Enter address below";
+    return ok;
+  }
+
+  $("toAddr").oninput = () => {
+    updateRecipient();
+    updateAmountUI();
+  };
+
+  function amtNano() {
+    try {
+      return TON.toNano(amt.replace(/\.$/, "") || "0");
+    } catch (e) {
+      return 0n;
+    }
+  }
+
+  function updateAmountUI() {
+    const v = $("amtV");
+    v.textContent = amt;
+    v.classList.remove("pop");
+    void v.offsetWidth;
+    v.classList.add("pop");
+
+    const n = parseFloat(amt) || 0;
+    $("conv").textContent = "= $" + (n * price).toFixed(2);
+
+    const nano = amtNano();
+    const bad = nano > 0n && nano + TON.toNano(FEE) > balNano;
+    $("warn").classList.toggle("show", bad);
+
+    if (bad && !wasBad) {
+      const box = $("amtBox");
+      box.classList.remove("shake");
+      void box.offsetWidth;
+      box.classList.add("shake");
+      buzz();
+    }
+    wasBad = bad;
+
+    const go = $("goBtn");
+    const ok = nano > 0n && !bad && updateRecipient();
+    go.disabled = !ok;
+    go.textContent = n > 0 ? "Send " + amt.replace(/\.$/, "") + " TON" : "Continue";
+  }
+
+  $("keys").onclick = (e) => {
+    const btn = e.target.closest(".key");
+    if (!btn || btn.id === "doneBtn") return;
+    buzz();
+    const k = btn.dataset.k;
+    if (k === "⌫") {
+      amt = amt.length > 1 ? amt.slice(0, -1) : "0";
+    } else if (k === ".") {
+      if (!amt.includes(".")) amt += ".";
+    } else {
+      if (amt === "0") amt = k;
+      else if (amt.length < 14 && !(amt.includes(".") && amt.split(".")[1].length >= 9)) {
+        amt += k;
+      }
+    }
+    updateAmountUI();
+  };
+
+  $("goBtn").onclick = async () => {
+    const go = $("goBtn");
+    const to = $("toAddr").value.trim();
+    const memo = $("memo").value.trim();
+    let dest, bounce = false;
+
+    try {
+      try {
+        const p = TON.Address.parseFriendly(to);
+        dest = p.address;
+        bounce = p.isBounceable;
+      } catch (e) {
+        dest = TON.Address.parse(to);
+      }
+    } catch (e) {
+      return toast("Invalid address");
+    }
+
+    go.disabled = true;
+    go.innerHTML = '<span class="spin"></span>';
+    showKeypad(false);
+
+    try {
+      const opened = client.open(wallet);
+      const seqno = await opened.getSeqno();
+      await opened.sendTransfer({
+        seqno,
+        secretKey: kp0.secretKey,
+        sendMode: TON.SendMode.PAY_GAS_SEPARATELY + TON.SendMode.IGNORE_ERRORS,
+        messages: [
+          TON.internal({
+            to: dest,
+            value: amtNano(),
+            bounce,
+            body: memo || undefined
+          })
+        ]
+      });
+      toast("✅ Sent! It will appear in a few seconds");
+      closeSend();
+      setTimeout(refresh, 3000);
+      setTimeout(refresh, 10000);
+    } catch (e) {
+      toast("Error: " + (e.message || e));
+      go.disabled = false;
+      updateAmountUI();
+    }
+  };
+
+  // ===================== IMPORT / UNLOCK =====================
+  $("importBtn").onclick = async () => {
+    const w = $("words").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const p1 = $("pass1").value;
+    const p2 = $("pass2").value;
+
+    if (w.length !== 12 && w.length !== 24) {
+      return setMsg("setupMsg", "Enter exactly 12 or 24 words", false);
+    }
+    if (p1.length < 4) {
+      return setMsg("setupMsg", "Passcode must be at least 4 characters", false);
+    }
+    if (p1 !== p2) {
+      return setMsg("setupMsg", "Passcodes don't match", false);
+    }
+
+    setMsg("setupMsg", "Please wait…", true);
+    try {
+      await loadLibraries();
+      localStorage.removeItem(CHOICE);
+      localStorage.setItem(KEY, await encrypt(w.join(" "), p1));
+      $("words").value = "";
+      $("pass1").value = "";
+      $("pass2").value = "";
+      await loadWallet(w);
+    } catch (e) {
+      setMsg("setupMsg", "Error: " + (e.message || e), false);
+    }
+  };
+
+  $("unlockBtn").onclick = async () => {
+    setMsg("unlockMsg", "Please wait…", true);
+    try {
+      const plain = await decrypt(localStorage.getItem(KEY), $("unlockPass").value);
+      $("unlockPass").value = "";
+      $("unlockMsg").textContent = "";
+      await loadLibraries();
+      await loadWallet(plain.split(" "));
+    } catch (e) {
+      setMsg("unlockMsg", "Wrong passcode", false);
+    }
+  };
+
+  $("unlockPass").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("unlockBtn").click();
+  });
+
+  $("forgetBtn").onclick = () => {
+    if (confirm("Remove this wallet from this device?\nMake sure you have saved your secret words!")) {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(CHOICE);
+      location.reload();
+    }
+  };
+
+  // ===================== START =====================
+  async function boot() {
+    try {
+      await loadLibraries();
+      $("loading").classList.add("hide");
+
+      if (localStorage.getItem(KEY)) {
+        showScreen("unlock");
+      } else {
+        showScreen("setup");
+      }
+    } catch (e) {
+      $("loading").innerHTML = `
+        <div style="text-align:center;padding:40px;color:white">
+          <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+          <div style="font-size:18px;margin-bottom:12px">Failed to load libraries</div>
+          <div style="opacity:0.8;font-size:14px;max-width:280px;margin:0 auto 24px">${esc(e.message)}</div>
+          <button onclick="location.reload()" style="background:white;color:#1e5cbe;border:none;padding:12px 28px;border-radius:30px;font-size:16px;font-weight:600">Retry</button>
+        </div>`;
+    }
+  }
+
+  boot();
 })();
+</script>
+</body>
+</html>
