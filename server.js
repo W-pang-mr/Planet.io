@@ -1,9 +1,12 @@
-// server.js - Planet.io Online v3.0
+// server.js - Planet.io Online v3.2
+'use strict';
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const { TonClient, WalletContractV5R1, internal, SendMode, Address } = require('@ton/ton');
+const { mnemonicToPrivateKey } = require('@ton/crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -18,13 +21,18 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const TON_MNEMONIC = process.env.TON_MNEMONIC || '';
+const TON_API_KEY = process.env.TON_API_KEY || '';
+const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
+const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '262626';
+const LOOTBOX_MAX_SERIAL = 999;
 
-const WORLD_RADIUS = 1200;      // Smaller map so bots are visible
+const WORLD_RADIUS = 1200;
 const CX = 1500, CY = 1500;
 const FOOD_COUNT = 500;
-const BOT_COUNT = 18;            // More bots
+const BOT_COUNT = 18;
 const TICK_RATE = 60;
-const BROADCAST_RATE = 20;
 
 const START_MASS = 22;
 const MAX_CELLS = 16;
@@ -38,7 +46,6 @@ const EAT_OVERLAP = 0.4;
 const SPLIT_LAUNCH_SPEED = 1300;
 const MASS_DECAY_RATE = 0.002;
 const MASS_DECAY_MIN = 40;
-const MAX_VELOCITY = 2200;
 
 /* ================= DATABASE ================= */
 let db = null;
@@ -65,14 +72,18 @@ async function initDatabase() {
         tokens INTEGER DEFAULT 0,
         speed_level INTEGER DEFAULT 0,
         mass_level INTEGER DEFAULT 0,
-        unlocked_skins TEXT DEFAULT '["default"]',
+        unlocked_skins TEXT DEFAULT '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
         current_skin TEXT DEFAULT 'default',
         total_kills INTEGER DEFAULT 0,
         high_score INTEGER DEFAULT 0,
+        wallet_address TEXT DEFAULT '',
         created_at BIGINT,
         last_seen BIGINT
       );
     `);
+    // Add wallet_address column for existing DBs
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT DEFAULT '';`);
+
     await db.query(`
       CREATE TABLE IF NOT EXISTS admin_settings (
         key TEXT PRIMARY KEY,
@@ -82,6 +93,48 @@ async function initDatabase() {
     await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_price', '0.01') ON CONFLICT (key) DO NOTHING;`);
     await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_remaining', '-1') ON CONFLICT (key) DO NOTHING;`);
     await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_tag', '') ON CONFLICT (key) DO NOTHING;`);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS sell_requests (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT,
+        user_wallet TEXT,
+        skin_id TEXT,
+        skin_serial INTEGER,
+        price_ton NUMERIC(12,6),
+        status TEXT DEFAULT 'pending',
+        tx_hash TEXT,
+        created_at BIGINT,
+        paid_at BIGINT
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS skin_prices (
+        skin_id TEXT PRIMARY KEY,
+        sell_price NUMERIC(12,6) DEFAULT 0,
+        is_sellable BOOLEAN DEFAULT FALSE
+      );
+    `);
+    // Default prices (disabled, 0)
+    const skins = ['fire','mind','knight','rage'];
+    for (const s of skins) {
+      await db.query(
+        `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, 0, FALSE) ON CONFLICT (skin_id) DO NOTHING;`,
+        [s]
+      );
+    }
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS claimed_memos (
+        memo TEXT PRIMARY KEY,
+        user_id TEXT,
+        claimed_at BIGINT
+      );
+    `);
+
+    await db.query(`CREATE SEQUENCE IF NOT EXISTS lootbox_serial_seq START 1 MAXVALUE ${LOOTBOX_MAX_SERIAL};`);
+
     dbReady = true;
     console.log('✅ Database ready');
   } catch (e) {
@@ -90,12 +143,39 @@ async function initDatabase() {
   }
 }
 
+function normalizeSkins(skins) {
+  let arr = skins;
+  if (typeof arr === 'string') {
+    try { arr = JSON.parse(arr); } catch (e) { arr = null; }
+  }
+  if (!Array.isArray(arr)) arr = [];
+  const out = [];
+  let hasDefault = false;
+  for (const s of arr) {
+    if (typeof s === 'string') {
+      out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
+      if (s === 'default') hasDefault = true;
+    } else if (s && s.id) {
+      out.push({
+        id: String(s.id),
+        serial: (typeof s.serial === 'number') ? s.serial : null,
+        source: s.source || 'unknown',
+        acquiredAt: s.acquiredAt || 0
+      });
+      if (s.id === 'default') hasDefault = true;
+    }
+  }
+  if (!hasDefault) out.unshift({ id: 'default', serial: null, source: 'starter', acquiredAt: 0 });
+  return out;
+}
+
 async function getOrCreateUser(id, username, firstName) {
   if (!dbReady) return {
     telegram_id: id, username, first_name: firstName,
     tokens: 0, speed_level: 0, mass_level: 0,
-    unlocked_skins: '["default"]', current_skin: 'default',
-    total_kills: 0, high_score: 0
+    unlocked_skins: '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
+    current_skin: 'default', total_kills: 0, high_score: 0,
+    wallet_address: ''
   };
   try {
     const r = await db.query('SELECT * FROM users WHERE telegram_id = $1', [id]);
@@ -120,6 +200,7 @@ async function getOrCreateUser(id, username, firstName) {
 async function saveProgress(id, data) {
   if (!dbReady) return false;
   try {
+    const normalized = normalizeSkins(data.unlockedSkins);
     await db.query(
       `UPDATE users SET
         tokens = $1, speed_level = $2, mass_level = $3,
@@ -130,7 +211,7 @@ async function saveProgress(id, data) {
         Math.max(0, parseInt(data.tokens) || 0),
         Math.min(50, Math.max(0, parseInt(data.speedLevel) || 0)),
         Math.min(15, Math.max(0, parseInt(data.massLevel) || 0)),
-        JSON.stringify(data.unlockedSkins || ['default']),
+        JSON.stringify(normalized),
         data.currentSkin || 'default',
         Math.max(0, parseInt(data.totalKills) || 0),
         Math.max(0, parseInt(data.highScore) || 0),
@@ -165,8 +246,93 @@ async function setAdminSetting(key, value) {
       [key, String(value)]
     );
     return true;
+  } catch (e) { return false; }
+}
+
+/* ================= TON WALLET ================= */
+let hotWallet = null;
+let hotWalletKeyPair = null;
+let tonClient = null;
+
+async function initTonWallet() {
+  if (!TON_MNEMONIC) {
+    console.warn('⚠️ TON_MNEMONIC not set — TON payouts disabled');
+    return;
+  }
+  try {
+    const words = TON_MNEMONIC.trim().split(/\s+/);
+    if (words.length !== 24) {
+      console.error('❌ TON_MNEMONIC must have 24 words, got ' + words.length);
+      return;
+    }
+    hotWalletKeyPair = await mnemonicToPrivateKey(words);
+    hotWallet = WalletContractV5R1.create({
+      workchain: 0,
+      publicKey: hotWalletKeyPair.publicKey
+    });
+    tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
+    console.log('✅ TON wallet V5R1 ready: ' + hotWallet.address.toString());
   } catch (e) {
-    return false;
+    console.error('❌ TON wallet init failed:', e.message);
+  }
+}
+
+async function getHotWalletBalance() {
+  if (!tonClient || !hotWallet) return null;
+  try {
+    const bal = await tonClient.getBalance(hotWallet.address);
+    return Number(bal) / 1e9;
+  } catch (e) {
+    console.error('getBalance:', e.message);
+    return null;
+  }
+}
+
+async function sendTonToUser(toAddress, amountTon) {
+  if (!hotWallet || !hotWalletKeyPair || !tonClient) {
+    throw new Error('TON wallet not initialized');
+  }
+  const contract = tonClient.open(hotWallet);
+  const seqno = await contract.getSeqno();
+  const amountNano = BigInt(Math.round(amountTon * 1e9));
+  await contract.sendTransfer({
+    seqno,
+    secretKey: hotWalletKeyPair.secretKey,
+    sendMode: SendMode.PAY_GAS_SEPARATELY,
+    messages: [
+      internal({
+        to: Address.parse(toAddress),
+        value: amountNano,
+        bounce: false,
+        body: 'Planet.io payout'
+      })
+    ]
+  });
+  return { ok: true, to: toAddress, amount: amountTon };
+}
+
+async function verifyTonPayment(memo, expectedAmount) {
+  if (!hotWallet) return null;
+  const walletAddr = hotWallet.address.toString();
+  const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=25';
+  const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
+  try {
+    const r = await fetch(url, { headers });
+    const data = await r.json();
+    if (!data.ok || !Array.isArray(data.result)) return null;
+    for (const tx of data.result) {
+      const msg = tx.in_msg;
+      if (!msg) continue;
+      const amount = parseInt(msg.value) / 1e9;
+      const comment = (msg.message || '').trim();
+      if (comment === memo && Math.abs(amount - expectedAmount) < 0.001) {
+        return tx.transaction_id ? tx.transaction_id.hash : 'unknown';
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error('verifyTonPayment:', e.message);
+    return null;
   }
 }
 
@@ -200,12 +366,7 @@ function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function massToRadius(m) { return Math.sqrt(m) * 4.5; }
-
-// AGAR.IO SPEED FORMULA
-function massToSpeed(m) {
-  // speed decreases as mass increases
-  return 22 * Math.pow(m, -0.32) * 4.5;
-}
+function massToSpeed(m) { return 22 * Math.pow(m, -0.32) * 4.5; }
 
 function randomWorldPos(margin) {
   margin = margin || 30;
@@ -231,38 +392,23 @@ function createPlayer(id, name, color, startMass, isBot) {
   const pos = randomWorldPos(200);
   return {
     id, name: name || 'Player', color: color || '#4a9eff',
-    cells: [{
-      x: pos.x, y: pos.y,
-      mass: startMass || START_MASS,
-      vx: 0, vy: 0,
-      mergeTimer: 0
-    }],
+    cells: [{ x: pos.x, y: pos.y, mass: startMass || START_MASS, vx: 0, vy: 0, mergeTimer: 0 }],
     targetX: pos.x, targetY: pos.y,
     alive: true, kills: 0, maxMass: startMass || START_MASS,
-    spawnTime: Date.now(),
-    isBot: !!isBot,
-    botTimer: 0,
-    botTargetX: pos.x, botTargetY: pos.y
+    spawnTime: Date.now(), isBot: !!isBot, botTimer: 0
   };
 }
 
-// AGAR.IO-LIKE CELL MOVEMENT
 function updateCell(cell, dt, tx, ty) {
   const dx = tx - cell.x, dy = ty - cell.y;
   const d = Math.sqrt(dx * dx + dy * dy);
   if (d < 0.5) return;
-
   const speed = massToSpeed(cell.mass) * 10;
   const dirX = dx / d, dirY = dy / d;
-
-  // Agar.io style: full speed if far, slow down near target
   let moveSpeed = speed;
   if (d < 40) moveSpeed = speed * (d / 40);
-
   cell.x += dirX * moveSpeed * dt;
   cell.y += dirY * moveSpeed * dt;
-
-  // Circle bounds
   const r = massToRadius(cell.mass);
   const dxC = cell.x - CX, dyC = cell.y - CY;
   const distC = Math.sqrt(dxC * dxC + dyC * dyC);
@@ -272,34 +418,26 @@ function updateCell(cell, dt, tx, ty) {
     cell.x = CX + nx * maxDist;
     cell.y = CY + ny * maxDist;
   }
-
   if (cell.mass > MASS_DECAY_MIN) cell.mass -= cell.mass * MASS_DECAY_RATE * dt;
   if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
 }
 
 function tick(dt) {
-  // Update all players
   const allPlayers = [...players.values(), ...botPlayers.values()];
 
-  // Bot AI
   for (const bot of botPlayers.values()) {
     if (!bot.alive) continue;
     bot.botTimer -= dt;
     if (bot.botTimer > 0) continue;
     bot.botTimer = 0.15 + Math.random() * 0.15;
-
     const bc = getCenter(bot);
     const bm = getTotalMass(bot);
-
-    // Find best food
     let bestFood = null, bestFoodD = Infinity;
     for (let i = 0; i < food.length; i += 2) {
       const f = food[i];
       const d2 = (f.x - bc.x) ** 2 + (f.y - bc.y) ** 2;
       if (d2 < bestFoodD && d2 < 500 * 500) { bestFoodD = d2; bestFood = f; }
     }
-
-    // Find threat & prey
     let threat = null, threatD = Infinity;
     let prey = null, preyD = Infinity;
     for (const other of allPlayers) {
@@ -308,45 +446,25 @@ function tick(dt) {
       const om = getTotalMass(other);
       const d2 = (oc.x - bc.x) ** 2 + (oc.y - bc.y) ** 2;
       if (d2 > 500 * 500) continue;
-      if (om > bm * 1.15) {
-        if (d2 < threatD) { threatD = d2; threat = oc; }
-      } else if (bm > om * 1.3) {
-        if (d2 < preyD) { preyD = d2; prey = oc; }
-      }
+      if (om > bm * 1.15) { if (d2 < threatD) { threatD = d2; threat = oc; } }
+      else if (bm > om * 1.3) { if (d2 < preyD) { preyD = d2; prey = oc; } }
     }
-
     let tx = bc.x, ty = bc.y;
-    // Priority: flee > chase > eat food
-    if (threat && threatD < 300 * 300) {
-      tx = bc.x + (bc.x - threat.x);
-      ty = bc.y + (bc.y - threat.y);
-    } else if (prey && preyD < 400 * 400 && Math.random() < 0.7) {
-      tx = prey.x;
-      ty = prey.y;
-    } else if (bestFood) {
-      tx = bestFood.x;
-      ty = bestFood.y;
-    } else {
-      tx = bc.x + rand(-200, 200);
-      ty = bc.y + rand(-200, 200);
-    }
-
-    // Keep inside bounds
+    if (threat && threatD < 300 * 300) { tx = bc.x + (bc.x - threat.x); ty = bc.y + (bc.y - threat.y); }
+    else if (prey && preyD < 400 * 400 && Math.random() < 0.7) { tx = prey.x; ty = prey.y; }
+    else if (bestFood) { tx = bestFood.x; ty = bestFood.y; }
+    else { tx = bc.x + rand(-200, 200); ty = bc.y + rand(-200, 200); }
     const tdx = tx - CX, tdy = ty - CY;
     const td = Math.sqrt(tdx * tdx + tdy * tdy);
     const maxTD = WORLD_RADIUS - 150;
     if (td > maxTD) { tx = CX + (tdx / td) * maxTD; ty = CY + (tdy / td) * maxTD; }
-
-    bot.targetX = tx;
-    bot.targetY = ty;
+    bot.targetX = tx; bot.targetY = ty;
   }
 
-  // Update all cells
   for (const p of allPlayers) {
     if (!p.alive) continue;
     for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
 
-    // Merge cells of same player
     for (let a = 0; a < p.cells.length; a++) {
       for (let b = a + 1; b < p.cells.length; b++) {
         if (a >= p.cells.length || b >= p.cells.length) break;
@@ -375,7 +493,6 @@ function tick(dt) {
     if (p.cells.length === 0) p.alive = false;
   }
 
-  // Food eating
   for (const p of allPlayers) {
     if (!p.alive) continue;
     for (const cell of p.cells) {
@@ -390,7 +507,6 @@ function tick(dt) {
   }
   while (food.length < FOOD_COUNT) food.push(spawnFood());
 
-  // Player vs Player
   for (let i = 0; i < allPlayers.length; i++) {
     const A = allPlayers[i];
     if (!A.alive) continue;
@@ -406,7 +522,6 @@ function tick(dt) {
           const dx = cellB.x - cellA.x, dy = cellB.y - cellA.y;
           const d2 = dx * dx + dy * dy;
           const ra = massToRadius(cellA.mass), rb = massToRadius(cellB.mass);
-
           if (cellA.mass > cellB.mass * EAT_MASS_RATIO) {
             const eatDist = ra - rb * EAT_OVERLAP;
             if (d2 < eatDist * eatDist) {
@@ -432,15 +547,12 @@ function tick(dt) {
     }
   }
 
-  // Respawn bots
   for (const [, bot] of botPlayers) {
     if (!bot.alive) {
       const pos = randomWorldPos(300);
       bot.cells = [{ x: pos.x, y: pos.y, mass: START_MASS, vx: 0, vy: 0, mergeTimer: 0 }];
       bot.targetX = pos.x; bot.targetY = pos.y;
-      bot.alive = true;
-      bot.kills = 0;
-      bot.maxMass = START_MASS;
+      bot.alive = true; bot.kills = 0; bot.maxMass = START_MASS;
     }
   }
 }
@@ -482,16 +594,10 @@ function doEject(p) {
     cell.mass -= EJECT_COST;
     const ejX = cell.x + dx * massToRadius(cell.mass);
     const ejY = cell.y + dy * massToRadius(cell.mass);
-    food.push({
-      x: ejX, y: ejY,
-      r: 255, g: 200, b: 100,
-      vx: dx * 1000, vy: dy * 1000,
-      isEjected: true, life: 6
-    });
+    food.push({ x: ejX, y: ejY, r: 255, g: 200, b: 100, vx: dx * 1000, vy: dy * 1000, isEjected: true, life: 6 });
   }
 }
 
-/* ================= INIT BOTS ================= */
 function initBots() {
   const names = ['Nova','Orion','Luna','Vega','Atlas','Cosmo','Nebula','Astro','Stella','Pulsar','Comet','Quasar','Galaxy','Titan','Phoenix','Zephyr','Hydra','Draco'];
   const colors = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
@@ -501,6 +607,46 @@ function initBots() {
   }
 }
 initBots();
+
+/* ================= SKIN HELPERS ================= */
+const ALL_SKINS = ['default','fire','mind','knight','rage'];
+
+async function getSkinPrices() {
+  if (!dbReady) return {};
+  try {
+    const r = await db.query('SELECT skin_id, sell_price, is_sellable FROM skin_prices');
+    const out = {};
+    for (const row of r.rows) {
+      out[row.skin_id] = {
+        sellPrice: parseFloat(row.sell_price),
+        isSellable: row.is_sellable
+      };
+    }
+    return out;
+  } catch (e) { return {}; }
+}
+
+async function getNextSerial() {
+  if (!dbReady) return null;
+  try {
+    const r = await db.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
+    return parseInt(r.rows[0].serial);
+  } catch (e) {
+    // Sequence exceeded
+    return null;
+  }
+}
+
+async function getSerialStatus() {
+  if (!dbReady) return { next: null, soldOut: false };
+  try {
+    const r = await db.query(`SELECT last_value FROM lootbox_serial_seq`);
+    const last = parseInt(r.rows[0].last_value);
+    return { next: last + 1, soldOut: last >= LOOTBOX_MAX_SERIAL };
+  } catch (e) {
+    return { next: 1, soldOut: false };
+  }
+}
 
 /* ================= SOCKET.IO ================= */
 io.on('connection', (socket) => {
@@ -524,7 +670,10 @@ io.on('connection', (socket) => {
     }
     currentUserId = userData.id;
     const user = await getOrCreateUser(userData.id, userData.username, userData.firstName);
+    if (!user) { socket.emit('auth_error', { message: 'DB error' }); return; }
     const settings = await getAdminSettings();
+    const prices = await getSkinPrices();
+    const serialStatus = await getSerialStatus();
 
     socket.emit('auth_ok', {
       user: {
@@ -533,12 +682,15 @@ io.on('connection', (socket) => {
         tokens: user.tokens || 0,
         speedLevel: user.speed_level || 0,
         massLevel: user.mass_level || 0,
-        unlockedSkins: JSON.parse(user.unlocked_skins || '["default"]'),
+        unlockedSkins: normalizeSkins(user.unlocked_skins),
         currentSkin: user.current_skin || 'default',
         totalKills: user.total_kills || 0,
-        highScore: user.high_score || 0
+        highScore: user.high_score || 0,
+        walletAddress: user.wallet_address || ''
       },
-      settings: settings
+      settings: settings,
+      skinPrices: prices,
+      serialStatus: serialStatus
     });
   });
 
@@ -547,23 +699,308 @@ io.on('connection', (socket) => {
     await saveProgress(currentUserId, data);
   });
 
+  socket.on('save_wallet', async (data) => {
+    if (!currentUserId || !data || !data.wallet) return;
+    try {
+      Address.parse(data.wallet); // validates
+    } catch (e) {
+      socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' });
+      return;
+    }
+    if (!dbReady) { socket.emit('wallet_saved', { ok: false }); return; }
+    try {
+      await db.query('UPDATE users SET wallet_address = $1 WHERE telegram_id = $2', [data.wallet, currentUserId]);
+      socket.emit('wallet_saved', { ok: true, wallet: data.wallet });
+    } catch (e) {
+      socket.emit('wallet_saved', { ok: false });
+    }
+  });
+
+  // ============ LOOTBOX CLAIM (SERVER-SIDE SERIAL) ============
+  socket.on('claim_lootbox', async (data) => {
+    if (!currentUserId || !data || !data.memo) return;
+    if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
+
+    // Check if memo already claimed
+    const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
+    if (existing.rows.length > 0) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
+      return;
+    }
+
+    const settings = await getAdminSettings();
+    const price = parseFloat(settings.lootbox_price) || 0.01;
+
+    // Verify payment on chain
+    const txHash = await verifyTonPayment(data.memo, price);
+    if (!txHash) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain' });
+      return;
+    }
+
+    // Assign next serial
+    const serial = await getNextSerial();
+    if (serial === null) {
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 sold out' });
+      return;
+    }
+
+    // Get user, pick a random locked skin
+    const user = await getOrCreateUser(currentUserId, '', '');
+    if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
+    const currentSkins = normalizeSkins(user.unlocked_skins);
+    const ownedIds = new Set(currentSkins.map(s => s.id));
+    const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
+    if (locked.length === 0) {
+      // Nothing to unlock, but consume serial? Better: don't consume. 
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
+      return;
+    }
+    const picked = locked[Math.floor(Math.random() * locked.length)];
+
+    // Add skin with serial
+    currentSkins.push({
+      id: picked,
+      serial: serial,
+      source: 'lootbox',
+      acquiredAt: Date.now()
+    });
+
+    // Save
+    await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
+      [JSON.stringify(currentSkins), currentUserId]);
+    await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
+      [data.memo, currentUserId, Date.now()]);
+
+    socket.emit('lootbox_claim_result', {
+      ok: true,
+      skinId: picked,
+      serial: serial,
+      unlockedSkins: currentSkins
+    });
+  });
+
+  // ============ SKIN SELLING ============
+  socket.on('sell_skin', async (data) => {
+    if (!currentUserId || !data) return;
+    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
+
+    const { skinId, skinSerial, walletAddress } = data;
+    if (!skinId || skinId === 'default') {
+      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
+      return;
+    }
+
+    // Validate wallet
+    try { Address.parse(walletAddress); }
+    catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
+
+    // Check skin price/sellable
+    const prices = await getSkinPrices();
+    const priceInfo = prices[skinId];
+    if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
+      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' });
+      return;
+    }
+
+    // Get user & check ownership
+    const user = await getOrCreateUser(currentUserId, '', '');
+    if (!user) { socket.emit('sell_result', { ok: false }); return; }
+    const skins = normalizeSkins(user.unlocked_skins);
+    const idx = skins.findIndex(s => s.id === skinId && s.serial === skinSerial);
+    if (idx < 0) {
+      socket.emit('sell_result', { ok: false, message: 'Skin not found' });
+      return;
+    }
+
+    // Check no pending request for this skin
+    const pending = await db.query(
+      `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
+      [currentUserId, skinId, skinSerial]
+    );
+    if (pending.rows.length > 0) {
+      socket.emit('sell_result', { ok: false, message: 'Already pending' });
+      return;
+    }
+
+    // Remove skin from inventory (immediately)
+    const removed = skins.splice(idx, 1)[0];
+
+    // Create sell request
+    const ins = await db.query(
+      `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
+      [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
+    );
+
+    // Save updated skins + wallet
+    await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
+      [JSON.stringify(skins), walletAddress, currentUserId]);
+
+    socket.emit('sell_result', {
+      ok: true,
+      requestId: ins.rows[0].id,
+      skinId: skinId,
+      skinSerial: skinSerial,
+      price: priceInfo.sellPrice,
+      unlockedSkins: skins
+    });
+
+    // Notify all admins (no direct way, but emit to admin room if we had one; broadcast for now)
+    io.emit('admin_new_request', { requestId: ins.rows[0].id });
+  });
+
+  socket.on('get_my_requests', async () => {
+    if (!currentUserId || !dbReady) return;
+    try {
+      const r = await db.query(
+        `SELECT id, skin_id, skin_serial, price_ton, status, tx_hash, created_at, paid_at
+         FROM sell_requests WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [currentUserId]
+      );
+      socket.emit('my_requests', r.rows);
+    } catch (e) {}
+  });
+
+  // ============ ADMIN ============
+  function checkAdmin(pw) { return pw === ADMIN_PASSWORD; }
+
   socket.on('admin_set', async (data) => {
-    if (!data || !data.key) return;
+    if (!data || !data.key || !checkAdmin(data.password)) return;
     const ok = await setAdminSetting(data.key, data.value);
     if (ok) io.emit('settings_update', await getAdminSettings());
   });
 
+  socket.on('admin_get_requests', async (data) => {
+    if (!checkAdmin(data && data.password)) return;
+    if (!dbReady) { socket.emit('admin_requests', []); return; }
+    try {
+      const r = await db.query(
+        `SELECT id, user_id, user_wallet, skin_id, skin_serial, price_ton, status, tx_hash, created_at, paid_at
+         FROM sell_requests ORDER BY created_at DESC LIMIT 100`
+      );
+      socket.emit('admin_requests', r.rows);
+    } catch (e) { socket.emit('admin_requests', []); }
+  });
+
+  socket.on('admin_pay_request', async (data) => {
+    if (!checkAdmin(data && data.password)) return;
+    if (!dbReady) return;
+    const reqId = parseInt(data.requestId);
+    if (!reqId) return;
+
+    // Lock the request row atomically
+    let req;
+    try {
+      const lock = await db.query(
+        `UPDATE sell_requests SET status = 'processing' WHERE id = $1 AND status = 'pending' RETURNING *`,
+        [reqId]
+      );
+      if (lock.rows.length === 0) {
+        socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'Already processed' });
+        return;
+      }
+      req = lock.rows[0];
+    } catch (e) {
+      socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'DB error' });
+      return;
+    }
+
+    const amount = parseFloat(req.price_ton);
+    const recipient = req.user_wallet;
+
+    try {
+      const balance = await getHotWalletBalance();
+      if (balance === null || balance < amount + 0.01) {
+        // Rollback
+        await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
+        socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: 'Insufficient hot wallet balance' });
+        return;
+      }
+      const result = await sendTonToUser(recipient, amount);
+      const txHash = 'sent_' + Date.now();
+      await db.query(
+        `UPDATE sell_requests SET status = 'paid', tx_hash = $1, paid_at = $2 WHERE id = $3`,
+        [txHash, Date.now(), reqId]
+      );
+      socket.emit('admin_pay_result', { ok: true, requestId: reqId, txHash: txHash, to: recipient, amount: amount });
+    } catch (e) {
+      console.error('Pay error:', e.message);
+      // Rollback to pending
+      await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [reqId]);
+      socket.emit('admin_pay_result', { ok: false, requestId: reqId, message: e.message });
+    }
+  });
+
+  socket.on('admin_reject_request', async (data) => {
+    if (!checkAdmin(data && data.password)) return;
+    if (!dbReady) return;
+    const reqId = parseInt(data.requestId);
+    if (!reqId) return;
+    try {
+      const lock = await db.query(
+        `UPDATE sell_requests SET status = 'rejected' WHERE id = $1 AND status = 'pending' RETURNING *`,
+        [reqId]
+      );
+      if (lock.rows.length === 0) {
+        socket.emit('admin_reject_result', { ok: false, requestId: reqId });
+        return;
+      }
+      const req = lock.rows[0];
+      // Return skin to user
+      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
+      if (u.rows.length > 0) {
+        const skins = normalizeSkins(u.rows[0].unlocked_skins);
+        skins.push({
+          id: req.skin_id,
+          serial: req.skin_serial,
+          source: 'refund',
+          acquiredAt: Date.now()
+        });
+        await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
+          [JSON.stringify(skins), req.user_id]);
+      }
+      socket.emit('admin_reject_result', { ok: true, requestId: reqId });
+    } catch (e) {
+      socket.emit('admin_reject_result', { ok: false, requestId: reqId });
+    }
+  });
+
+  socket.on('admin_set_skin_price', async (data) => {
+    if (!checkAdmin(data && data.password)) return;
+    if (!dbReady || !data.skinId) return;
+    try {
+      await db.query(
+        `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, $2, $3)
+         ON CONFLICT (skin_id) DO UPDATE SET sell_price = EXCLUDED.sell_price, is_sellable = EXCLUDED.is_sellable`,
+        [data.skinId, parseFloat(data.price) || 0, !!data.sellable]
+      );
+      const prices = await getSkinPrices();
+      io.emit('skin_prices_update', prices);
+      socket.emit('admin_skin_price_result', { ok: true });
+    } catch (e) {
+      socket.emit('admin_skin_price_result', { ok: false });
+    }
+  });
+
+  socket.on('admin_get_wallet_balance', async (data) => {
+    if (!checkAdmin(data && data.password)) return;
+    const balance = await getHotWalletBalance();
+    socket.emit('admin_wallet_balance', {
+      ok: balance !== null,
+      balance: balance,
+      address: hotWallet ? hotWallet.address.toString() : null
+    });
+  });
+
+  // ============ GAME ============
   socket.on('join', (data) => {
-    // Remove existing
     players.delete(socket.id);
     const p = createPlayer(socket.id, data.name, data.color, data.startMass, false);
     players.set(socket.id, p);
-    console.log('🎮 ' + p.name + ' joined. Players: ' + players.size);
-
     socket.emit('init', {
       worldRadius: WORLD_RADIUS,
-      centerX: CX,
-      centerY: CY,
+      centerX: CX, centerY: CY,
       food: food.slice(0, 300),
       playerId: socket.id
     });
@@ -586,27 +1023,10 @@ io.on('connection', (socket) => {
     if (p && p.alive) doEject(p);
   });
 
-  socket.on('ate_food', (data) => {
-    if (!data) return;
-    const p = players.get(socket.id);
-    if (!p || !p.alive) return;
-    let bestIdx = -1, bestD2 = 500;
-    for (let i = 0; i < food.length; i++) {
-      const f = food[i];
-      const dx = f.x - data.x, dy = f.y - data.y;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestD2) { bestD2 = d2; bestIdx = i; }
-    }
-    if (bestIdx >= 0) food.splice(bestIdx, 1);
-  });
-
-  socket.on('disconnect_player', () => {
-    players.delete(socket.id);
-  });
-
+  socket.on('disconnect_player', () => { players.delete(socket.id); });
   socket.on('disconnect', () => {
     players.delete(socket.id);
-    console.log('🔴 ' + socket.id + ' left. Players: ' + players.size);
+    console.log('🔴 ' + socket.id + ' left');
   });
 });
 
@@ -623,10 +1043,7 @@ let bc = 0;
 setInterval(() => {
   bc++;
   if (bc % 3 !== 0) return;
-
   const snapshot = { players: [], food: food.slice(0, 250) };
-
-  // Add all real players
   for (const [, p] of players) {
     if (!p.alive) continue;
     snapshot.players.push({
@@ -639,8 +1056,6 @@ setInterval(() => {
       kills: p.kills, maxMass: Math.round(p.maxMass)
     });
   }
-
-  // Add all bots
   for (const [, b] of botPlayers) {
     if (!b.alive) continue;
     snapshot.players.push({
@@ -653,12 +1068,16 @@ setInterval(() => {
       kills: b.kills, maxMass: Math.round(b.maxMass)
     });
   }
-
   io.emit('state', snapshot);
 }, 1000 / 60);
 
-server.listen(PORT, () => {
-  console.log('🪐 Planet.io v3 on ' + PORT);
-  console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
-  console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
-});
+/* ================= START ================= */
+(async () => {
+  await initTonWallet();
+  server.listen(PORT, () => {
+    console.log('🪐 Planet.io v3.2 on ' + PORT);
+    console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
+    console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
+    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
+  });
+})();
