@@ -14,7 +14,6 @@
   .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
   .screen.active { display: flex; }
 
-  /* ===== MENU ===== */
   #menuScreen { background: radial-gradient(circle at 50% 50%, #0a0a0f 0%, #000 100%); position: relative; overflow: hidden; }
   #menuCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .menu-content {
@@ -77,7 +76,6 @@
   .lootbox-label .arrow-up { font-size: 14px; transform: rotate(-30deg); color: #4ade80; }
   .lootbox-label .free-text { font-style: italic; font-weight: 900; }
 
-  /* ===== MODE SELECTOR (with 2 buttons) ===== */
   .mode-selector { margin-top: 20px; display: flex; align-items: center; gap: 10px; }
   .mode-btn { background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.05);
     border-radius: 999px; padding: 12px 22px; font-size: 13px; font-weight: 900;
@@ -142,7 +140,6 @@
   .tab-badge.green { background: #4ade80; color: #000; }
   .tab-badge.dark { background: #333; color: #aaa; }
 
-  /* ===== INVENTORY ===== */
   #inventoryScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .inv-header { padding: calc(16px + env(safe-area-inset-top)) 20px 12px;
@@ -184,7 +181,6 @@
   .rarity-epic { background: rgba(165,92,255,0.2); color: #a55cff; }
   .rarity-legendary { background: rgba(255,204,0,0.2); color: #ffcc00; }
 
-  /* ===== SKIN TAGS ===== */
   .skin-tag-row { display: flex; gap: 3px; position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); }
   .skin-tag { font-size: 7px; font-weight: 800; padding: 1px 5px; border-radius: 999px;
     letter-spacing: 0.5px; text-transform: uppercase; }
@@ -194,7 +190,6 @@
   .skin-tag.featured { background: linear-gradient(135deg, #4a9eff, #00d4ff); color: #000; }
   @keyframes tagPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 
-  /* ===== LOOTBOX SECTION ===== */
   .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
   .lootbox-card { background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,100,0,0.1));
     border: 2px solid rgba(255,204,0,0.4); border-radius: 20px; padding: 20px;
@@ -226,7 +221,6 @@
   .lootbox-btn-buy:active { transform: scale(0.96); }
   .lootbox-btn-buy:disabled { background: #333; color: #666; box-shadow: none; cursor: not-allowed; }
 
-  /* ===== TON MODAL ===== */
   .ton-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92);
     backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center;
     z-index: 9999; padding: 20px; }
@@ -268,7 +262,6 @@
     border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; color: #888;
     font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; }
 
-  /* ===== LOOTBOX ANIMATION ===== */
   .loot-anim-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
     display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
   .loot-anim-overlay.active { display: flex; }
@@ -332,7 +325,6 @@
     top: 18%; left: 50%; transform: translateX(-50%); z-index: 4; text-shadow: 0 0 20px rgba(255,204,0,0.6); }
   .loot-reveal-title.show { opacity: 1; }
 
-  /* ===== ADMIN ===== */
   .admin-trigger { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
     border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -383,7 +375,6 @@
   .admin-status.success { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
   .admin-status.error { background: rgba(255,50,50,0.1); color: #ff5555; border: 1px solid rgba(255,50,50,0.3); }
 
-  /* ===== SKILLS ===== */
   #skillsScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .skills-wrap { width: 100%; max-width: 440px; margin: 0 auto;
@@ -422,7 +413,6 @@
   .placeholder .txt { font-size: 16px; font-weight: 700; color: #666; letter-spacing: 1px; }
   .placeholder .sub { font-size: 12px; color: #444; }
 
-  /* ===== GAME ===== */
   #gameScreen { padding: 0; }
   #gameScreen.active { display: block; }
   #gameCanvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #000; }
@@ -612,7 +602,6 @@
     <div class="tab-bar" id="menuTabBar"></div>
   </div>
 
-  <!-- INVENTORY -->
   <div id="inventoryScreen" class="screen">
     <div class="inv-header">
       <div class="inv-title">🎒 Locker</div>
@@ -645,7 +634,6 @@
     <div class="tab-bar" id="invTabBar"></div>
   </div>
 
-  <!-- SKILLS / PROFILE -->
   <div id="skillsScreen" class="screen">
     <div class="skills-wrap">
       <div class="admin-trigger" id="adminTrigger">⚙️</div>
@@ -698,7 +686,6 @@
     <div class="tab-bar" id="seasonTabBar"></div>
   </div>
 
-  <!-- GAME -->
   <div id="gameScreen" class="screen">
     <canvas id="gameCanvas"></canvas>
     <div class="top-hud">
@@ -744,7 +731,6 @@
     </div>
   </div>
 
-  <!-- TON MODAL -->
   <div class="ton-modal" id="tonModal">
     <div class="ton-modal-content">
       <button class="ton-modal-close" id="closeTonModal">✕</button>
@@ -767,7 +753,6 @@
     </div>
   </div>
 
-  <!-- LOOTBOX ANIMATION OVERLAY -->
   <div class="loot-anim-overlay" id="lootAnimOverlay">
     <div class="loot-anim-stage">
       <div class="loot-anim-rays"></div>
@@ -785,7 +770,6 @@
     </div>
   </div>
 
-  <!-- ADMIN MODAL -->
   <div class="admin-modal" id="adminModal">
     <div class="admin-panel">
       <button class="admin-close" id="adminCloseBtn">✕</button>
@@ -1065,6 +1049,7 @@ var selectedMode = 'classic';
 var socket = null;
 var isOnline = false;
 var networkPlayers = {};
+var networkCellDisplay = {}; // For interpolation
 var myPlayerId = null;
 var inputInterval = null;
 
@@ -1883,6 +1868,31 @@ window.addEventListener('orientationchange', function() {
   }, 200);
 });
 
+/* ============ NETWORK INTERPOLATION ============ */
+function updateNetworkInterpolation(dt) {
+  var lerpSpeed = 12 * dt;
+  for (var id in networkPlayers) {
+    var np = networkPlayers[id];
+    if (!np.cells) continue;
+    if (!networkCellDisplay[id]) networkCellDisplay[id] = [];
+    var displays = networkCellDisplay[id];
+
+    for (var i = 0; i < np.cells.length; i++) {
+      var sc = np.cells[i];
+      if (!displays[i]) {
+        displays[i] = { x: sc.x, y: sc.y };
+      } else {
+        displays[i].x += (sc.x - displays[i].x) * Math.min(1, lerpSpeed);
+        displays[i].y += (sc.y - displays[i].y) * Math.min(1, lerpSpeed);
+      }
+    }
+    displays.length = np.cells.length;
+  }
+  for (var id2 in networkCellDisplay) {
+    if (!networkPlayers[id2]) delete networkCellDisplay[id2];
+  }
+}
+
 /* ============ RENDER ============ */
 function render() {
   var ctx = GameCtx; if (!ctx) return;
@@ -1896,19 +1906,17 @@ function render() {
   ctx.clip();
   drawGrid(ctx);
 
-  // Draw all food
   for (var i = 0; i < World.food.length; i++) World.food[i].draw(ctx, Camera);
 
-  // Collect all cells to draw
   var ac = [];
 
-  // Local player + bots (in classic mode)
+  // Local player + bots (classic mode)
   for (var p = 0; p < World.players.length; p++) {
     var pl = World.players[p]; if (!pl.alive) continue;
     for (var c = 0; c < pl.cells.length; c++) { pl.cells[c]._p = pl; ac.push(pl.cells[c]); }
   }
 
-  // Add network players (only in online mode) as real Cell instances
+  // Network players (online mode) — with interpolation
   if (isOnline) {
     for (var id in networkPlayers) {
       var np = networkPlayers[id];
@@ -1920,17 +1928,20 @@ function render() {
         isBot: false,
         _isNetwork: true
       };
+      var displays = networkCellDisplay[id] || [];
       for (var nc = 0; nc < np.cells.length; nc++) {
+        var sc = np.cells[nc];
+        var display = displays[nc] || { x: sc.x, y: sc.y };
         var ncell = new Cell(
-          np.cells[nc].x,
-          np.cells[nc].y,
-          np.cells[nc].mass,
+          display.x,
+          display.y,
+          sc.mass,
           np.color || '#4a9eff',
           null,
           '🪐',
           false
         );
-        ncell.mergeTimer = np.cells[nc].mergeTimer || 0;
+        ncell.mergeTimer = sc.mergeTimer || 0;
         ncell._p = fakePlayer;
         ac.push(ncell);
       }
@@ -1940,7 +1951,6 @@ function render() {
   ac.sort(function(x, y) { return x.mass - y.mass; });
   for (var k = 0; k < ac.length; k++) ac[k].draw(ctx, Camera);
 
-  // Draw names
   for (var n = 0; n < ac.length; n++) {
     var cn = ac[n], pn = cn._p;
     var s = Camera.worldToScreen(cn.x, cn.y);
@@ -2041,7 +2051,6 @@ function playGame() {
   }
 }
 
-/* --- CLASSIC MODE --- */
 function startClassicGame(name) {
   World.init();
   World.spawnPlayer(name, selectedSkin);
@@ -2067,7 +2076,6 @@ function startClassicGame(name) {
   requestAnimationFrame(gameLoop);
 }
 
-/* --- ONLINE MODE --- */
 function startOnlineGame(name) {
   if (typeof io === 'undefined') {
     alert('⚠️ Online server not available.\n\nYou need to run the Node.js server first.\n\nSwitch to CLASSIC mode to play with AI.');
@@ -2093,11 +2101,11 @@ function startOnlineGame(name) {
   socket.on('init', function(data) {
     myPlayerId = data.playerId;
     networkPlayers = {};
+    networkCellDisplay = {};
     WORLD_RADIUS = data.worldRadius || 1400;
     CX = data.centerX || 1500;
     CY = data.centerY || 1500;
 
-    // Reset World
     World.players = [];
     World.food = [];
     World.player = null;
@@ -2107,7 +2115,6 @@ function startOnlineGame(name) {
     World.massForTokens = 0;
     World.bonusGiven = { twoMin: false, fiveMin: false };
 
-    // Create local predicted player
     var skin = getSkinById(selectedSkin);
     var p = new Player(name, skin.color, skin.emoji, false);
     p.spawn(CX, CY, Save.getStartMass());
@@ -2115,7 +2122,6 @@ function startOnlineGame(name) {
     World.player = p;
     World.players.push(p);
 
-    // Populate initial food
     if (data.food) {
       for (var i = 0; i < data.food.length; i++) {
         var f = data.food[i];
@@ -2127,7 +2133,6 @@ function startOnlineGame(name) {
 
     isOnline = true;
 
-    // Setup game UI
     var j1 = $('joystick'), k1 = $('joyKnob');
     if (j1) j1.style.display = 'block';
     JoystickP1 = new Joystick(j1, k1);
@@ -2149,7 +2154,6 @@ function startOnlineGame(name) {
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 
-    // Start sending input
     if (inputInterval) clearInterval(inputInterval);
     inputInterval = setInterval(function() {
       if (!socket || !World.player || !World.player.alive) return;
@@ -2163,23 +2167,43 @@ function startOnlineGame(name) {
   socket.on('state', function(data) {
     networkPlayers = {};
 
-    // Process all players
     for (var i = 0; i < data.players.length; i++) {
       var sp = data.players[i];
       if (sp.id === myPlayerId) {
-        // Reconcile local player with server state (create real Cell instances!)
+        // Reconcile local player WITHOUT snapping position (only mass + count)
         if (World.player && World.player.alive) {
           if (sp.cells && sp.cells.length > 0) {
-            var newCells = [];
-            for (var ci = 0; ci < sp.cells.length; ci++) {
-              var sc = sp.cells[ci];
-              var newCell = new Cell(sc.x, sc.y, sc.mass, World.player.color, World.player, World.player.emoji, false);
-              newCell.mergeTimer = sc.mergeTimer || 0;
-              newCell.vx = 0;
-              newCell.vy = 0;
-              newCells.push(newCell);
+            var serverMass = 0;
+            for (var si = 0; si < sp.cells.length; si++) serverMass += sp.cells[si].mass;
+            var cellCountChanged = (World.player.cells.length !== sp.cells.length);
+
+            if (cellCountChanged) {
+              // Split/merge → full rebuild
+              var newCells = [];
+              for (var ci = 0; ci < sp.cells.length; ci++) {
+                var sc = sp.cells[ci];
+                var newCell = new Cell(sc.x, sc.y, sc.mass, World.player.color, World.player, World.player.emoji, false);
+                newCell.mergeTimer = sc.mergeTimer || 0;
+                newCell.vx = 0; newCell.vy = 0;
+                newCells.push(newCell);
+              }
+              World.player.cells = newCells;
+            } else {
+              // Only update mass, keep position (client prediction)
+              for (var ci2 = 0; ci2 < sp.cells.length && ci2 < World.player.cells.length; ci2++) {
+                World.player.cells[ci2].mass = sp.cells[ci2].mass;
+                World.player.cells[ci2].mergeTimer = sp.cells[ci2].mergeTimer || 0;
+                // Only correct position if way off (anti-cheat)
+                var dx = sp.cells[ci2].x - World.player.cells[ci2].x;
+                var dy = sp.cells[ci2].y - World.player.cells[ci2].y;
+                if (Math.abs(dx) > 120 || Math.abs(dy) > 120) {
+                  World.player.cells[ci2].x = sp.cells[ci2].x;
+                  World.player.cells[ci2].y = sp.cells[ci2].y;
+                  World.player.cells[ci2].vx = 0;
+                  World.player.cells[ci2].vy = 0;
+                }
+              }
             }
-            World.player.cells = newCells;
           } else {
             World.player.alive = false;
           }
@@ -2189,7 +2213,6 @@ function startOnlineGame(name) {
       }
     }
 
-    // Update food
     if (data.food) {
       World.food = [];
       for (var j = 0; j < data.food.length; j++) {
@@ -2212,11 +2235,9 @@ function startOnlineGame(name) {
   });
 }
 
-/* --- ONLINE UPDATE LOOP --- */
 function updateOnlineGame(dt) {
   if (!World.player || !World.player.alive) return;
 
-  // Update target from input
   if (JoystickP1 && JoystickP1.active && JoystickP1.magnitude > 0.12) {
     var d = 500 + JoystickP1.magnitude * 300;
     World.player.targetX = World.player.cx + Math.cos(JoystickP1.angle) * d;
@@ -2230,7 +2251,7 @@ function updateOnlineGame(dt) {
     World.player.targetY = World.player.cy;
   }
 
-  // Local prediction (smooth movement between server updates)
+  // Client prediction
   for (var i = 0; i < World.player.cells.length; i++) {
     var cell = World.player.cells[i];
     var dx = World.player.targetX - cell.x;
@@ -2245,7 +2266,6 @@ function updateOnlineGame(dt) {
     cell.vx *= drag; cell.vy *= drag;
     cell.x += cell.vx * dt;
     cell.y += cell.vy * dt;
-    // Circle bounds
     var r = massToRadius(cell.mass);
     var dxC = cell.x - CX, dyC = cell.y - CY;
     var distC = Math.sqrt(dxC*dxC + dyC*dyC);
@@ -2257,10 +2277,7 @@ function updateOnlineGame(dt) {
     if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
   }
 
-  // Update camera
   Camera.follow(World.player, dt);
-
-  // Update food pulse
   for (var k = 0; k < World.food.length; k++) World.food[k].update(dt);
 }
 
@@ -2292,6 +2309,7 @@ function goToMenu() {
     socket = null;
   }
   isOnline = false;
+  networkCellDisplay = {};
   var j1 = $('joystick'); if (j1) j1.classList.remove('visible');
   $('splitBtn').classList.remove('visible');
   $('ejectBtn').classList.remove('visible');
@@ -2342,6 +2360,7 @@ function gameLoop(now) {
 
   if (isOnline) {
     updateOnlineGame(dt);
+    updateNetworkInterpolation(dt);
   } else {
     World.update(dt);
   }
@@ -2761,4 +2780,4 @@ else init();
 </script>
 
 </body>
-           </html>
+</html>
