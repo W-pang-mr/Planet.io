@@ -1902,14 +1902,13 @@ function render() {
   // Collect all cells to draw
   var ac = [];
 
-  // Classic mode: World.players (includes me + bots)
-  // Online mode: World.players has only me, networkPlayers has others
+  // Local player + bots (in classic mode)
   for (var p = 0; p < World.players.length; p++) {
     var pl = World.players[p]; if (!pl.alive) continue;
     for (var c = 0; c < pl.cells.length; c++) { pl.cells[c]._p = pl; ac.push(pl.cells[c]); }
   }
 
-  // Add network players (only in online mode)
+  // Add network players (only in online mode) as real Cell instances
   if (isOnline) {
     for (var id in networkPlayers) {
       var np = networkPlayers[id];
@@ -1922,14 +1921,17 @@ function render() {
         _isNetwork: true
       };
       for (var nc = 0; nc < np.cells.length; nc++) {
-        var ncell = {
-          x: np.cells[nc].x,
-          y: np.cells[nc].y,
-          mass: np.cells[nc].mass,
-          mergeTimer: np.cells[nc].mergeTimer || 0,
-          _p: fakePlayer,
-          draw: Cell.prototype.draw
-        };
+        var ncell = new Cell(
+          np.cells[nc].x,
+          np.cells[nc].y,
+          np.cells[nc].mass,
+          np.color || '#4a9eff',
+          null,
+          '🪐',
+          false
+        );
+        ncell.mergeTimer = np.cells[nc].mergeTimer || 0;
+        ncell._p = fakePlayer;
         ac.push(ncell);
       }
     }
@@ -1946,7 +1948,7 @@ function render() {
     if (r > 22) {
       ctx.font = '600 ' + Math.max(10, Math.min(14, r * 0.35)) + 'px "Segoe UI", Arial, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      var isMe = (pn === World.player) || (pn._isNetwork === false);
+      var isMe = (pn === World.player);
       ctx.fillStyle = isMe ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)';
       ctx.fillText(pn.name, s.x, s.y + r + 4);
     }
@@ -2039,7 +2041,7 @@ function playGame() {
   }
 }
 
-/* --- CLASSIC MODE (unchanged) --- */
+/* --- CLASSIC MODE --- */
 function startClassicGame(name) {
   World.init();
   World.spawnPlayer(name, selectedSkin);
@@ -2065,7 +2067,7 @@ function startClassicGame(name) {
   requestAnimationFrame(gameLoop);
 }
 
-/* --- ONLINE MODE (new) --- */
+/* --- ONLINE MODE --- */
 function startOnlineGame(name) {
   if (typeof io === 'undefined') {
     alert('⚠️ Online server not available.\n\nYou need to run the Node.js server first.\n\nSwitch to CLASSIC mode to play with AI.');
@@ -2073,7 +2075,7 @@ function startOnlineGame(name) {
   }
 
   var playBtn = $('playBtn');
-  playBtn.textContent = '⏳ CONNECTING...';
+  playBtn.textContent = '⏳';
 
   try {
     socket = io();
@@ -2165,12 +2167,19 @@ function startOnlineGame(name) {
     for (var i = 0; i < data.players.length; i++) {
       var sp = data.players[i];
       if (sp.id === myPlayerId) {
-        // Reconcile local player with server state
+        // Reconcile local player with server state (create real Cell instances!)
         if (World.player && World.player.alive) {
           if (sp.cells && sp.cells.length > 0) {
-            World.player.cells = sp.cells.map(function(sc) {
-              return { x: sc.x, y: sc.y, mass: sc.mass, vx: 0, vy: 0, mergeTimer: sc.mergeTimer || 0 };
-            });
+            var newCells = [];
+            for (var ci = 0; ci < sp.cells.length; ci++) {
+              var sc = sp.cells[ci];
+              var newCell = new Cell(sc.x, sc.y, sc.mass, World.player.color, World.player, World.player.emoji, false);
+              newCell.mergeTimer = sc.mergeTimer || 0;
+              newCell.vx = 0;
+              newCell.vy = 0;
+              newCells.push(newCell);
+            }
+            World.player.cells = newCells;
           } else {
             World.player.alive = false;
           }
@@ -2221,7 +2230,7 @@ function updateOnlineGame(dt) {
     World.player.targetY = World.player.cy;
   }
 
-  // Local prediction
+  // Local prediction (smooth movement between server updates)
   for (var i = 0; i < World.player.cells.length; i++) {
     var cell = World.player.cells[i];
     var dx = World.player.targetX - cell.x;
@@ -2279,7 +2288,7 @@ function goToMenu() {
   running = false;
   if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
   if (socket && isOnline) {
-    socket.disconnect();
+    try { socket.disconnect(); } catch (e) {}
     socket = null;
   }
   isOnline = false;
@@ -2752,4 +2761,4 @@ else init();
 </script>
 
 </body>
-                                              </html>
+           </html>
