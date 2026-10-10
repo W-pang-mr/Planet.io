@@ -15,7 +15,6 @@
   .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
   .screen.active { display: flex; }
 
-  /* LOADING */
   #loadingScreen { background: #000; align-items: center; justify-content: center; }
   #loadingCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
   .loading-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -34,7 +33,6 @@
   .loading-retry-btn.show { display: block; }
   .loading-attempt { font-size: 11px; color: #555; letter-spacing: 1px; }
 
-  /* MENU */
   #menuScreen { background: #000; position: relative; overflow: hidden; }
   #menuCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .menu-content { position: relative; z-index: 1; width: 100%; height: 100%;
@@ -137,7 +135,6 @@
   .tab-badge.green { background: #4ade80; color: #000; }
   .tab-badge.dark { background: #333; color: #aaa; }
 
-  /* INVENTORY - REDESIGNED */
   #inventoryScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .inv-header { padding: calc(18px + env(safe-area-inset-top)) 20px 6px;
@@ -169,8 +166,6 @@
   .inv-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 10px;
     width: 24px; height: 24px; background: #4ade80; color: #000; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; z-index: 2; }
-  .inv-card.locked { opacity: 0.45; }
-  .inv-card.locked::after { content: '🔒'; position: absolute; top: 10px; right: 10px; font-size: 16px; z-index: 2; }
   .inv-card-visual { width: 84px; height: 84px; border-radius: 50%; background: #0a0a0a;
     border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
     overflow: hidden; position: relative; z-index: 1; margin-top: 4px; }
@@ -191,7 +186,6 @@
     color: #fff; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1); z-index: 2; }
 
-  /* LOOTBOX */
   .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
   .lootbox-card { background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,100,0,0.05));
     border: 1px solid rgba(255,204,0,0.3); border-radius: 22px; padding: 22px;
@@ -218,7 +212,6 @@
   .lootbox-btn-buy:active { transform: scale(0.98); }
   .lootbox-btn-buy:disabled { background: #222; color: #555; cursor: not-allowed; }
 
-  /* MODALS (TON + WALLET + DETAIL + ADMIN) */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9);
     backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center;
     z-index: 9999; padding: 20px; }
@@ -234,7 +227,6 @@
   .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
   .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
 
-  /* TON modal */
   .ton-modal-content { border: 1px solid rgba(255,204,0,0.3); text-align: center; }
   .ton-modal-icon { font-size: 44px; margin-bottom: 10px; }
   .ton-modal-title { font-size: 22px; font-weight: 900; color: #ffcc00; margin-bottom: 6px; }
@@ -254,7 +246,8 @@
     text-align: left; margin: 14px 0; line-height: 1.5; }
   .ton-status { display: flex; align-items: center; justify-content: center; gap: 10px;
     padding: 14px; background: rgba(255,204,0,0.08); border: 1px solid rgba(255,204,0,0.25);
-    border-radius: 14px; font-size: 13px; color: #ffcc00; font-weight: 700; margin-bottom: 12px; }
+    border-radius: 14px; font-size: 13px; color: #ffcc00; font-weight: 700; margin-bottom: 12px;
+    line-height: 1.4; flex-direction: column; }
   .ton-status.success { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3); }
   .ton-status.error { background: rgba(255,50,50,0.1); color: #ff5555; border-color: rgba(255,50,50,0.3); }
   .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,204,0,0.2);
@@ -263,7 +256,6 @@
     border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; color: #888;
     font-size: 13px; font-weight: 700; cursor: pointer; }
 
-  /* DETAIL MODAL */
   .detail-content { text-align: center; }
   .detail-visual { width: 140px; height: 140px; border-radius: 50%; background: #0a0a0a;
     border: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
@@ -288,7 +280,6 @@
   .detail-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
   .detail-btn:disabled { background: #1a1a1a !important; color: #444 !important; cursor: not-allowed; }
 
-  /* WALLET input */
   .input-field { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: #fff;
     font-size: 13px; font-family: 'Courier New', monospace; outline: none; margin-bottom: 12px; }
@@ -297,7 +288,6 @@
     background: linear-gradient(135deg, #4a9eff, #0066cc); color: #fff;
     font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; }
 
-  /* LOOTBOX ANIMATION */
   .loot-anim-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
     display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
   .loot-anim-overlay.active { display: flex; }
@@ -340,7 +330,6 @@
     top: 15%; left: 50%; transform: translateX(-50%); z-index: 4; text-shadow: 0 0 20px rgba(255,204,0,0.6); }
   .loot-reveal-title.show { opacity: 1; }
 
-  /* ADMIN */
   .admin-trigger { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
     border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; font-size: 14px; }
@@ -392,7 +381,6 @@
     border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa; }
   .admin-wallet-info b { color: #4ade80; font-size: 16px; font-family: 'Courier New', monospace; }
 
-  /* SKILLS */
   #skillsScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .skills-wrap { width: 100%; max-width: 440px; margin: 0 auto;
@@ -420,7 +408,6 @@
   .upgrade-btn:disabled { background: #111; color: #444; border-color: #1a1a1a; cursor: not-allowed; }
   .upgrade-btn.maxed { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
 
-  /* SHOP */
   #shopScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .shop-wrap { width: 100%; max-width: 440px; margin: 0 auto;
@@ -429,7 +416,8 @@
   .shop-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
   .shop-wallet { background: rgba(74,158,255,0.06); border: 1px solid rgba(74,158,255,0.2);
     border-radius: 14px; padding: 12px 16px; margin-bottom: 20px;
-    display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+    cursor: pointer; }
   .shop-wallet .lbl { color: #888; }
   .shop-wallet .val { color: #4ade80; font-family: 'Courier New', monospace; font-weight: 800; font-size: 11px;
     max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -458,7 +446,6 @@
   .placeholder .icon { font-size: 60px; opacity: 0.5; }
   .placeholder .txt { font-size: 16px; font-weight: 700; color: #666; letter-spacing: 1px; }
 
-  /* GAME */
   #gameScreen { padding: 0; }
   #gameScreen.active { display: block; }
   #gameCanvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #000; }
@@ -557,7 +544,6 @@
 <div class="toast" id="toast"></div>
 <div id="app">
 
-  <!-- LOADING -->
   <div id="loadingScreen" class="screen active">
     <canvas id="loadingCanvas"></canvas>
     <div class="loading-content">
@@ -569,7 +555,6 @@
     </div>
   </div>
 
-  <!-- MENU -->
   <div id="menuScreen" class="screen">
     <canvas id="menuCanvas"></canvas>
     <div class="menu-content">
@@ -635,7 +620,6 @@
     <div class="tab-bar" id="menuTabBar"></div>
   </div>
 
-  <!-- INVENTORY -->
   <div id="inventoryScreen" class="screen">
     <div class="inv-header">
       <div class="inv-title">🎒 Locker<span class="count" id="invCount">0</span></div>
@@ -663,21 +647,19 @@
     <div class="tab-bar" id="invTabBar"></div>
   </div>
 
-  <!-- SHOP -->
   <div id="shopScreen" class="screen">
     <div class="shop-wrap">
       <div class="shop-title">🛍️ Shop</div>
       <div class="shop-sub">Sell your skins for TON</div>
-      <div class="shop-wallet">
+      <div class="shop-wallet" id="shopWalletBox">
         <span class="lbl">Your TON wallet</span>
-        <span class="val" id="shopWallet">Not set</span>
+        <span class="val" id="shopWallet">Tap to set</span>
       </div>
       <div id="shopList"></div>
     </div>
     <div class="tab-bar" id="shopTabBar"></div>
   </div>
 
-  <!-- SKILLS -->
   <div id="skillsScreen" class="screen">
     <div class="skills-wrap">
       <div class="admin-trigger" id="adminTrigger">⚙️</div>
@@ -717,7 +699,6 @@
     <div class="tab-bar" id="seasonTabBar"></div>
   </div>
 
-  <!-- GAME -->
   <div id="gameScreen" class="screen">
     <canvas id="gameCanvas"></canvas>
     <div class="top-hud">
@@ -754,7 +735,6 @@
     </div>
   </div>
 
-  <!-- TON MODAL -->
   <div class="modal-overlay" id="tonModal">
     <div class="modal-content ton-modal-content">
       <button class="modal-close" id="closeTonModal">✕</button>
@@ -771,19 +751,18 @@
         <div class="ton-value" id="tonMemo">MEMO123</div>
         <button class="copy-btn" id="copyMemoBtn">📋 Copy</button>
       </div>
-      <div class="ton-warning">⚠️ You <b>MUST</b> include the memo!</div>
-      <div class="ton-status" id="tonStatus"><span class="spinner"></span> Waiting...</div>
+      <div class="ton-warning">⚠️ You <b>MUST</b> include the memo! Without it, we can't find your payment.</div>
+      <div class="ton-status" id="tonStatus"><span class="spinner"></span> Waiting for payment...</div>
       <button class="ton-cancel-btn" id="cancelTonBtn">Cancel</button>
     </div>
   </div>
 
-  <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="detailModal">
     <div class="modal-content detail-content">
       <button class="modal-close" id="closeDetailModal">✕</button>
       <div class="detail-visual" id="detailVisual"></div>
       <div class="detail-name" id="detailName">Skin</div>
-      <div class="detail-serial" id="detailSerial">#000000</div>
+      <div class="detail-serial" id="detailSerial">#------</div>
       <div><span class="detail-rarity" id="detailRarity">RARE</span></div>
       <div class="detail-row">
         <span class="lbl">Source</span>
@@ -799,7 +778,6 @@
     </div>
   </div>
 
-  <!-- WALLET MODAL -->
   <div class="modal-overlay" id="walletModal">
     <div class="modal-content">
       <button class="modal-close" id="closeWalletModal">✕</button>
@@ -810,7 +788,6 @@
     </div>
   </div>
 
-  <!-- LOOTBOX ANIMATION -->
   <div class="loot-anim-overlay" id="lootAnimOverlay">
     <div class="loot-anim-stage">
       <div class="loot-anim-particles" id="lootParticles"></div>
@@ -820,15 +797,14 @@
         <div class="loot-reveal-card" id="lootRevealCard">
           <div class="loot-reveal-visual" id="lootRevealVisual"></div>
           <div class="loot-reveal-rarity" id="lootRevealRarity">RARE</div>
-          <div class="loot-reveal-name" id="lootRevealName">Fire</div>
-          <div class="loot-reveal-serial" id="lootRevealSerial">#000042</div>
+          <div class="loot-reveal-name" id="lootRevealName">Skin</div>
+          <div class="loot-reveal-serial" id="lootRevealSerial">#------</div>
         </div>
       </div>
       <button class="loot-reveal-continue" id="lootContinueBtn">CONTINUE</button>
     </div>
   </div>
 
-  <!-- ADMIN MODAL -->
   <div class="modal-overlay" id="adminModal">
     <div class="admin-panel">
       <button class="modal-close" id="adminCloseBtn">✕</button>
@@ -932,17 +908,21 @@ var SPEED_UPGRADE_BASE_COST = 100, SPEED_UPGRADE_COST_STEP = 50;
 var TOKEN_PER_SECOND = 0.5, TOKEN_PER_200_MASS = 1, TOKEN_PER_KILL = 10;
 var TOKEN_BONUS_2MIN = 30, TOKEN_BONUS_5MIN = 100;
 var LOOTBOX_MAX_SERIAL = 999;
+var TON_CHECK_INTERVAL_MS = 2000;
+var TON_MAX_CHECKS = 150;
+var DEFAULT_TON_ADDRESS = 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
 
 var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
 
+// Fire skin removed
 var SKINS = [
   { id: 'default', color: '#4a9eff', emoji: '🪐', name: 'Default', rarity: 'common', img: null },
-  { id: 'fire', color: '#ff5500', emoji: '🔥', name: 'Fire', rarity: 'rare', img: 'fire-skin.png' },
   { id: 'mind', color: '#a55cff', emoji: '🧠', name: 'Mind', rarity: 'legendary', img: 'mind-skin.png' },
   { id: 'knight', color: '#ff3333', emoji: '⚔️', name: 'Knight', rarity: 'legendary', img: 'knight-skin.png' },
   { id: 'rage', color: '#ff8800', emoji: '😡', name: 'Rage', rarity: 'legendary', img: 'rage-skin.png' }
 ];
 
+var REMOVED_SKINS = ['fire'];
 var SKIN_IMAGES = {};
 
 /* ============ SAVE ============ */
@@ -957,6 +937,7 @@ var Save = {
   lootboxPrice: 0.01, lootboxRemaining: -1, lootboxTag: '',
   serialStatus: { next: 1, soldOut: false },
   skinPrices: {},
+  tonWalletAddress: DEFAULT_TON_ADDRESS,
   dirty: false,
 
   applyServerData: function(u) {
@@ -969,7 +950,6 @@ var Save = {
     this.totalKills = u.totalKills || 0;
     this.highScore = u.highScore || 0;
     this.walletAddress = u.walletAddress || '';
-    // find currentSerial
     var match = this.unlockedSkins.find(function(s) { return s.id === Save.currentSkin; });
     this.currentSerial = match ? match.serial : null;
   },
@@ -982,6 +962,8 @@ var Save = {
     var hasDefault = false;
     for (var i = 0; i < arr.length; i++) {
       var s = arr[i];
+      var sid = (typeof s === 'string') ? s : (s && s.id);
+      if (REMOVED_SKINS.indexOf(sid) >= 0) continue;
       if (typeof s === 'string') {
         out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
         if (s === 'default') hasDefault = true;
@@ -1021,7 +1003,6 @@ var Save = {
     this.dirty = false;
   },
 
-  // Check if at least one instance with given id exists
   isUnlocked: function(id) {
     for (var i = 0; i < this.unlockedSkins.length; i++)
       if (this.unlockedSkins[i].id === id) return true;
@@ -1224,6 +1205,7 @@ function initSocket() {
     Save.applySettings(data.settings);
     if (data.skinPrices) Save.skinPrices = data.skinPrices;
     if (data.serialStatus) Save.serialStatus = data.serialStatus;
+    if (data.tonWalletAddress) Save.tonWalletAddress = data.tonWalletAddress;
     selectedSkin = Save.currentSkin;
     selectedSerial = Save.currentSerial;
     $('loadingText').textContent = 'Loading...';
@@ -1329,7 +1311,7 @@ function initSocket() {
     }, 50);
   });
 
-  // *** BUG FIX: ignore state in classic mode ***
+  // BUG FIX: ignore state in classic mode
   socket.on('state', function(data) {
     if (!isOnline) return;
     networkPlayers = {};
@@ -1378,19 +1360,19 @@ function initSocket() {
 
   socket.on('lootbox_claim_result', function(res) {
     if (!res || !res.ok) {
-      $('tonStatus').innerHTML = '❌ ' + (res && res.message ? res.message : 'Failed');
-      $('tonStatus').className = 'ton-status error';
-      stopTonCheck();
+      onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
       return;
     }
     // success
+    stopTonCheck();
     Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
     Save.serialStatus.next = (res.serial || 0) + 1;
     if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
     if (Save.lootboxRemaining > 0) Save.lootboxRemaining--;
-    stopTonCheck();
-    $('tonStatus').innerHTML = '✅ Confirmed!';
+
+    $('tonStatus').innerHTML = '✅ Payment confirmed!';
     $('tonStatus').className = 'ton-status success';
+
     setTimeout(function() {
       closeTonModal();
       playLootboxAnimation(res.skinId, res.serial);
@@ -1421,8 +1403,6 @@ function initSocket() {
       toast('❌ Invalid wallet', 'error');
     }
   });
-
-  socket.on('my_requests', function(list) { /* reserved */ });
 
   socket.on('admin_requests', function(list) {
     renderAdminRequests(list || []);
@@ -1723,7 +1703,7 @@ Player.prototype.update = function(dt) {
     if (cell.mass > MASS_DECAY_MIN) cell.mass -= cell.mass * MASS_DECAY_RATE * dt;
     if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
   }
-  // Reverse loop merge
+  // Reverse merge loop
   for (var a = this.cells.length - 1; a >= 0; a--) {
     if (a >= this.cells.length) continue;
     for (var b = a - 1; b >= 0; b--) {
@@ -2306,14 +2286,13 @@ function switchTab(tab) {
   else if (tab === 'profile') { openScreen('skillsScreen'); updateSkillsUI(); }
 }
 
-/* ============ INVENTORY (REDESIGNED) ============ */
+/* ============ INVENTORY ============ */
 var invFilter = 'all';
 function renderInventory() {
   var grid = $('invGrid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Group instances by skin id
   var grouped = {};
   var order = [];
   for (var i = 0; i < Save.unlockedSkins.length; i++) {
@@ -2385,7 +2364,6 @@ function renderInventory() {
   $('invCount').textContent = Save.unlockedSkins.length;
   $('invTokens').textContent = Save.tokens;
 
-  // Lootbox state
   var lockedCount = getLockedSkins().length;
   var btn = $('openLootboxBtn');
   if (btn) {
@@ -2445,9 +2423,7 @@ function openDetailModal(skinId) {
   var skin = getSkinById(skinId);
   if (!skin) return;
 
-  // default: pick first instance; if multiple, cycle on click? just pick first.
   var inst = instances[0];
-
   detailContext.skinId = skinId;
   detailContext.serial = inst.serial;
   detailContext.instance = inst;
@@ -2472,7 +2448,6 @@ function openDetailModal(skinId) {
   rr.className = 'detail-rarity rarity-' + skin.rarity;
   $('detailSource').textContent = inst.source || 'unknown';
 
-  // Price info
   var priceInfo = Save.skinPrices[skinId];
   var priceRow = $('detailPriceRow');
   var sellBtn = $('detailSellBtn');
@@ -2538,7 +2513,7 @@ function saveWallet() {
 
 /* ============ SHOP ============ */
 function renderShop() {
-  if ($('shopWallet')) $('shopWallet').textContent = Save.walletAddress || 'Not set';
+  if ($('shopWallet')) $('shopWallet').textContent = Save.walletAddress || 'Tap to set';
   var list = $('shopList');
   if (!list) return;
   list.innerHTML = '';
@@ -2670,7 +2645,7 @@ function updateMenuTokens() {
   if ($('menuTokens')) $('menuTokens').textContent = Save.tokens;
 }
 
-/* ============ MENU BG ============ */
+/* ============ MENU / LOADING BG ============ */
 function initMenuCanvas() {
   var canvas = $('menuCanvas');
   if (!canvas) return;
@@ -2753,8 +2728,13 @@ function updateOnlineCount() {
   el.textContent = count > 0 ? count : '—';
 }
 
-/* ============ TON LOOTBOX ============ */
-var tonPayment = { isChecking: false, checkCount: 0, checkTimer: null, currentMemo: null };
+/* ============ TON LOOTBOX (auto check every 2s, max 150) ============ */
+var tonPayment = {
+  isChecking: false,
+  checkCount: 0,
+  checkTimer: null,
+  currentMemo: null
+};
 
 function generateMemo() {
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2762,47 +2742,80 @@ function generateMemo() {
   for (var i = 0; i < 6; i++) memo += chars[Math.floor(Math.random() * chars.length)];
   return memo;
 }
+
 function openTonModal() {
   var locked = getLockedSkins();
   if (locked.length === 0) { toast('🎉 All skins already unlocked!', 'success'); return; }
   if (Save.serialStatus.soldOut) { toast('🚫 All 999 sold out', 'error'); return; }
   if (Save.lootboxRemaining === 0) { toast('🚫 Lootbox sold out', 'error'); return; }
+
+  // Always a fresh memo
   tonPayment.currentMemo = generateMemo();
   tonPayment.checkCount = 0;
   tonPayment.isChecking = false;
-  $('tonAddress').textContent = 'See server TON wallet';
+
+  $('tonAddress').textContent = Save.tonWalletAddress || DEFAULT_TON_ADDRESS;
   $('tonMemo').textContent = tonPayment.currentMemo;
   $('tonAmount').textContent = Save.lootboxPrice;
-  $('tonStatus').innerHTML = '<span class="spinner"></span> Waiting...';
+  $('tonStatus').innerHTML = '<span class="spinner"></span> Waiting for payment...';
   $('tonStatus').className = 'ton-status';
+
   $('tonModal').classList.add('active');
   startTonCheck();
 }
+
 function closeTonModal() {
-  $('tonModal').classList.remove('active');
+  // Cancel = full cancel
   stopTonCheck();
+  tonPayment.currentMemo = null;
+  tonPayment.checkCount = 0;
+  $('tonModal').classList.remove('active');
 }
+
 function stopTonCheck() {
   tonPayment.isChecking = false;
-  if (tonPayment.checkTimer) { clearInterval(tonPayment.checkTimer); tonPayment.checkTimer = null; }
+  if (tonPayment.checkTimer) {
+    clearInterval(tonPayment.checkTimer);
+    tonPayment.checkTimer = null;
+  }
 }
+
 function startTonCheck() {
   if (tonPayment.isChecking) return;
   tonPayment.isChecking = true;
+  // immediate first check
   checkTonTransaction();
-  tonPayment.checkTimer = setInterval(checkTonTransaction, 3000);
+  tonPayment.checkTimer = setInterval(checkTonTransaction, TON_CHECK_INTERVAL_MS);
 }
+
 function checkTonTransaction() {
-  if (!tonPayment.isChecking) return;
+  if (!tonPayment.isChecking || !tonPayment.currentMemo) return;
   tonPayment.checkCount++;
-  if (tonPayment.checkCount > 100) {
-    $('tonStatus').innerHTML = '⏱️ Timeout. Try again.';
-    $('tonStatus').className = 'ton-status error';
+
+  if (tonPayment.checkCount > TON_MAX_CHECKS) {
+    // Timeout — stop and show retry button
     stopTonCheck();
+    $('tonStatus').innerHTML = '⏱️ Timeout — payment not found<br>' +
+      '<span style="font-size:11px;opacity:0.75;">Please try again with a new payment</span>';
+    $('tonStatus').className = 'ton-status error';
     return;
   }
-  $('tonStatus').innerHTML = '<span class="spinner"></span> Checking payment... (' + tonPayment.checkCount + ')';
+
+  $('tonStatus').innerHTML = '<span class="spinner"></span> Checking payment... (' +
+    tonPayment.checkCount + '/' + TON_MAX_CHECKS + ')';
+  $('tonStatus').className = 'ton-status';
+
   socket.emit('claim_lootbox', { memo: tonPayment.currentMemo });
+}
+
+function onLootboxCheckFailed(msg) {
+  // If still checking and under max, just keep going silently (auto-check)
+  if (!tonPayment.isChecking) return;
+  // Update status to keep user informed
+  $('tonStatus').innerHTML = '<span class="spinner"></span> Not found yet... (' +
+    tonPayment.checkCount + '/' + TON_MAX_CHECKS + ')';
+  $('tonStatus').className = 'ton-status';
+  // If reached max, checkTonTransaction will handle timeout on next call
 }
 
 /* ============ LOOTBOX ANIMATION ============ */
@@ -3028,7 +3041,7 @@ function renderAdminPrices() {
   var el = $('adminPricesList');
   if (!el) return;
   el.innerHTML = '';
-  ['fire','mind','knight','rage'].forEach(function(sid) {
+  ['mind', 'knight', 'rage'].forEach(function(sid) {
     var skin = getSkinById(sid);
     if (!skin) return;
     var info = Save.skinPrices[sid] || { sellPrice: 0, isSellable: false };
@@ -3134,23 +3147,21 @@ function init() {
     $('closeTonModal').addEventListener('click', closeTonModal);
     $('cancelTonBtn').addEventListener('click', closeTonModal);
     $('copyAddressBtn').addEventListener('click', function() {
-      copyToClipboard('See server config', $('copyAddressBtn'));
+      copyToClipboard(Save.tonWalletAddress || DEFAULT_TON_ADDRESS, $('copyAddressBtn'));
     });
     $('copyMemoBtn').addEventListener('click', function() {
       copyToClipboard(tonPayment.currentMemo || '', $('copyMemoBtn'));
     });
 
-    // Detail modal
     $('closeDetailModal').addEventListener('click', closeDetailModal);
     $('detailCloseBtn').addEventListener('click', closeDetailModal);
     $('detailSelectBtn').addEventListener('click', selectDetailSkin);
     $('detailSellBtn').addEventListener('click', sellDetailSkin);
 
-    // Wallet modal
     $('closeWalletModal').addEventListener('click', closeWalletModal);
     $('saveWalletBtn').addEventListener('click', saveWallet);
+    $('shopWalletBox').addEventListener('click', openWalletModal);
 
-    // Admin
     $('adminTrigger').addEventListener('click', openAdminModal);
     $('adminCloseBtn').addEventListener('click', closeAdminModal);
     $('adminLoginBtn').addEventListener('click', adminLogin);
