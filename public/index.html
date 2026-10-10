@@ -381,6 +381,15 @@
     border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa; }
   .admin-wallet-info b { color: #4ade80; font-size: 16px; font-family: 'Courier New', monospace; }
 
+  .admin-toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+  .admin-toggle-row .lbl { font-size: 13px; color: #fff; font-weight: 700; }
+  .admin-toggle { width: 48px; height: 28px; border-radius: 999px; background: #222;
+    border: 1px solid rgba(255,255,255,0.1); position: relative; cursor: pointer; transition: all 0.2s; }
+  .admin-toggle.on { background: linear-gradient(135deg, #33cc33, #178a1e); border-color: transparent; }
+  .admin-toggle .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
+    border-radius: 50%; background: #fff; transition: all 0.2s; }
+  .admin-toggle.on .knob { left: 24px; }
+
   #skillsScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .skills-wrap { width: 100%; max-width: 440px; margin: 0 auto;
@@ -472,6 +481,14 @@
   .lb-row.you .lb-name { color: #ffcc00; }
   .lb-score { color: #888; font-weight: 700; }
   .lb-row.you .lb-score { color: #ffcc00; }
+
+  .cashout-btn { position: absolute; top: calc(46px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left)); background: linear-gradient(135deg, #ffcc00, #ff8800);
+    border: none; border-radius: 999px; padding: 8px 14px; font-size: 11px; font-weight: 900;
+    color: #000; cursor: pointer; z-index: 30; letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(255,204,0,0.4); font-family: inherit; }
+  .cashout-btn:active { transform: scale(0.95); }
+
   #joystick { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom));
     left: calc(20px + env(safe-area-inset-left)); width: 130px; height: 130px;
     z-index: 40; display: none; touch-action: none; }
@@ -707,6 +724,7 @@
       <div class="pill">⏱ <span id="timeVal">00:00</span></div>
     </div>
     <div class="rank-badge">🏆 <span id="rankVal">#1</span></div>
+    <button class="cashout-btn" id="cashoutBtn">💰 CASH OUT</button>
     <div class="leaderboard">
       <div class="lb-title">LEADERBOARD</div>
       <div id="lbList"></div>
@@ -855,6 +873,18 @@
           <div class="admin-wallet-info">
             Hot wallet balance: <b id="adminWalletBalance">loading...</b> TON
           </div>
+          <div class="admin-section">
+            <div class="admin-section-title">🤖 Auto-Pay</div>
+            <div class="admin-toggle-row">
+              <span class="lbl">Auto-pay new requests</span>
+              <div class="admin-toggle" id="autopayToggle">
+                <div class="knob"></div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:#666;margin-top:6px;">
+              When ON, new sell requests are paid automatically (needs hot wallet balance)
+            </div>
+          </div>
           <button class="admin-btn" id="adminRefreshRequestsBtn">🔄 Refresh Requests</button>
           <div id="adminRequestsList" style="margin-top:12px;"></div>
         </div>
@@ -907,6 +937,7 @@ var MAX_SPEED_LEVEL = 50, SPEED_PER_LEVEL = 0.05;
 var SPEED_UPGRADE_BASE_COST = 100, SPEED_UPGRADE_COST_STEP = 50;
 var TOKEN_PER_SECOND = 0.5, TOKEN_PER_200_MASS = 1, TOKEN_PER_KILL = 10;
 var TOKEN_BONUS_2MIN = 30, TOKEN_BONUS_5MIN = 100;
+var CASHOUT_BONUS = 1.5;
 var LOOTBOX_MAX_SERIAL = 999;
 var TON_CHECK_INTERVAL_MS = 2000;
 var TON_MAX_CHECKS = 150;
@@ -934,6 +965,7 @@ var Save = {
   totalKills: 0, highScore: 0,
   walletAddress: '',
   lootboxPrice: 0.01, lootboxRemaining: -1, lootboxTag: '',
+  autopayEnabled: false,
   serialStatus: { next: 1, soldOut: false },
   skinPrices: {},
   tonWalletAddress: DEFAULT_TON_ADDRESS,
@@ -985,6 +1017,7 @@ var Save = {
     this.lootboxRemaining = parseInt(s.lootbox_remaining);
     if (isNaN(this.lootboxRemaining)) this.lootboxRemaining = -1;
     this.lootboxTag = s.lootbox_tag || '';
+    this.autopayEnabled = (s.autopay_enabled === '1' || s.autopay_enabled === true || s.autopay_enabled === 1);
   },
 
   markDirty: function() { this.dirty = true; },
@@ -1067,6 +1100,7 @@ var MAX_ATTEMPTS = 12;
 var isBotMapMode = false;
 var adminPassword = '';
 var adminCurrentTab = 'lootbox';
+var autopayEnabled = false;
 var detailContext = { skinId: null, serial: null, instance: null };
 
 /* ============ UTILS ============ */
@@ -1206,6 +1240,7 @@ function initSocket() {
     if (data.skinPrices) Save.skinPrices = data.skinPrices;
     if (data.serialStatus) Save.serialStatus = data.serialStatus;
     if (data.tonWalletAddress) Save.tonWalletAddress = data.tonWalletAddress;
+    autopayEnabled = Save.autopayEnabled;
     selectedSkin = Save.currentSkin;
     selectedSerial = Save.currentSerial;
     $('loadingText').textContent = 'Loading...';
@@ -1227,6 +1262,11 @@ function initSocket() {
 
   socket.on('settings_update', function(s) {
     Save.applySettings(s);
+    autopayEnabled = Save.autopayEnabled;
+    var tog = $('autopayToggle');
+    if (tog) {
+      if (autopayEnabled) tog.classList.add('on'); else tog.classList.remove('on');
+    }
     renderInventory();
   });
 
@@ -1248,7 +1288,7 @@ function initSocket() {
     }
   });
 
-  // ============ ADMIN HANDLERS (server-validated) ============
+  /* ===== ADMIN HANDLERS ===== */
   socket.on('admin_login_result', function(res) {
     var btn = $('adminLoginBtn');
     if (btn) { btn.textContent = '🔓 Unlock'; btn.disabled = false; }
@@ -1263,6 +1303,10 @@ function initSocket() {
     $('adminControls').style.display = 'block';
     $('adminPriceInput').value = Save.lootboxPrice;
     $('adminRemainingInput').value = Save.lootboxRemaining;
+    var tog = $('autopayToggle');
+    if (tog) {
+      if (Save.autopayEnabled) tog.classList.add('on'); else tog.classList.remove('on');
+    }
     renderAdminPrices();
     refreshAdminBalance();
     refreshAdminRequests();
@@ -1328,6 +1372,8 @@ function initSocket() {
     World.gameOverTriggered = false;
     World.tokensEarned = 0; World.massForTokens = 0;
     World.bonusGiven = { twoMin: false, fiveMin: false };
+    World.cashedOut = false;
+    World.cashedOutTokens = 0;
 
     var skin = getSkinById(selectedSkin);
     var name = getPlayerName();
@@ -1484,11 +1530,15 @@ function initSocket() {
 
   socket.on('admin_pay_result', function(res) {
     if (res && res.ok) {
-      toast('✅ Paid ' + res.amount + ' TON', 'success');
+      var msg = res.auto ? '🤖 Auto-paid ' + res.amount + ' TON' : '✅ Paid ' + res.amount + ' TON';
+      toast(msg, 'success');
       refreshAdminRequests();
       refreshAdminBalance();
     } else {
-      toast('❌ ' + (res && res.message ? res.message : 'Pay failed'), 'error');
+      var emsg = res && res.message ? res.message : 'Pay failed';
+      if (res && res.auto) emsg = '🤖 Auto-pay failed: ' + emsg;
+      toast('❌ ' + emsg, 'error');
+      refreshAdminRequests();
     }
   });
 
@@ -1812,12 +1862,14 @@ var World = {
   startTime: 0, gameOverTriggered: false,
   tokensEarned: 0, massForTokens: 0,
   bonusGiven: { twoMin: false, fiveMin: false },
+  cashedOut: false, cashedOutTokens: 0,
   initClassic: function() {
     this.players = []; this.food = []; this.player = null;
     this.startTime = performance.now() / 1000;
     this.gameOverTriggered = false;
     this.tokensEarned = 0; this.massForTokens = 0;
     this.bonusGiven = { twoMin: false, fiveMin: false };
+    this.cashedOut = false; this.cashedOutTokens = 0;
     for (var i = 0; i < FOOD_COUNT; i++) {
       var pos = randomWorldPos(30);
       this.food.push(new Food(pos.x, pos.y));
@@ -1949,6 +2001,13 @@ var World = {
   },
   updateOnline: function(dt) {
     if (!World.player || !World.player.alive) return;
+    World.tokensEarned += TOKEN_PER_SECOND * dt;
+    var cm2 = World.player.totalMass;
+    if (cm2 > World.massForTokens + 200) {
+      var g2 = Math.floor((cm2 - World.massForTokens) / 200);
+      World.tokensEarned += g2 * TOKEN_PER_200_MASS;
+      World.massForTokens += g2 * 200;
+    }
     if (JoystickP1 && JoystickP1.active && JoystickP1.magnitude > 0.12) {
       var d = 500 + JoystickP1.magnitude * 300;
       World.player.targetX = World.player.cx + Math.cos(JoystickP1.angle) * d;
@@ -2262,7 +2321,42 @@ function startOnlineGame(name) {
   socket.emit('join', { name: name, color: skin.color, startMass: Save.getStartMass() });
 }
 
+function cashOut() {
+  if (!World.player || !World.player.alive) return;
+  var tokens = Math.floor(World.tokensEarned * CASHOUT_BONUS);
+  if (tokens <= 0) { toast('No tokens to cash out yet', 'error'); return; }
+  if (!confirm('💰 CASH OUT for ' + tokens + ' tokens?\n\n(1.5x bonus applied)\nYour game will end.')) return;
+
+  Save.tokens += tokens;
+  if (World.player.maxMass > Save.highScore) Save.highScore = Math.floor(World.player.maxMass);
+  Save.totalKills += World.player.kills;
+  Save.markDirty();
+  Save.syncToServer();
+  updateMenuTokens();
+
+  World.cashedOut = true;
+  World.cashedOutTokens = tokens;
+  World.player.alive = false;
+  World.gameOverTriggered = true;
+
+  running = false;
+  if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
+  if (isOnline && socket) { try { socket.emit('disconnect_player'); } catch (e) {} }
+
+  setTimeout(function() {
+    $('gameOverScreen').classList.add('active');
+    var p = World.player;
+    $('goScore').textContent = Math.floor(p.maxMass);
+    var el = performance.now() / 1000 - World.startTime;
+    $('goTime').textContent = fmtTime(el);
+    $('goRank').textContent = '#' + World.getRank(p);
+    $('goKills').textContent = p.kills;
+    $('goTokens').textContent = '+' + tokens + ' (1.5x)';
+  }, 300);
+}
+
 function handlePlayerDeath() {
+  if (World.cashedOut) return;
   running = false;
   if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
   setTimeout(function() {
@@ -3031,6 +3125,16 @@ function setLootboxTag(tag) {
   renderInventory();
   showAdminStatus(tag ? '✅ ' + tag.toUpperCase() : '✅ Removed', 'success');
 }
+function toggleAutopay() {
+  if (!adminPassword) { toast('Login first', 'error'); return; }
+  autopayEnabled = !autopayEnabled;
+  var tog = $('autopayToggle');
+  if (tog) {
+    if (autopayEnabled) tog.classList.add('on'); else tog.classList.remove('on');
+  }
+  socket.emit('admin_set', { key: 'autopay_enabled', value: autopayEnabled ? '1' : '0', password: adminPassword });
+  toast(autopayEnabled ? '🤖 Auto-pay ON' : '🤖 Auto-pay OFF', 'success');
+}
 function adminAddTokens() {
   if (!adminPassword) { toast('Login first', 'error'); return; }
   socket.emit('admin_add_tokens', { password: adminPassword });
@@ -3227,6 +3331,8 @@ function init() {
     $('saveWalletBtn').addEventListener('click', saveWallet);
     $('shopWalletBox').addEventListener('click', openWalletModal);
 
+    $('cashoutBtn').addEventListener('click', cashOut);
+
     $('adminTrigger').addEventListener('click', openAdminModal);
     $('adminCloseBtn').addEventListener('click', closeAdminModal);
     $('adminLoginBtn').addEventListener('click', adminLogin);
@@ -3240,6 +3346,9 @@ function init() {
     $('adminRefreshRequestsBtn').addEventListener('click', function() {
       refreshAdminRequests(); refreshAdminBalance();
     });
+    var autopayTog = $('autopayToggle');
+    if (autopayTog) autopayTog.addEventListener('click', toggleAutopay);
+
     document.querySelectorAll('.admin-btn[data-tag]').forEach(function(btn) {
       btn.addEventListener('click', function() { setLootboxTag(btn.getAttribute('data-tag')); });
     });
