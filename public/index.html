@@ -914,7 +914,6 @@ var DEFAULT_TON_ADDRESS = 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
 
 var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
 
-// Fire skin removed
 var SKINS = [
   { id: 'default', color: '#4a9eff', emoji: '🪐', name: 'Default', rarity: 'common', img: null },
   { id: 'mind', color: '#a55cff', emoji: '🧠', name: 'Mind', rarity: 'legendary', img: 'mind-skin.png' },
@@ -983,7 +982,8 @@ var Save = {
 
   applySettings: function(s) {
     this.lootboxPrice = parseFloat(s.lootbox_price) || 0.01;
-    this.lootboxRemaining = parseInt(s.lootbox_remaining) || -1;
+    this.lootboxRemaining = parseInt(s.lootbox_remaining);
+    if (isNaN(this.lootboxRemaining)) this.lootboxRemaining = -1;
     this.lootboxTag = s.lootbox_tag || '';
   },
 
@@ -1356,38 +1356,37 @@ function initSocket() {
         World.food.push(nf);
       }
     }
+  });
 
-   socket.on('lootbox_claim_result', function(res) {
-  if (!res || !res.ok) {
-    onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
-    return;
-  }
-  // success
-  stopTonCheck();
-  Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
-  Save.serialStatus.next = (res.serial || 0) + 1;
-  if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
+  // FIXED: uses server-authoritative lootboxRemaining and saves progress
+  socket.on('lootbox_claim_result', function(res) {
+    if (!res || !res.ok) {
+      onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
+      return;
+    }
+    stopTonCheck();
+    Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+    Save.serialStatus.next = (res.serial || 0) + 1;
+    if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
 
-  // Use server-authoritative remaining value
-  if (typeof res.lootboxRemaining === 'number') {
-    Save.lootboxRemaining = res.lootboxRemaining;
-  } else if (Save.lootboxRemaining > 0) {
-    Save.lootboxRemaining--;
-  }
+    if (typeof res.lootboxRemaining === 'number') {
+      Save.lootboxRemaining = res.lootboxRemaining;
+    } else if (Save.lootboxRemaining > 0) {
+      Save.lootboxRemaining--;
+    }
 
-  // Persist to server so it doesn't get lost on refresh
-  Save.markDirty();
-  Save.syncToServer();
+    Save.markDirty();
+    Save.syncToServer();
 
-  $('tonStatus').innerHTML = '✅ Payment confirmed!';
-  $('tonStatus').className = 'ton-status success';
+    $('tonStatus').innerHTML = '✅ Payment confirmed!';
+    $('tonStatus').className = 'ton-status success';
 
-  setTimeout(function() {
-    closeTonModal();
-    playLootboxAnimation(res.skinId, res.serial);
-    renderInventory();
-  }, 900);
-});
+    setTimeout(function() {
+      closeTonModal();
+      playLootboxAnimation(res.skinId, res.serial);
+      renderInventory();
+    }, 900);
+  });
 
   socket.on('sell_result', function(res) {
     if (!res || !res.ok) {
@@ -1712,7 +1711,6 @@ Player.prototype.update = function(dt) {
     if (cell.mass > MASS_DECAY_MIN) cell.mass -= cell.mass * MASS_DECAY_RATE * dt;
     if (cell.mergeTimer > 0) cell.mergeTimer -= dt;
   }
-  // Reverse merge loop
   for (var a = this.cells.length - 1; a >= 0; a--) {
     if (a >= this.cells.length) continue;
     for (var b = a - 1; b >= 0; b--) {
@@ -2737,7 +2735,7 @@ function updateOnlineCount() {
   el.textContent = count > 0 ? count : '—';
 }
 
-/* ============ TON LOOTBOX (auto check every 2s, max 150) ============ */
+/* ============ TON LOOTBOX ============ */
 var tonPayment = {
   isChecking: false,
   checkCount: 0,
@@ -2758,7 +2756,6 @@ function openTonModal() {
   if (Save.serialStatus.soldOut) { toast('🚫 All 999 sold out', 'error'); return; }
   if (Save.lootboxRemaining === 0) { toast('🚫 Lootbox sold out', 'error'); return; }
 
-  // Always a fresh memo
   tonPayment.currentMemo = generateMemo();
   tonPayment.checkCount = 0;
   tonPayment.isChecking = false;
@@ -2774,7 +2771,6 @@ function openTonModal() {
 }
 
 function closeTonModal() {
-  // Cancel = full cancel
   stopTonCheck();
   tonPayment.currentMemo = null;
   tonPayment.checkCount = 0;
@@ -2792,7 +2788,6 @@ function stopTonCheck() {
 function startTonCheck() {
   if (tonPayment.isChecking) return;
   tonPayment.isChecking = true;
-  // immediate first check
   checkTonTransaction();
   tonPayment.checkTimer = setInterval(checkTonTransaction, TON_CHECK_INTERVAL_MS);
 }
@@ -2802,7 +2797,6 @@ function checkTonTransaction() {
   tonPayment.checkCount++;
 
   if (tonPayment.checkCount > TON_MAX_CHECKS) {
-    // Timeout — stop and show retry button
     stopTonCheck();
     $('tonStatus').innerHTML = '⏱️ Timeout — payment not found<br>' +
       '<span style="font-size:11px;opacity:0.75;">Please try again with a new payment</span>';
@@ -2818,13 +2812,10 @@ function checkTonTransaction() {
 }
 
 function onLootboxCheckFailed(msg) {
-  // If still checking and under max, just keep going silently (auto-check)
   if (!tonPayment.isChecking) return;
-  // Update status to keep user informed
   $('tonStatus').innerHTML = '<span class="spinner"></span> Not found yet... (' +
     tonPayment.checkCount + '/' + TON_MAX_CHECKS + ')';
   $('tonStatus').className = 'ton-status';
-  // If reached max, checkTonTransaction will handle timeout on next call
 }
 
 /* ============ LOOTBOX ANIMATION ============ */
