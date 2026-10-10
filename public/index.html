@@ -1356,29 +1356,38 @@ function initSocket() {
         World.food.push(nf);
       }
     }
-  });
 
-  socket.on('lootbox_claim_result', function(res) {
-    if (!res || !res.ok) {
-      onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
-      return;
-    }
-    // success
-    stopTonCheck();
-    Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
-    Save.serialStatus.next = (res.serial || 0) + 1;
-    if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
-    if (Save.lootboxRemaining > 0) Save.lootboxRemaining--;
+   socket.on('lootbox_claim_result', function(res) {
+  if (!res || !res.ok) {
+    onLootboxCheckFailed(res && res.message ? res.message : 'Payment not found yet');
+    return;
+  }
+  // success
+  stopTonCheck();
+  Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
+  Save.serialStatus.next = (res.serial || 0) + 1;
+  if (Save.serialStatus.next > LOOTBOX_MAX_SERIAL) Save.serialStatus.soldOut = true;
 
-    $('tonStatus').innerHTML = '✅ Payment confirmed!';
-    $('tonStatus').className = 'ton-status success';
+  // Use server-authoritative remaining value
+  if (typeof res.lootboxRemaining === 'number') {
+    Save.lootboxRemaining = res.lootboxRemaining;
+  } else if (Save.lootboxRemaining > 0) {
+    Save.lootboxRemaining--;
+  }
 
-    setTimeout(function() {
-      closeTonModal();
-      playLootboxAnimation(res.skinId, res.serial);
-      renderInventory();
-    }, 900);
-  });
+  // Persist to server so it doesn't get lost on refresh
+  Save.markDirty();
+  Save.syncToServer();
+
+  $('tonStatus').innerHTML = '✅ Payment confirmed!';
+  $('tonStatus').className = 'ton-status success';
+
+  setTimeout(function() {
+    closeTonModal();
+    playLootboxAnimation(res.skinId, res.serial);
+    renderInventory();
+  }, 900);
+});
 
   socket.on('sell_result', function(res) {
     if (!res || !res.ok) {
