@@ -186,31 +186,180 @@
     color: #fff; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1); z-index: 2; }
 
+  /* ========== NEW GLASS LOOTBOX ========== */
   .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
-  .lootbox-card { background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,100,0,0.05));
-    border: 1px solid rgba(255,204,0,0.3); border-radius: 22px; padding: 22px;
-    width: 100%; max-width: 400px; text-align: center; position: relative; }
-  .lootbox-icon { font-size: 44px; margin-bottom: 8px; animation: lootboxBounce 2s ease-in-out infinite; }
+  .lootbox-card {
+    position: relative;
+    width: 100%; max-width: 400px;
+    padding: 26px 22px 24px;
+    text-align: center;
+    border-radius: 26px;
+    background: linear-gradient(160deg, rgba(255,204,0,0.14), rgba(255,100,0,0.04) 55%, rgba(255,255,255,0.02));
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255,220,120,0.28);
+    box-shadow:
+      0 20px 60px rgba(255,140,0,0.14),
+      0 0 0 1px rgba(255,255,255,0.03) inset,
+      0 30px 80px -40px rgba(255,180,0,0.5) inset;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .lootbox-card::before {
+    content: '';
+    position: absolute; inset: -2px;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(255,220,120,0.28), transparent 45%),
+      radial-gradient(circle at 80% 100%, rgba(255,120,0,0.18), transparent 55%);
+    pointer-events: none; z-index: 0;
+    opacity: 0.9;
+  }
+  .lootbox-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    z-index: 1;
+  }
+  .lootbox-card > * { position: relative; z-index: 2; }
+  .lootbox-shine {
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.14) 45%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.14) 55%, transparent 70%);
+    transform: rotate(15deg);
+    animation: shineSweep 4.5s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.8;
+  }
+  @keyframes shineSweep {
+    0%, 100% { transform: translateX(-60%) rotate(15deg); }
+    50% { transform: translateX(60%) rotate(15deg); }
+  }
+  .lootbox-icon-wrap {
+    position: relative;
+    width: 96px; height: 96px;
+    margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lootbox-icon-glow {
+    position: absolute; inset: -18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,204,0,0.55) 0%, rgba(255,120,0,0.18) 45%, transparent 70%);
+    filter: blur(6px);
+    animation: lootGlowPulse 2.4s ease-in-out infinite;
+    z-index: 0;
+  }
+  @keyframes lootGlowPulse {
+    0%,100% { transform: scale(1); opacity: 0.75; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+  .lootbox-icon {
+    position: relative; z-index: 1;
+    font-size: 62px; line-height: 1;
+    animation: lootboxBounce 2s ease-in-out infinite;
+    filter: drop-shadow(0 6px 18px rgba(255,180,0,0.6));
+  }
   @keyframes lootboxBounce { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.08); } }
-  .lootbox-tags { display: flex; gap: 4px; justify-content: center; margin-bottom: 8px; }
-  .lootbox-tag { font-size: 9px; font-weight: 900; padding: 3px 10px; border-radius: 999px; letter-spacing: 1px; text-transform: uppercase; }
-  .lootbox-tag.new { background: #4ade80; color: #000; }
+
+  .lootbox-tags { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+  .lootbox-tag { font-size: 9px; font-weight: 900; padding: 4px 12px; border-radius: 999px;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .lootbox-tag.new { background: linear-gradient(135deg, #4ade80, #22c55e); color: #000; }
   .lootbox-tag.hot { background: linear-gradient(135deg, #ff6600, #ffcc00); color: #000; }
-  .lootbox-tag.sale { background: #ff3333; color: #fff; }
-  .lootbox-title { font-size: 20px; font-weight: 900; color: #ffcc00; margin-bottom: 4px; }
-  .lootbox-sub { font-size: 12px; color: #888; margin-bottom: 14px; }
-  .lootbox-price { display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,204,0,0.3);
-    border-radius: 999px; padding: 8px 18px; font-size: 18px; font-weight: 900;
-    color: #ffcc00; margin-bottom: 8px; }
-  .lootbox-remaining { font-size: 11px; color: #ff8800; font-weight: 800; letter-spacing: 1px; margin-bottom: 12px; }
-  .lootbox-serial-hint { font-size: 10px; color: #666; font-family: 'Courier New', monospace;
-    letter-spacing: 1px; margin-bottom: 12px; }
-  .lootbox-btn-buy { width: 100%; padding: 15px; border: none; border-radius: 999px;
-    background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000;
-    font-size: 15px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; transition: all 0.15s; }
+  .lootbox-tag.sale { background: linear-gradient(135deg, #ff5555, #cc0000); color: #fff; }
+
+  .lootbox-title {
+    font-size: 24px; font-weight: 900; letter-spacing: 0.4px;
+    background: linear-gradient(135deg, #fff8d0 0%, #ffcc00 45%, #ff9500 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+    text-shadow: 0 0 40px rgba(255,180,0,0.25);
+  }
+  .lootbox-sub { font-size: 12.5px; color: #a89b78; margin-bottom: 18px; line-height: 1.5; }
+  .lootbox-sub b { color: #ffcc00; font-weight: 800; }
+
+  .lootbox-price {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,120,0,0.06));
+    border: 1px solid rgba(255,204,0,0.35);
+    color: #ffcc00;
+    font-size: 19px; font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 6px 24px -8px rgba(255,204,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    margin-bottom: 10px;
+  }
+  .lootbox-price .coin { font-size: 20px; filter: drop-shadow(0 0 6px rgba(255,204,0,0.6)); }
+
+  .lootbox-remaining {
+    font-size: 11px; font-weight: 800; letter-spacing: 1px;
+    margin-bottom: 6px;
+    color: #ffaa55;
+    text-transform: uppercase;
+  }
+  .lootbox-remaining.unlimited { color: #4ade80; }
+  .lootbox-remaining.soldout { color: #ff5555; }
+
+  .lootbox-serial-hint {
+    font-size: 10.5px; color: #7a6a4a;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1.5px;
+    margin-bottom: 18px;
+  }
+  .lootbox-serial-hint b { color: #ffcc00; }
+
+  .lootbox-btn-buy {
+    position: relative;
+    width: 100%; padding: 16px;
+    border: none; border-radius: 999px;
+    background: linear-gradient(135deg, #ffdd33 0%, #ffaa00 50%, #ff8800 100%);
+    color: #1a0f00;
+    font-size: 15px; font-weight: 900; letter-spacing: 1.8px;
+    cursor: pointer; transition: all 0.2s;
+    font-family: inherit;
+    box-shadow:
+      0 10px 30px -8px rgba(255,150,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -2px 0 rgba(0,0,0,0.15);
+    text-transform: uppercase;
+    overflow: hidden;
+  }
+  .lootbox-btn-buy::before {
+    content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent);
+    transition: left 0.6s;
+  }
+  .lootbox-btn-buy:hover::before { left: 120%; }
   .lootbox-btn-buy:active { transform: scale(0.98); }
-  .lootbox-btn-buy:disabled { background: #222; color: #555; cursor: not-allowed; }
+  .lootbox-btn-buy:disabled {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    color: #555; cursor: not-allowed;
+    box-shadow: none;
+  }
+  .lootbox-btn-buy:disabled::before { display: none; }
+
+  .lootbox-error {
+    display: none;
+    margin-top: 12px; padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255,50,50,0.12);
+    border: 1px solid rgba(255,50,50,0.3);
+    color: #ff8080;
+    font-size: 12px; font-weight: 700;
+    line-height: 1.4;
+    animation: shake 0.4s;
+  }
+  .lootbox-error.show { display: block; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9);
     backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center;
@@ -274,7 +423,7 @@
   .detail-row .val { color: #fff; font-weight: 700; }
   .detail-price { font-size: 20px; color: #ffcc00; font-weight: 900; font-family: 'Courier New', monospace; }
   .detail-btn { width: 100%; padding: 15px; border: none; border-radius: 14px;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; }
+    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; font-family: inherit; }
   .detail-btn.primary { background: linear-gradient(135deg, #4ade80, #16a34a); color: #000; }
   .detail-btn.sell { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000; }
   .detail-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
@@ -286,7 +435,7 @@
   .input-field:focus { border-color: rgba(74,222,128,0.5); }
   .btn-primary { width: 100%; padding: 14px; border: none; border-radius: 14px;
     background: linear-gradient(135deg, #4a9eff, #0066cc); color: #fff;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; }
+    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; font-family: inherit; }
 
   .loot-anim-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
     display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
@@ -323,7 +472,7 @@
     color: #ffcc00; margin-top: 6px; letter-spacing: 2px; }
   .loot-reveal-continue { margin-top: 30px; padding: 14px 40px; background: #fff; color: #000;
     border: none; border-radius: 999px; font-size: 15px; font-weight: 900;
-    letter-spacing: 2px; cursor: pointer; opacity: 0; transition: opacity 0.3s; z-index: 4; }
+    letter-spacing: 2px; cursor: pointer; opacity: 0; transition: opacity 0.3s; z-index: 4; font-family: inherit; }
   .loot-reveal-continue.show { opacity: 1; }
   .loot-reveal-title { font-size: 16px; color: #ffcc00; font-weight: 800; letter-spacing: 3px;
     text-transform: uppercase; opacity: 0; transition: opacity 0.3s; position: absolute;
@@ -350,12 +499,12 @@
   .admin-field label { display: block; font-size: 11px; color: #888; margin-bottom: 6px; }
   .admin-input { width: 100%; padding: 12px 16px; background: #0a0a0a;
     border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff;
-    font-size: 15px; font-weight: 700; outline: none; }
+    font-size: 15px; font-weight: 700; outline: none; font-family: inherit; }
   .admin-input.code { font-family: 'Courier New', monospace; font-size: 20px; letter-spacing: 8px;
     text-align: center; padding: 14px; }
   .admin-btn { width: 100%; padding: 12px; border: none; border-radius: 10px;
     background: linear-gradient(135deg, #ffcc00, #ff9900); color: #000;
-    font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 4px; }
+    font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 4px; font-family: inherit; }
   .admin-btn.danger { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; }
   .admin-btn.success { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
   .admin-btn.small { padding: 8px 12px; font-size: 12px; width: auto; flex: 1; }
@@ -378,13 +527,15 @@
   .admin-req-status.paid { background: rgba(74,222,128,0.15); color: #4ade80; }
   .admin-req-status.rejected { background: rgba(255,50,50,0.15); color: #ff5555; }
   .admin-wallet-info { background: rgba(74,158,255,0.08); border: 1px solid rgba(74,158,255,0.2);
-    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa; }
-  .admin-wallet-info b { color: #4ade80; font-size: 16px; font-family: 'Courier New', monospace; }
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa;
+    line-height: 1.6; }
+  .admin-wallet-info b { color: #4ade80; font-size: 14px; font-family: 'Courier New', monospace;
+    word-break: break-all; }
 
   .admin-toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
   .admin-toggle-row .lbl { font-size: 13px; color: #fff; font-weight: 700; }
   .admin-toggle { width: 48px; height: 28px; border-radius: 999px; background: #222;
-    border: 1px solid rgba(255,255,255,0.1); position: relative; cursor: pointer; transition: all 0.2s; }
+    border: 1px solid rgba(255,255,255,0.1); position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
   .admin-toggle.on { background: linear-gradient(135deg, #33cc33, #178a1e); border-color: transparent; }
   .admin-toggle .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
     border-radius: 50%; background: #fff; transition: all 0.2s; }
@@ -413,7 +564,7 @@
   .progress-fill { height: 100%; background: linear-gradient(90deg, #ffcc00, #ffaa00); border-radius: 3px; transition: width 0.4s ease; }
   .upgrade-btn { width: 100%; padding: 14px; border: 1px solid rgba(255,204,0,0.3);
     border-radius: 12px; background: linear-gradient(135deg, #ffcc00, #ff9900);
-    color: #000; font-size: 14px; font-weight: 900; cursor: pointer; }
+    color: #000; font-size: 14px; font-weight: 900; cursor: pointer; font-family: inherit; }
   .upgrade-btn:disabled { background: #111; color: #444; border-color: #1a1a1a; cursor: not-allowed; }
   .upgrade-btn.maxed { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
 
@@ -447,7 +598,7 @@
   .shop-item-price small { color: #666; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; }
   .shop-sell-btn { padding: 10px 16px; background: linear-gradient(135deg, #ffcc00, #ff8800);
     border: none; border-radius: 10px; color: #000; font-size: 12px; font-weight: 900;
-    letter-spacing: 1px; cursor: pointer; flex-shrink: 0; }
+    letter-spacing: 1px; cursor: pointer; flex-shrink: 0; font-family: inherit; }
   .shop-sell-btn:disabled { background: #1a1a1a; color: #555; cursor: not-allowed; }
 
   .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -520,10 +671,10 @@
   .token-earned .lbl { font-size: 12px; color: #ffcc00; font-weight: 700; }
   .token-earned .val { font-size: 22px; font-weight: 900; color: #ffcc00; }
   .play-btn { width: 100%; padding: 16px; border: none; border-radius: 999px;
-    background: #fff; color: #000; font-size: 16px; font-weight: 900; letter-spacing: 2px; cursor: pointer; }
+    background: #fff; color: #000; font-size: 16px; font-weight: 900; letter-spacing: 2px; cursor: pointer; font-family: inherit; }
   .menu-btn { width: 100%; padding: 14px; margin-top: 8px; border: 1px solid #1a1a1a;
     border-radius: 999px; background: transparent; color: #fff; font-size: 14px;
-    font-weight: 700; letter-spacing: 2px; cursor: pointer; }
+    font-weight: 700; letter-spacing: 2px; cursor: pointer; font-family: inherit; }
   #errOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); color: #ff4444;
     padding: 20px; font-family: monospace; font-size: 12px; display: none;
     z-index: 99999; overflow: auto; white-space: pre-wrap; }
@@ -599,7 +750,7 @@
         <div class="skin-preview-wrap">
           <div class="skin-glow"></div>
           <div class="skin-preview" id="skinPreview"></div>
-          <div class="skin-level-badge" id="skinBadge">30</div>
+          <div class="skin-level-badge" id="skinBadge">5</div>
         </div>
         <div class="online-pill">
           <span>Online:</span>
@@ -651,14 +802,19 @@
     <div class="inv-grid" id="invGrid"></div>
     <div class="lootbox-section">
       <div class="lootbox-card">
+        <div class="lootbox-shine"></div>
         <div class="lootbox-tags" id="lootboxTags"></div>
-        <div class="lootbox-icon">🎁</div>
+        <div class="lootbox-icon-wrap">
+          <div class="lootbox-icon-glow"></div>
+          <div class="lootbox-icon">🎁</div>
+        </div>
         <div class="lootbox-title">Mystery Lootbox</div>
-        <div class="lootbox-sub">Random locked skin + <b style="color:#ffcc00">unique serial</b></div>
-        <div class="lootbox-price"><span>💎</span><span id="lootboxPrice">0.01</span><span>TON</span></div>
+        <div class="lootbox-sub">Get a random <b>locked</b> skin with<br>its own <b>unique serial</b></div>
+        <div class="lootbox-price"><span class="coin">💎</span><span id="lootboxPrice">0.01</span><span>TON</span></div>
         <div class="lootbox-remaining" id="lootboxRemaining"></div>
         <div class="lootbox-serial-hint" id="lootboxSerialHint"></div>
-        <button class="lootbox-btn-buy" id="openLootboxBtn">🔓 OPEN LOOTBOX</button>
+        <button class="lootbox-btn-buy" id="openLootboxBtn">🔓 Open Lootbox</button>
+        <div class="lootbox-error" id="lootboxError"></div>
       </div>
     </div>
     <div class="tab-bar" id="invTabBar"></div>
@@ -840,6 +996,7 @@
           <div class="admin-tab active" data-atab="lootbox">Lootbox</div>
           <div class="admin-tab" data-atab="requests">Requests</div>
           <div class="admin-tab" data-atab="prices">Prices</div>
+          <div class="admin-tab" data-atab="wallet">🔑 Wallet</div>
           <div class="admin-tab" data-atab="actions">Actions</div>
         </div>
 
@@ -882,7 +1039,7 @@
               </div>
             </div>
             <div style="font-size:11px;color:#666;margin-top:6px;">
-              When ON, new sell requests are paid automatically (needs hot wallet balance)
+              When ON, new sell requests are paid automatically
             </div>
           </div>
           <button class="admin-btn" id="adminRefreshRequestsBtn">🔄 Refresh Requests</button>
@@ -893,6 +1050,27 @@
           <div class="admin-section">
             <div class="admin-section-title">🏷️ Skin Prices</div>
             <div id="adminPricesList"></div>
+          </div>
+        </div>
+
+        <div class="admin-pane" id="adminPaneWallet" style="display:none;">
+          <div class="admin-section">
+            <div class="admin-section-title">🔑 TON Wallet</div>
+            <div class="admin-wallet-info" id="adminTonWalletInfo">
+              Address: <b id="adminTonAddress">not set</b><br>
+              Balance: <b id="adminTonBalance">—</b> TON
+            </div>
+            <div class="admin-field">
+              <label>Paste 12 or 24-word mnemonic</label>
+              <textarea class="admin-input" id="adminMnemonicInput" rows="4" placeholder="word1 word2 word3 ..." style="font-family:'Courier New',monospace;font-size:12px;resize:vertical;min-height:80px;letter-spacing:0;"></textarea>
+            </div>
+            <button class="admin-btn success" id="adminSaveMnemonicBtn">💾 Save & Init Wallet</button>
+            <button class="admin-btn" id="adminRefreshWalletBtn" style="margin-top:6px;">🔄 Refresh Balance</button>
+            <button class="admin-btn danger" id="adminClearMnemonicBtn" style="margin-top:6px;">🗑️ Remove Wallet</button>
+            <div style="font-size:11px;color:#666;margin-top:10px;line-height:1.5;">
+              ⚠️ Mnemonic is encrypted with your admin password and stored in the database.
+              If you change ADMIN_PASSWORD env, you must re-enter it here.
+            </div>
           </div>
         </div>
 
@@ -914,7 +1092,6 @@
   </div>
 
 </div>
-
 <script>
 "use strict";
 
@@ -939,9 +1116,11 @@ var TOKEN_PER_SECOND = 0.5, TOKEN_PER_200_MASS = 1, TOKEN_PER_KILL = 10;
 var TOKEN_BONUS_2MIN = 30, TOKEN_BONUS_5MIN = 100;
 var CASHOUT_BONUS = 1.5;
 var LOOTBOX_MAX_SERIAL = 999;
-var TON_CHECK_INTERVAL_MS = 2000;
-var TON_MAX_CHECKS = 150;
-var DEFAULT_TON_ADDRESS = 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
+var TON_CHECK_INTERVAL_MS = 2500;
+var TON_MAX_CHECKS = 120;
+var LOOTBOX_COOLDOWN_MS = 1500;
+var LOOTBOX_ERROR_HIDE_MS = 5000;
+var DEFAULT_TON_ADDRESS = '';
 
 var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
 
@@ -1041,12 +1220,6 @@ var Save = {
       if (this.unlockedSkins[i].id === id) return true;
     return false;
   },
-  countSkin: function(id) {
-    var c = 0;
-    for (var i = 0; i < this.unlockedSkins.length; i++)
-      if (this.unlockedSkins[i].id === id) c++;
-    return c;
-  },
   getInstances: function(id) {
     return this.unlockedSkins.filter(function(s) { return s.id === id; });
   },
@@ -1102,6 +1275,8 @@ var adminPassword = '';
 var adminCurrentTab = 'lootbox';
 var autopayEnabled = false;
 var detailContext = { skinId: null, serial: null, instance: null };
+var lootboxLastClickAt = 0;
+var lootboxErrorTimer = null;
 
 /* ============ UTILS ============ */
 function $(id) { return document.getElementById(id); }
@@ -1164,6 +1339,28 @@ function toast(msg, type) {
   el.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(el._t);
   el._t = setTimeout(function() { el.className = 'toast'; }, 2600);
+}
+
+/* ============ LOOTBOX UI HELPERS ============ */
+function showLootboxError(msg) {
+  var el = $('lootboxError');
+  if (!el) return;
+  el.textContent = '⚠️ ' + msg;
+  el.classList.add('show');
+  clearTimeout(lootboxErrorTimer);
+  lootboxErrorTimer = setTimeout(function() { el.classList.remove('show'); }, LOOTBOX_ERROR_HIDE_MS);
+}
+function hideLootboxError() {
+  var el = $('lootboxError');
+  if (el) el.classList.remove('show');
+  clearTimeout(lootboxErrorTimer);
+}
+function setLootboxBtnState(mode, text) {
+  var btn = $('openLootboxBtn');
+  if (!btn) return;
+  btn.disabled = (mode === 'disabled');
+  btn.textContent = text;
+  btn.dataset.mode = mode;
 }
 
 /* ============ STARS ============ */
@@ -1288,7 +1485,7 @@ function initSocket() {
     }
   });
 
-  /* ===== ADMIN HANDLERS ===== */
+  /* ===== ADMIN ===== */
   socket.on('admin_login_result', function(res) {
     var btn = $('adminLoginBtn');
     if (btn) { btn.textContent = '🔓 Unlock'; btn.disabled = false; }
@@ -1310,6 +1507,7 @@ function initSocket() {
     renderAdminPrices();
     refreshAdminBalance();
     refreshAdminRequests();
+    refreshAdminWalletInfo();
   });
 
   socket.on('admin_add_tokens_result', function(res) {
@@ -1319,9 +1517,7 @@ function initSocket() {
       updateSkillsUI();
       renderInventory();
       showAdminStatus('✅ +1000 tokens', 'success');
-    } else {
-      showAdminStatus('❌ Failed', 'error');
-    }
+    } else showAdminStatus('❌ Failed', 'error');
   });
 
   socket.on('admin_unlock_all_result', function(res) {
@@ -1329,30 +1525,19 @@ function initSocket() {
       Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
       renderInventory();
       showAdminStatus('✅ All unlocked', 'success');
-    } else {
-      showAdminStatus('❌ Failed', 'error');
-    }
+    } else showAdminStatus('❌ Failed', 'error');
   });
 
   socket.on('admin_wipe_all_result', function(res) {
     if (res && res.ok) {
-      Save.tokens = 0;
-      Save.speedLevel = 0;
-      Save.massLevel = 0;
+      Save.tokens = 0; Save.speedLevel = 0; Save.massLevel = 0;
       Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
-      Save.currentSkin = 'default';
-      Save.currentSerial = null;
-      Save.totalKills = 0;
-      Save.highScore = 0;
+      Save.currentSkin = 'default'; Save.currentSerial = null;
+      Save.totalKills = 0; Save.highScore = 0;
       selectedSkin = 'default';
-      updateSkinPreview();
-      updateMenuTokens();
-      renderInventory();
-      updateSkillsUI();
+      updateSkinPreview(); updateMenuTokens(); renderInventory(); updateSkillsUI();
       showAdminStatus('🗑️ Wiped', 'success');
-    } else {
-      showAdminStatus('❌ Failed', 'error');
-    }
+    } else showAdminStatus('❌ Failed', 'error');
   });
 
   socket.on('admin_set_result', function(res) {
@@ -1360,6 +1545,45 @@ function initSocket() {
     else showAdminStatus('❌ Save failed', 'error');
   });
 
+  socket.on('admin_wallet_info', function(res) {
+    var addrEl = $('adminTonAddress');
+    var balEl = $('adminTonBalance');
+    if (res && res.ok) {
+      if (addrEl) addrEl.textContent = res.address || 'not set';
+      if (balEl) balEl.textContent = (res.balance !== null && res.balance !== undefined) ? res.balance.toFixed(4) : '—';
+    } else {
+      if (addrEl) addrEl.textContent = 'error';
+      if (balEl) balEl.textContent = '—';
+    }
+  });
+
+  socket.on('admin_set_mnemonic_result', function(res) {
+    var btn = $('adminSaveMnemonicBtn');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save & Init Wallet'; }
+    if (res && res.ok) {
+      var addrEl = $('adminTonAddress');
+      var balEl = $('adminTonBalance');
+      if (addrEl) addrEl.textContent = res.address || '—';
+      if (balEl) balEl.textContent = (res.balance !== null && res.balance !== undefined) ? res.balance.toFixed(4) : '—';
+      $('adminMnemonicInput').value = '';
+      showAdminStatus('✅ Wallet set', 'success');
+      toast('✅ TON wallet ready', 'success');
+    } else {
+      showAdminStatus('❌ ' + (res && res.message ? res.message : 'Failed'), 'error');
+    }
+  });
+
+  socket.on('admin_clear_mnemonic_result', function(res) {
+    if (res && res.ok) {
+      var addrEl = $('adminTonAddress');
+      var balEl = $('adminTonBalance');
+      if (addrEl) addrEl.textContent = 'not set';
+      if (balEl) balEl.textContent = '—';
+      showAdminStatus('✅ Wallet removed', 'success');
+    }
+  });
+
+  /* ===== GAME ===== */
   socket.on('init', function(data) {
     myPlayerId = data.playerId;
     networkPlayers = {};
@@ -1372,8 +1596,7 @@ function initSocket() {
     World.gameOverTriggered = false;
     World.tokensEarned = 0; World.massForTokens = 0;
     World.bonusGiven = { twoMin: false, fiveMin: false };
-    World.cashedOut = false;
-    World.cashedOutTokens = 0;
+    World.cashedOut = false; World.cashedOutTokens = 0;
 
     var skin = getSkinById(selectedSkin);
     var name = getPlayerName();
@@ -1418,10 +1641,7 @@ function initSocket() {
     if (inputInterval) clearInterval(inputInterval);
     inputInterval = setInterval(function() {
       if (!socket || !World.player || !World.player.alive) return;
-      socket.emit('input', {
-        targetX: World.player.targetX,
-        targetY: World.player.targetY
-      });
+      socket.emit('input', { targetX: World.player.targetX, targetY: World.player.targetY });
     }, 50);
   });
 
@@ -1507,7 +1727,7 @@ function initSocket() {
     }
     Save.unlockedSkins = Save.normalizeSkins(res.unlockedSkins);
     Save.walletAddress = res.wallet || Save.walletAddress;
-    toast('✅ Sell request created — waiting for admin', 'success');
+    toast('✅ Sell request created', 'success');
     closeDetailModal();
     renderInventory();
     renderShop();
@@ -1549,7 +1769,7 @@ function initSocket() {
 
   socket.on('admin_wallet_balance', function(res) {
     if (res && res.ok) $('adminWalletBalance').textContent = (res.balance !== null ? res.balance.toFixed(4) : '—');
-    else $('adminWalletBalance').textContent = 'login first';
+    else $('adminWalletBalance').textContent = 'error';
   });
 
   socket.on('admin_skin_price_result', function(res) {
@@ -1962,8 +2182,7 @@ var World = {
             if (cA.mass > cB.mass * EAT_MASS_RATIO) {
               var eD = cA.radius - cB.radius * EAT_OVERLAP;
               if (d2 < eD * eD) {
-                cA.mass += cB.mass;
-                B.cells.splice(cb, 1);
+                cA.mass += cB.mass; B.cells.splice(cb, 1);
                 if (A === this.player) { A.kills++; this.tokensEarned += TOKEN_PER_KILL; }
                 if (B.cells.length === 0) B.alive = false;
                 continue;
@@ -1972,8 +2191,7 @@ var World = {
             if (cB.mass > cA.mass * EAT_MASS_RATIO) {
               var eD2 = cB.radius - cA.radius * EAT_OVERLAP;
               if (d2 < eD2 * eD2) {
-                cB.mass += cA.mass;
-                A.cells.splice(ca, 1);
+                cB.mass += cA.mass; A.cells.splice(ca, 1);
                 if (B === this.player) { B.kills++; this.tokensEarned += TOKEN_PER_KILL; }
                 if (A.cells.length === 0) A.alive = false;
                 break;
@@ -2531,29 +2749,47 @@ function renderInventory() {
   $('invCount').textContent = Save.unlockedSkins.length;
   $('invTokens').textContent = Save.tokens;
 
+  updateLootboxUI();
+}
+
+function updateLootboxUI() {
   var lockedCount = getLockedSkins().length;
-  var btn = $('openLootboxBtn');
-  if (btn) {
-    if (Save.serialStatus.soldOut) {
-      btn.disabled = true; btn.textContent = '🚫 ALL 999 SOLD OUT';
-    } else if (lockedCount === 0) {
-      btn.disabled = true; btn.textContent = '✅ ALL UNLOCKED';
-    } else if (Save.lootboxRemaining === 0) {
-      btn.disabled = true; btn.textContent = '🚫 SOLD OUT';
-    } else {
-      btn.disabled = false; btn.textContent = '🔓 OPEN LOOTBOX';
-    }
+  var remaining = Save.lootboxRemaining;
+  var soldOut = Save.serialStatus.soldOut;
+  var noWallet = !Save.tonWalletAddress;
+
+  // Determine button state
+  if (soldOut) {
+    setLootboxBtnState('disabled', '🚫 All 999 Sold Out');
+  } else if (lockedCount === 0) {
+    setLootboxBtnState('disabled', '✅ All Skins Unlocked');
+  } else if (remaining === 0) {
+    setLootboxBtnState('disabled', '🚫 Sold Out');
+  } else if (noWallet) {
+    setLootboxBtnState('disabled', '⚠️ Wallet Not Set');
+  } else {
+    setLootboxBtnState('active', '🔓 Open Lootbox');
   }
+
+  // Price
   if ($('lootboxPrice')) $('lootboxPrice').textContent = Save.lootboxPrice.toString();
-  if ($('lootboxRemaining')) {
-    if (Save.lootboxRemaining < 0) $('lootboxRemaining').textContent = '♾️ Unlimited Stock';
-    else if (Save.lootboxRemaining === 0) $('lootboxRemaining').textContent = '🚫 SOLD OUT';
-    else $('lootboxRemaining').textContent = '📦 ' + Save.lootboxRemaining + ' remaining';
+
+  // Remaining
+  var remEl = $('lootboxRemaining');
+  if (remEl) {
+    remEl.classList.remove('unlimited', 'soldout');
+    if (remaining < 0) { remEl.textContent = '♾️ Unlimited Stock'; remEl.classList.add('unlimited'); }
+    else if (remaining === 0) { remEl.textContent = '🚫 Sold Out'; remEl.classList.add('soldout'); }
+    else remEl.textContent = '📦 ' + remaining + ' Remaining';
   }
+
+  // Serial hint
   if ($('lootboxSerialHint')) {
-    if (Save.serialStatus.soldOut) $('lootboxSerialHint').textContent = 'SOLD OUT';
-    else $('lootboxSerialHint').textContent = 'Next serial: ' + fmtSerial(Save.serialStatus.next) + ' / 999';
+    if (soldOut) $('lootboxSerialHint').textContent = 'SOLD OUT';
+    else $('lootboxSerialHint').innerHTML = 'Next serial: <b>' + fmtSerial(Save.serialStatus.next) + '</b> / 999';
   }
+
+  // Tag
   var tagsEl = $('lootboxTags');
   if (tagsEl) {
     tagsEl.innerHTML = '';
@@ -2563,6 +2799,11 @@ function renderInventory() {
       t.textContent = Save.lootboxTag.toUpperCase();
       tagsEl.appendChild(t);
     }
+  }
+
+  // Wallet not set error hint
+  if (noWallet && lockedCount > 0 && !soldOut && remaining !== 0) {
+    showLootboxError('Wallet not configured by admin yet. Try again later.');
   }
 }
 
@@ -2658,7 +2899,7 @@ function sellDetailSkin() {
     toast('Set your TON wallet first', 'error');
     return;
   }
-  if (!confirm('Sell ' + getSkinById(detailContext.skinId).name + ' ' + fmtSerial(detailContext.serial) + ' for TON?\n\nThis will create a sell request for admin approval.')) return;
+  if (!confirm('Sell ' + getSkinById(detailContext.skinId).name + ' ' + fmtSerial(detailContext.serial) + ' for TON?')) return;
   socket.emit('sell_skin', {
     skinId: detailContext.skinId,
     skinSerial: detailContext.serial,
@@ -2895,12 +3136,13 @@ function updateOnlineCount() {
   el.textContent = count > 0 ? count : '—';
 }
 
-/* ============ TON LOOTBOX ============ */
+/* ============ TON LOOTBOX (v3.5.0 with stronger handling) ============ */
 var tonPayment = {
   isChecking: false,
   checkCount: 0,
   checkTimer: null,
-  currentMemo: null
+  currentMemo: null,
+  lastError: null
 };
 
 function generateMemo() {
@@ -2911,16 +3153,53 @@ function generateMemo() {
 }
 
 function openTonModal() {
+  // Guard: cooldown
+  var now = Date.now();
+  if (now - lootboxLastClickAt < LOOTBOX_COOLDOWN_MS) {
+    showLootboxError('Please wait a moment before trying again');
+    return;
+  }
+  lootboxLastClickAt = now;
+
+  hideLootboxError();
+
+  // Guard: socket
+  if (!socket || !socket.connected) {
+    showLootboxError('Not connected to server. Check your internet.');
+    return;
+  }
+
+  // Guard: wallet
+  if (!Save.tonWalletAddress) {
+    showLootboxError('Wallet not configured by admin yet.');
+    return;
+  }
+
+  // Guard: sold out
+  if (Save.serialStatus.soldOut) {
+    showLootboxError('All 999 serials have been sold');
+    return;
+  }
+
+  // Guard: no skins left
   var locked = getLockedSkins();
-  if (locked.length === 0) { toast('🎉 All skins already unlocked!', 'success'); return; }
-  if (Save.serialStatus.soldOut) { toast('🚫 All 999 sold out', 'error'); return; }
-  if (Save.lootboxRemaining === 0) { toast('🚫 Lootbox sold out', 'error'); return; }
+  if (locked.length === 0) {
+    showLootboxError('You already own all skins!');
+    return;
+  }
+
+  // Guard: sold out by admin
+  if (Save.lootboxRemaining === 0) {
+    showLootboxError('Lootbox is sold out');
+    return;
+  }
 
   tonPayment.currentMemo = generateMemo();
   tonPayment.checkCount = 0;
   tonPayment.isChecking = false;
+  tonPayment.lastError = null;
 
-  $('tonAddress').textContent = Save.tonWalletAddress || DEFAULT_TON_ADDRESS;
+  $('tonAddress').textContent = Save.tonWalletAddress;
   $('tonMemo').textContent = tonPayment.currentMemo;
   $('tonAmount').textContent = Save.lootboxPrice;
   $('tonStatus').innerHTML = '<span class="spinner"></span> Waiting for payment...';
@@ -2934,6 +3213,7 @@ function closeTonModal() {
   stopTonCheck();
   tonPayment.currentMemo = null;
   tonPayment.checkCount = 0;
+  tonPayment.lastError = null;
   $('tonModal').classList.remove('active');
 }
 
@@ -2954,12 +3234,21 @@ function startTonCheck() {
 
 function checkTonTransaction() {
   if (!tonPayment.isChecking || !tonPayment.currentMemo) return;
+
+  // Socket check
+  if (!socket || !socket.connected) {
+    stopTonCheck();
+    $('tonStatus').innerHTML = '❌ Disconnected. Reopen the lootbox.';
+    $('tonStatus').className = 'ton-status error';
+    return;
+  }
+
   tonPayment.checkCount++;
 
   if (tonPayment.checkCount > TON_MAX_CHECKS) {
     stopTonCheck();
     $('tonStatus').innerHTML = '⏱️ Timeout — payment not found<br>' +
-      '<span style="font-size:11px;opacity:0.75;">Please try again with a new payment</span>';
+      '<span style="font-size:11px;opacity:0.75;">Close and try again with a new memo</span>';
     $('tonStatus').className = 'ton-status error';
     return;
   }
@@ -2973,8 +3262,10 @@ function checkTonTransaction() {
 
 function onLootboxCheckFailed(msg) {
   if (!tonPayment.isChecking) return;
+  tonPayment.lastError = msg;
   $('tonStatus').innerHTML = '<span class="spinner"></span> Not found yet... (' +
-    tonPayment.checkCount + '/' + TON_MAX_CHECKS + ')';
+    tonPayment.checkCount + '/' + TON_MAX_CHECKS + ')<br>' +
+    '<span style="font-size:10px;opacity:0.6;">' + escapeHtml(msg || '') + '</span>';
   $('tonStatus').className = 'ton-status';
 }
 
@@ -3164,6 +3455,36 @@ function refreshAdminBalance() {
   }
   socket.emit('admin_get_wallet_balance', { password: adminPassword });
 }
+function refreshAdminWalletInfo() {
+  if (!socket || !adminPassword) {
+    var addrEl = $('adminTonAddress');
+    var balEl = $('adminTonBalance');
+    if (addrEl) addrEl.textContent = 'login first';
+    if (balEl) balEl.textContent = '—';
+    return;
+  }
+  socket.emit('admin_get_wallet_info', { password: adminPassword });
+}
+function saveAdminMnemonic() {
+  if (!adminPassword) { showAdminStatus('❌ Login first', 'error'); return; }
+  var input = $('adminMnemonicInput');
+  var m = (input.value || '').trim();
+  if (!m) { showAdminStatus('❌ Empty mnemonic', 'error'); return; }
+  var words = m.split(/\s+/);
+  if (words.length !== 12 && words.length !== 24) {
+    showAdminStatus('❌ Need 12 or 24 words, got ' + words.length, 'error');
+    return;
+  }
+  var btn = $('adminSaveMnemonicBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving...';
+  socket.emit('admin_set_mnemonic', { password: adminPassword, mnemonic: m });
+}
+function clearAdminMnemonic() {
+  if (!adminPassword) return;
+  if (!confirm('⚠️ Remove wallet? TON payouts will stop working.')) return;
+  socket.emit('admin_clear_mnemonic', { password: adminPassword });
+}
 function renderAdminRequests(list) {
   var el = $('adminRequestsList');
   if (!el) return;
@@ -3255,6 +3576,7 @@ function initAdminTabs() {
       if (pane) pane.style.display = 'block';
       if (tab === 'requests') { refreshAdminRequests(); refreshAdminBalance(); }
       if (tab === 'prices') renderAdminPrices();
+      if (tab === 'wallet') refreshAdminWalletInfo();
     });
   });
 }
@@ -3316,7 +3638,7 @@ function init() {
     $('closeTonModal').addEventListener('click', closeTonModal);
     $('cancelTonBtn').addEventListener('click', closeTonModal);
     $('copyAddressBtn').addEventListener('click', function() {
-      copyToClipboard(Save.tonWalletAddress || DEFAULT_TON_ADDRESS, $('copyAddressBtn'));
+      copyToClipboard(Save.tonWalletAddress || '', $('copyAddressBtn'));
     });
     $('copyMemoBtn').addEventListener('click', function() {
       copyToClipboard(tonPayment.currentMemo || '', $('copyMemoBtn'));
@@ -3348,6 +3670,13 @@ function init() {
     });
     var autopayTog = $('autopayToggle');
     if (autopayTog) autopayTog.addEventListener('click', toggleAutopay);
+
+    var saveMnBtn = $('adminSaveMnemonicBtn');
+    if (saveMnBtn) saveMnBtn.addEventListener('click', saveAdminMnemonic);
+    var refreshWBtn = $('adminRefreshWalletBtn');
+    if (refreshWBtn) refreshWBtn.addEventListener('click', refreshAdminWalletInfo);
+    var clearMnBtn = $('adminClearMnemonicBtn');
+    if (clearMnBtn) clearMnBtn.addEventListener('click', clearAdminMnemonic);
 
     document.querySelectorAll('.admin-btn[data-tag]').forEach(function(btn) {
       btn.addEventListener('click', function() { setLootboxTag(btn.getAttribute('data-tag')); });
