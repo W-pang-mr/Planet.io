@@ -1,4 +1,4 @@
-// server.js - Planet.io Online v3.4.1
+// server.js - Planet.io Online v3.5.0
 'use strict';
 const express = require('express');
 const http = require('http');
@@ -21,11 +21,9 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
-const TON_MNEMONIC = process.env.TON_MNEMONIC || '';
 const TON_API_KEY = process.env.TON_API_KEY || '';
 const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
 const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
-const TON_WALLET_ADDRESS = process.env.TON_WALLET_ADDRESS || 'UQC5M9VM8pL1d0PtHy_IL6oMC6bwq-l3QDC-1pwY__rSvTON';
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '262626');
 const LOOTBOX_MAX_SERIAL = 999;
 
@@ -34,7 +32,6 @@ const CX = 1500, CY = 1500;
 const FOOD_COUNT = 500;
 const BOT_COUNT = 18;
 const TICK_RATE = 60;
-
 const START_MASS = 22;
 const MAX_CELLS = 16;
 const MERGE_TIME = 20;
@@ -48,12 +45,39 @@ const SPLIT_LAUNCH_SPEED = 1300;
 const MASS_DECAY_RATE = 0.002;
 const MASS_DECAY_MIN = 40;
 
+/* ================= ENCRYPTION HELPERS ================= */
+function deriveKey(password) {
+  return crypto.scryptSync(String(password), 'planetio_salt_v1', 32);
+}
+function encryptMnemonic(mnemonic, password) {
+  const key = deriveKey(password);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let enc = cipher.update(mnemonic, 'utf8', 'base64');
+  enc += cipher.final('base64');
+  const tag = cipher.getAuthTag().toString('base64');
+  return iv.toString('base64') + ':' + enc + ':' + tag;
+}
+function decryptMnemonic(payload, password) {
+  try {
+    const parts = String(payload).split(':');
+    if (parts.length !== 3) return null;
+    const key = deriveKey(password);
+    const iv = Buffer.from(parts[0], 'base64');
+    const tag = Buffer.from(parts[2], 'base64');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    let dec = decipher.update(parts[1], 'base64', 'utf8');
+    dec += decipher.final('utf8');
+    return dec;
+  } catch (e) { return null; }
+}
+
 /* ================= DATABASE ================= */
 let db = null;
 let dbReady = false;
 
 if (DATABASE_URL) {
-  // Detect if URL is public proxy or internal
   const isInternal = DATABASE_URL.includes('.railway.internal');
   db = new Pool({
     connectionString: DATABASE_URL,
@@ -260,31 +284,52 @@ let hotWalletKeyPair = null;
 let tonClient = null;
 
 async function initTonWallet() {
-  if (!TON_MNEMONIC) {
-    console.warn('⚠️ TON_MNEMONIC not set — TON payouts disabled');
+  let mnemonic = null;
+
+  // 1) Try DB first
+  if (dbReady) {
+    try {
+      const r = await db.query(`SELECT value FROM admin_settings WHERE key = 'ton_mnemonic_enc'`);
+      if (r.rows.length > 0 && r.rows[0].value) {
+        const dec = decryptMnemonic(r.rows[0].value, ADMIN_PASSWORD);
+        if (dec) {
+          mnemonic = dec;
+          console.log('🔑 Loaded TON mnemonic from DB (encrypted)');
+        } else {
+          console.warn('⚠️ Could not decrypt DB mnemonic — wrong ADMIN_PASSWORD?');
+        }
+      }
+    } catch (e) {
+      console.error('DB mnemonic load error:', e.message);
+    }
+  }
+
+  if (!mnemonic) {
+    console.warn('⚠️ No mnemonic in DB. Set it via admin panel.');
     return;
   }
+
+  await setMnemonic(mnemonic, 'startup');
+}
+
+async function setMnemonic(mnemonic, source) {
   try {
-    const words = TON_MNEMONIC.trim().split(/\s+/);
+    const words = mnemonic.trim().split(/\s+/);
     if (words.length !== 12 && words.length !== 24) {
-      console.error('❌ TON_MNEMONIC must have 12 or 24 words, got ' + words.length);
-      return;
+      throw new Error('Mnemonic must have 12 or 24 words, got ' + words.length);
     }
-    hotWalletKeyPair = await mnemonicToPrivateKey(words);
-    hotWallet = WalletContractV5R1.create({
-      workchain: 0,
-      publicKey: hotWalletKeyPair.publicKey
-    });
-    tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
-    console.log('✅ TON wallet V5R1 ready: ' + hotWallet.address.toString());
-    if (hotWallet.address.toString() !== TON_WALLET_ADDRESS) {
-      console.warn('⚠️ TON_WALLET_ADDRESS does not match derived wallet address!');
-      console.warn('   Env:     ' + TON_WALLET_ADDRESS);
-      console.warn('   Derived: ' + hotWallet.address.toString());
-      console.warn('   → Using derived address for verification');
+    const kp = await mnemonicToPrivateKey(words);
+    const wallet = WalletContractV5R1.create({ workchain: 0, publicKey: kp.publicKey });
+    hotWalletKeyPair = kp;
+    hotWallet = wallet;
+    if (!tonClient) {
+      tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
     }
+    console.log('✅ TON wallet ready (' + source + '): ' + wallet.address.toString());
+    return wallet.address.toString();
   } catch (e) {
-    console.error('❌ TON wallet init failed:', e.message);
+    console.error('❌ setMnemonic failed:', e.message);
+    throw e;
   }
 }
 
@@ -314,8 +359,8 @@ async function sendTonToUser(toAddress, amountTon) {
 }
 
 async function verifyTonPayment(memo, expectedAmount) {
-  // Always check the derived wallet address (where mnemonic can sign)
-  const walletAddr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
+  if (!hotWallet) return null;
+  const walletAddr = hotWallet.address.toString();
   const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=30';
   const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
   try {
@@ -338,10 +383,9 @@ async function verifyTonPayment(memo, expectedAmount) {
   }
 }
 
-/* ================= AUTO-PAY PROCESSOR ================= */
+/* ================= AUTO-PAY ================= */
 async function processSellRequest(requestId) {
   if (!dbReady) return { ok: false, message: 'DB error' };
-
   let req;
   try {
     const lock = await db.query(
@@ -350,9 +394,7 @@ async function processSellRequest(requestId) {
     );
     if (lock.rows.length === 0) return { ok: false, message: 'Already processed' };
     req = lock.rows[0];
-  } catch (e) {
-    return { ok: false, message: 'DB error' };
-  }
+  } catch (e) { return { ok: false, message: 'DB error' }; }
 
   const amount = parseFloat(req.price_ton);
   const recipient = req.user_wallet;
@@ -369,7 +411,7 @@ async function processSellRequest(requestId) {
       `UPDATE sell_requests SET status = 'paid', tx_hash = $1, paid_at = $2 WHERE id = $3`,
       [txHash, Date.now(), requestId]
     );
-    return { ok: true, txHash: txHash, to: recipient, amount: amount };
+    return { ok: true, txHash, to: recipient, amount };
   } catch (e) {
     console.error('processSellRequest error:', e.message);
     await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [requestId]);
@@ -398,7 +440,7 @@ function validateTelegramInitData(initData) {
   } catch (e) { return null; }
 }
 
-/* ================= GAME STATE ================= */
+/* ================= GAME ================= */
 const players = new Map();
 const botPlayers = new Map();
 const food = [];
@@ -422,7 +464,6 @@ function getCenter(p) {
   for (const c of p.cells) { tot += c.mass; sx += c.x * c.mass; sy += c.y * c.mass; }
   return tot > 0 ? { x: sx / tot, y: sy / tot } : { x: CX, y: CY };
 }
-
 function spawnFood() {
   const pos = randomWorldPos(30);
   return { x: pos.x, y: pos.y, r: randInt(80, 255), g: randInt(80, 255), b: randInt(80, 255) };
@@ -436,7 +477,7 @@ function createPlayer(id, name, color, startMass, isBot) {
     cells: [{ x: pos.x, y: pos.y, mass: startMass || START_MASS, vx: 0, vy: 0, mergeTimer: 0 }],
     targetX: pos.x, targetY: pos.y,
     alive: true, kills: 0, maxMass: startMass || START_MASS,
-    spawnTime: Date.now(), isBot: !!isBot, botTimer: 0
+    isBot: !!isBot, botTimer: 0
   };
 }
 
@@ -479,8 +520,7 @@ function tick(dt) {
       const d2 = (f.x - bc.x) ** 2 + (f.y - bc.y) ** 2;
       if (d2 < bestFoodD && d2 < 500 * 500) { bestFoodD = d2; bestFood = f; }
     }
-    let threat = null, threatD = Infinity;
-    let prey = null, preyD = Infinity;
+    let threat = null, threatD = Infinity, prey = null, preyD = Infinity;
     for (const other of allPlayers) {
       if (other === bot || !other.alive) continue;
       const oc = getCenter(other);
@@ -505,7 +545,6 @@ function tick(dt) {
   for (const p of allPlayers) {
     if (!p.alive) continue;
     for (const cell of p.cells) updateCell(cell, dt, p.targetX, p.targetY);
-
     for (let a = p.cells.length - 1; a >= 0; a--) {
       if (a >= p.cells.length) continue;
       for (let b = a - 1; b >= 0; b--) {
@@ -521,8 +560,7 @@ function tick(dt) {
             const small = ca.mass >= cb.mass ? cb : ca;
             big.mass += small.mass;
             p.cells.splice(p.cells.indexOf(small), 1);
-            a = p.cells.length;
-            break;
+            a = p.cells.length; break;
           } else {
             const nx = dx / d, ny = dy / d, push = ov * 0.5;
             ca.x -= nx * push; ca.y -= ny * push;
@@ -531,7 +569,6 @@ function tick(dt) {
         }
       }
     }
-
     if (getTotalMass(p) > p.maxMass) p.maxMass = getTotalMass(p);
     if (p.cells.length === 0) p.alive = false;
   }
@@ -568,9 +605,7 @@ function tick(dt) {
           if (cellA.mass > cellB.mass * EAT_MASS_RATIO) {
             const eatDist = ra - rb * EAT_OVERLAP;
             if (d2 < eatDist * eatDist) {
-              cellA.mass += cellB.mass;
-              B.cells.splice(cb, 1);
-              A.kills++;
+              cellA.mass += cellB.mass; B.cells.splice(cb, 1); A.kills++;
               if (B.cells.length === 0) B.alive = false;
               continue;
             }
@@ -578,9 +613,7 @@ function tick(dt) {
           if (cellB.mass > cellA.mass * EAT_MASS_RATIO) {
             const eatDist = rb - ra * EAT_OVERLAP;
             if (d2 < eatDist * eatDist) {
-              cellB.mass += cellA.mass;
-              A.cells.splice(ca, 1);
-              B.kills++;
+              cellB.mass += cellA.mass; A.cells.splice(ca, 1); B.kills++;
               if (A.cells.length === 0) A.alive = false;
               break;
             }
@@ -613,8 +646,7 @@ function doSplit(p) {
     const cell = p.cells[i];
     if (cell.mass < MIN_SPLIT_MASS) continue;
     const half = cell.mass / 2;
-    cell.mass = half;
-    cell.mergeTimer = MERGE_TIME;
+    cell.mass = half; cell.mergeTimer = MERGE_TIME;
     const newR = massToRadius(half);
     const nX = cell.x + dx * (newR + 5);
     const nY = cell.y + dy * (newR + 5);
@@ -651,7 +683,6 @@ function initBots() {
 }
 initBots();
 
-/* ================= SKIN HELPERS ================= */
 const ALL_SKINS = ['default', 'mind', 'knight', 'rage'];
 
 async function getSkinPrices() {
@@ -661,15 +692,11 @@ async function getSkinPrices() {
     const out = {};
     for (const row of r.rows) {
       if (row.skin_id === 'fire') continue;
-      out[row.skin_id] = {
-        sellPrice: parseFloat(row.sell_price),
-        isSellable: row.is_sellable
-      };
+      out[row.skin_id] = { sellPrice: parseFloat(row.sell_price), isSellable: row.is_sellable };
     }
     return out;
   } catch (e) { return {}; }
 }
-
 async function getNextSerial() {
   if (!dbReady) return null;
   try {
@@ -677,7 +704,6 @@ async function getNextSerial() {
     return parseInt(r.rows[0].serial);
   } catch (e) { return null; }
 }
-
 async function getSerialStatus() {
   if (!dbReady) return { next: null, soldOut: false };
   try {
@@ -686,9 +712,7 @@ async function getSerialStatus() {
     const called = r.rows[0].is_called;
     const current = called ? last : 0;
     return { next: current + 1, soldOut: current >= LOOTBOX_MAX_SERIAL };
-  } catch (e) {
-    return { next: 1, soldOut: false };
-  }
+  } catch (e) { return { next: 1, soldOut: false }; }
 }
 
 /* ================= SOCKET.IO ================= */
@@ -710,19 +734,14 @@ io.on('connection', (socket) => {
     if (!userData && data.deviceId) {
       userData = { id: 'dev_' + data.deviceId, username: '', firstName: 'Guest' };
     }
-    if (!userData) {
-      socket.emit('auth_error', { message: 'Auth failed' });
-      return;
-    }
+    if (!userData) { socket.emit('auth_error', { message: 'Auth failed' }); return; }
     currentUserId = userData.id;
     const user = await getOrCreateUser(userData.id, userData.username, userData.firstName);
     if (!user) { socket.emit('auth_error', { message: 'DB error' }); return; }
     const settings = await getAdminSettings();
     const prices = await getSkinPrices();
     const serialStatus = await getSerialStatus();
-
-    // Use derived wallet address if available, else env
-    const walletAddr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
+    const walletAddr = hotWallet ? hotWallet.address.toString() : '';
 
     socket.emit('auth_ok', {
       user: {
@@ -760,16 +779,71 @@ io.on('connection', (socket) => {
     } catch (e) { socket.emit('wallet_saved', { ok: false }); }
   });
 
-  // ============ ADMIN LOGIN ============
+  /* ============ ADMIN ============ */
   socket.on('admin_login', (data) => {
-    const pw = data && data.password;
-    const ok = checkAdmin(pw);
+    const ok = checkAdmin(data && data.password);
     isAdminAuthed = ok;
-    console.log('🔐 admin_login attempt from ' + socket.id + ' — ' + (ok ? 'OK' : 'FAILED'));
-    socket.emit('admin_login_result', { ok: ok });
+    console.log('🔐 admin_login from ' + socket.id + ' — ' + (ok ? 'OK' : 'FAILED'));
+    socket.emit('admin_login_result', { ok });
   });
 
-  // ============ ADMIN ACTIONS ============
+  /* ===== NEW: TON Wallet management ===== */
+  socket.on('admin_get_wallet_info', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
+      socket.emit('admin_wallet_info', { ok: false });
+      return;
+    }
+    const address = hotWallet ? hotWallet.address.toString() : null;
+    const balance = await getHotWalletBalance();
+    socket.emit('admin_wallet_info', { ok: true, address, balance });
+  });
+
+  socket.on('admin_set_mnemonic', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
+      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Auth failed' });
+      return;
+    }
+    const mnemonic = String(data.mnemonic || '').trim();
+    if (!mnemonic) {
+      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Empty' });
+      return;
+    }
+    const words = mnemonic.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Need 12 or 24 words, got ' + words.length });
+      return;
+    }
+
+    try {
+      const address = await setMnemonic(mnemonic, 'admin');
+
+      // Encrypt & save
+      if (dbReady) {
+        const enc = encryptMnemonic(mnemonic, ADMIN_PASSWORD);
+        await db.query(
+          `INSERT INTO admin_settings (key, value) VALUES ('ton_mnemonic_enc', $1)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          [enc]
+        );
+      }
+
+      const balance = await getHotWalletBalance();
+      socket.emit('admin_set_mnemonic_result', { ok: true, address, balance });
+    } catch (e) {
+      socket.emit('admin_set_mnemonic_result', { ok: false, message: e.message });
+    }
+  });
+
+  socket.on('admin_clear_mnemonic', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
+    if (dbReady) {
+      try { await db.query(`DELETE FROM admin_settings WHERE key = 'ton_mnemonic_enc'`); } catch (e) {}
+    }
+    hotWallet = null;
+    hotWalletKeyPair = null;
+    socket.emit('admin_clear_mnemonic_result', { ok: true });
+  });
+
   socket.on('admin_add_tokens', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!currentUserId || !dbReady) return;
@@ -793,9 +867,7 @@ io.on('connection', (socket) => {
       const skins = normalizeSkins(u.rows[0].unlocked_skins);
       const ownedIds = new Set(skins.map(s => s.id));
       for (const sid of ALL_SKINS) {
-        if (!ownedIds.has(sid)) {
-          skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
-        }
+        if (!ownedIds.has(sid)) skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
       }
       await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
         [JSON.stringify(skins), currentUserId]);
@@ -828,13 +900,12 @@ io.on('connection', (socket) => {
     if (!isAdminAuthed || !data || !data.key || !checkAdmin(data.password)) return;
     const ok = await setAdminSetting(data.key, data.value);
     if (ok) io.emit('settings_update', await getAdminSettings());
-    socket.emit('admin_set_result', { ok: ok, key: data.key });
+    socket.emit('admin_set_result', { ok, key: data.key });
   });
 
   socket.on('admin_get_requests', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_requests', []);
-      return;
+      socket.emit('admin_requests', []); return;
     }
     if (!dbReady) { socket.emit('admin_requests', []); return; }
     try {
@@ -867,10 +938,7 @@ io.on('connection', (socket) => {
         `UPDATE sell_requests SET status = 'rejected' WHERE id = $1 AND status = 'pending' RETURNING *`,
         [reqId]
       );
-      if (lock.rows.length === 0) {
-        socket.emit('admin_reject_result', { ok: false, requestId: reqId });
-        return;
-      }
+      if (lock.rows.length === 0) { socket.emit('admin_reject_result', { ok: false, requestId: reqId }); return; }
       const req = lock.rows[0];
       const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
       if (u.rows.length > 0) {
@@ -905,41 +973,35 @@ io.on('connection', (socket) => {
 
   socket.on('admin_get_wallet_balance', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_wallet_balance', { ok: false, balance: null, address: TON_WALLET_ADDRESS });
+      socket.emit('admin_wallet_balance', { ok: false, balance: null, address: null });
       return;
     }
     const balance = await getHotWalletBalance();
-    const addr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
-    socket.emit('admin_wallet_balance', {
-      ok: balance !== null,
-      balance: balance,
-      address: addr
-    });
+    const addr = hotWallet ? hotWallet.address.toString() : null;
+    socket.emit('admin_wallet_balance', { ok: balance !== null, balance, address: addr });
   });
 
-  // ============ LOOTBOX CLAIM ============
+  /* ============ LOOTBOX ============ */
   socket.on('claim_lootbox', async (data) => {
     if (!currentUserId || !data || !data.memo) return;
     if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
+    if (!hotWallet) { socket.emit('lootbox_claim_result', { ok: false, message: 'Wallet not set' }); return; }
 
     const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
     if (existing.rows.length > 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' }); return;
     }
 
     const settings = await getAdminSettings();
     const price = parseFloat(settings.lootbox_price) || 0.01;
     const remaining = parseInt(settings.lootbox_remaining);
     if (remaining === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' }); return;
     }
 
     const txHash = await verifyTonPayment(data.memo, price);
     if (!txHash) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' }); return;
     }
 
     const user = await getOrCreateUser(currentUserId, '', '');
@@ -948,20 +1010,17 @@ io.on('connection', (socket) => {
     const ownedIds = new Set(currentSkins.map(s => s.id));
     const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
     if (locked.length === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' }); return;
     }
 
     let newRemaining = remaining;
     if (remaining > 0) {
       const upd = await db.query(
         `UPDATE admin_settings SET value = (CAST(value AS INTEGER) - 1)::TEXT
-         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0
-         RETURNING value`
+         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0 RETURNING value`
       );
       if (upd.rows.length === 0) {
-        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' });
-        return;
+        socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox just sold out' }); return;
       }
       newRemaining = parseInt(upd.rows[0].value);
     }
@@ -971,12 +1030,11 @@ io.on('connection', (socket) => {
       if (remaining > 0) {
         await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
       }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' }); return;
     }
 
     const picked = locked[Math.floor(Math.random() * locked.length)];
-    currentSkins.push({ id: picked, serial: serial, source: 'lootbox', acquiredAt: Date.now() });
+    currentSkins.push({ id: picked, serial, source: 'lootbox', acquiredAt: Date.now() });
 
     try {
       await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
@@ -988,44 +1046,35 @@ io.on('connection', (socket) => {
       if (remaining > 0) {
         await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
       }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' });
-      return;
+      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed, try again' }); return;
     }
 
     if (remaining > 0) io.emit('settings_update', await getAdminSettings());
 
     socket.emit('lootbox_claim_result', {
-      ok: true,
-      skinId: picked,
-      serial: serial,
-      unlockedSkins: currentSkins,
-      lootboxRemaining: newRemaining
+      ok: true, skinId: picked, serial, unlockedSkins: currentSkins, lootboxRemaining: newRemaining
     });
   });
 
-  // ============ SKIN SELLING ============
+  /* ============ SELL ============ */
   socket.on('sell_skin', async (data) => {
     if (!currentUserId || !data) return;
     if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
 
     const { skinId, skinSerial, walletAddress } = data;
     if (!skinId || skinId === 'default') {
-      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' });
-      return;
+      socket.emit('sell_result', { ok: false, message: 'Cannot sell default skin' }); return;
     }
     if (skinId === 'fire') {
-      socket.emit('sell_result', { ok: false, message: 'Skin not available' });
-      return;
+      socket.emit('sell_result', { ok: false, message: 'Skin not available' }); return;
     }
-
     try { Address.parse(walletAddress); }
     catch (e) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address' }); return; }
 
     const prices = await getSkinPrices();
     const priceInfo = prices[skinId];
     if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
-      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' });
-      return;
+      socket.emit('sell_result', { ok: false, message: 'Skin not sellable' }); return;
     }
 
     const user = await getOrCreateUser(currentUserId, '', '');
@@ -1039,8 +1088,7 @@ io.on('connection', (socket) => {
       [currentUserId, skinId, skinSerial]
     );
     if (pending.rows.length > 0) {
-      socket.emit('sell_result', { ok: false, message: 'Already pending' });
-      return;
+      socket.emit('sell_result', { ok: false, message: 'Already pending' }); return;
     }
 
     skins.splice(idx, 1);
@@ -1055,18 +1103,12 @@ io.on('connection', (socket) => {
       [JSON.stringify(skins), walletAddress, currentUserId]);
 
     socket.emit('sell_result', {
-      ok: true,
-      requestId: ins.rows[0].id,
-      skinId: skinId,
-      skinSerial: skinSerial,
-      price: priceInfo.sellPrice,
-      unlockedSkins: skins,
-      wallet: walletAddress
+      ok: true, requestId: ins.rows[0].id, skinId, skinSerial,
+      price: priceInfo.sellPrice, unlockedSkins: skins, wallet: walletAddress
     });
 
     io.emit('admin_new_request', { requestId: ins.rows[0].id });
 
-    // Auto-pay if enabled
     try {
       const autopaySettings = await getAdminSettings();
       if (autopaySettings.autopay_enabled === '1') {
@@ -1078,36 +1120,24 @@ io.on('connection', (socket) => {
     } catch (e) { console.error('autopay:', e.message); }
   });
 
-  // ============ GAME ============
+  /* ============ GAME ============ */
   socket.on('join', (data) => {
     players.delete(socket.id);
     const p = createPlayer(socket.id, data.name, data.color, data.startMass, false);
     players.set(socket.id, p);
     socket.emit('init', {
-      worldRadius: WORLD_RADIUS,
-      centerX: CX, centerY: CY,
-      food: food.slice(0, 300),
-      playerId: socket.id
+      worldRadius: WORLD_RADIUS, centerX: CX, centerY: CY,
+      food: food.slice(0, 300), playerId: socket.id
     });
   });
 
   socket.on('input', (data) => {
     const p = players.get(socket.id);
     if (!p || !p.alive) return;
-    p.targetX = data.targetX;
-    p.targetY = data.targetY;
+    p.targetX = data.targetX; p.targetY = data.targetY;
   });
-
-  socket.on('split', () => {
-    const p = players.get(socket.id);
-    if (p && p.alive) doSplit(p);
-  });
-
-  socket.on('eject', () => {
-    const p = players.get(socket.id);
-    if (p && p.alive) doEject(p);
-  });
-
+  socket.on('split', () => { const p = players.get(socket.id); if (p && p.alive) doSplit(p); });
+  socket.on('eject', () => { const p = players.get(socket.id); if (p && p.alive) doEject(p); });
   socket.on('disconnect_player', () => { players.delete(socket.id); });
   socket.on('disconnect', () => {
     players.delete(socket.id);
@@ -1133,11 +1163,8 @@ setInterval(() => {
     if (!p.alive) continue;
     snapshot.players.push({
       id: p.id, name: p.name, color: p.color, isBot: false,
-      cells: p.cells.map(c => ({
-        x: Math.round(c.x), y: Math.round(c.y),
-        mass: Math.round(c.mass),
-        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10)
-      })),
+      cells: p.cells.map(c => ({ x: Math.round(c.x), y: Math.round(c.y), mass: Math.round(c.mass),
+        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10) })),
       kills: p.kills, maxMass: Math.round(p.maxMass)
     });
   }
@@ -1145,11 +1172,8 @@ setInterval(() => {
     if (!b.alive) continue;
     snapshot.players.push({
       id: b.id, name: b.name, color: b.color, isBot: true,
-      cells: b.cells.map(c => ({
-        x: Math.round(c.x), y: Math.round(c.y),
-        mass: Math.round(c.mass),
-        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10)
-      })),
+      cells: b.cells.map(c => ({ x: Math.round(c.x), y: Math.round(c.y), mass: Math.round(c.mass),
+        mergeTimer: Math.max(0, Math.round(c.mergeTimer * 10) / 10) })),
       kills: b.kills, maxMass: Math.round(b.maxMass)
     });
   }
@@ -1160,10 +1184,10 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.4.1 on ' + PORT);
+    console.log('🪐 Planet.io v3.5.0 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
-    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
+    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗ (set via admin panel)'));
     console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626)'));
   });
 })();
