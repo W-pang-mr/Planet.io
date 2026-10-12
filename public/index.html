@@ -4,16 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>🪐 Planet.io</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous"></script>
+<script src="/socket.io/socket.io.js" crossorigin="anonymous"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff;
     font-family: 'Segoe UI', Roboto, -apple-system, Arial, sans-serif;
-    touch-action: none; overscroll-behavior: none; position: fixed; }
+    touch-action: none; overscroll-behavior: none; position: fixed;
+    -webkit-font-smoothing: antialiased; }
   #app { position: fixed; inset: 0; }
   .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
   .screen.active { display: flex; }
+
+  /* ===== GLASS SYSTEM ===== */
+  .glass {
+    background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .glass-strong {
+    background: linear-gradient(160deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .glass-gold {
+    background: linear-gradient(160deg, rgba(255,204,0,0.14), rgba(255,120,0,0.05) 55%, rgba(255,255,255,0.02));
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255,220,120,0.28);
+    box-shadow: 0 20px 60px rgba(255,140,0,0.14), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
 
   #loadingScreen { background: #000; align-items: center; justify-content: center; }
   #loadingCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
@@ -29,7 +53,7 @@
   .loading-text { font-size: 13px; color: #888; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 0 20px; }
   .loading-retry-btn { display: none; padding: 12px 28px; background: linear-gradient(135deg, #4a9eff, #0066cc);
     color: #fff; border: none; border-radius: 999px; font-size: 14px; font-weight: 800;
-    letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; }
+    letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; font-family: inherit; }
   .loading-retry-btn.show { display: block; }
   .loading-attempt { font-size: 11px; color: #555; letter-spacing: 1px; }
 
@@ -40,23 +64,30 @@
     padding: calc(12px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom)); }
   .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 44px; }
   .top-left, .top-right { display: flex; align-items: center; gap: 8px; }
-  .close-btn { display: flex; align-items: center; gap: 6px; background: transparent; border: none; color: #fff;
-    font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 12px; border-radius: 999px; }
-  .close-btn svg { width: 18px; height: 18px; }
-  .icon-circle { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
+  .close-btn { display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.04); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 8px 14px; border-radius: 999px; font-family: inherit; }
+  .close-btn svg { width: 16px; height: 16px; }
+  .close-btn:active { transform: scale(0.95); }
+  .icon-circle { width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.04); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
     cursor: pointer; color: #fff; transition: all 0.15s; }
-  .icon-circle:active { transform: scale(0.92); background: rgba(255,255,255,0.12); }
+  .icon-circle:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
   .icon-circle svg { width: 20px; height: 20px; }
   .page-title { position: absolute; left: 50%; top: calc(18px + env(safe-area-inset-top));
     transform: translateX(-50%); font-size: 20px; font-weight: 800; color: #fff; letter-spacing: 0.5px; z-index: 2; }
   .main-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
     padding-top: 15px; position: relative; }
   .token-counter { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.06));
-    border: 1px solid rgba(255,204,0,0.35); border-radius: 999px; padding: 8px 16px 8px 12px;
-    font-size: 16px; font-weight: 700; color: #ffcc00; backdrop-filter: blur(10px);
-    box-shadow: 0 0 15px rgba(255,204,0,0.15); }
+    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.05));
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,204,0,0.3); border-radius: 999px; padding: 8px 16px 8px 12px;
+    font-size: 16px; font-weight: 700; color: #ffcc00;
+    box-shadow: 0 4px 20px rgba(255,204,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1); }
   .skin-preview-wrap { position: relative; margin-top: 8px; width: 120px; height: 120px;
     display: flex; align-items: center; justify-content: center; }
   .skin-glow { position: absolute; inset: -14px; border-radius: 50%;
@@ -74,34 +105,43 @@
     background: #000; border: 2px solid rgba(255,255,255,0.2); border-radius: 999px;
     padding: 2px 10px; font-size: 11px; font-weight: 800; color: #fff; z-index: 3;
     min-width: 32px; text-align: center; }
-  .online-pill { display: flex; align-items: center; gap: 8px; background: rgba(20,20,25,0.9);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 6px 16px;
-    font-size: 13px; font-weight: 600; color: #fff; margin-top: 12px; backdrop-filter: blur(10px); }
+  .online-pill { display: flex; align-items: center; gap: 8px;
+    background: rgba(20,20,25,0.8); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 6px 16px;
+    font-size: 13px; font-weight: 600; color: #fff; margin-top: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
   .online-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
   .online-pill .count { color: #4ade80; font-weight: 800; }
   .mode-selector { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
-  .mode-btn { background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.05);
+  .mode-btn { background: rgba(30,30,35,0.7); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06);
     border-radius: 999px; padding: 11px 22px; font-size: 12px; font-weight: 900;
     letter-spacing: 1.5px; color: #888; cursor: pointer; transition: all 0.15s;
-    text-transform: uppercase; text-align: center; min-width: 120px; }
-  .mode-btn.active { color: #fff; background: linear-gradient(135deg, #4a9eff, #0066cc);
-    border-color: rgba(74,158,255,0.5); box-shadow: 0 4px 15px rgba(74,158,255,0.3); }
+    text-transform: uppercase; text-align: center; min-width: 120px; font-family: inherit; }
+  .mode-btn.active { color: #fff; background: linear-gradient(135deg, rgba(74,158,255,0.9), rgba(0,102,204,0.9));
+    border-color: rgba(74,158,255,0.5); box-shadow: 0 4px 20px rgba(74,158,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2); }
   .mode-btn:active { transform: scale(0.96); }
   .play-row { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 20px; position: relative; }
-  .arrow-btn { width: 52px; height: 52px; border-radius: 50%; background: transparent;
-    border: 2px solid rgba(255,255,255,0.2); color: #fff; display: flex; align-items: center;
+  .arrow-btn { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(255,255,255,0.15); color: #fff; display: flex; align-items: center;
     justify-content: center; cursor: pointer; transition: all 0.15s; }
   .arrow-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.08); }
   .arrow-btn svg { width: 20px; height: 20px; }
   .play-btn-big { width: 160px; height: 160px; border-radius: 50%;
-    background: radial-gradient(circle at 50% 30%, #1a1a1a 0%, #000 70%);
-    border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, rgba(40,40,45,0.9) 0%, rgba(0,0,0,0.95) 70%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
     cursor: pointer; transition: all 0.2s; position: relative;
-    box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 -20px 40px rgba(0,0,0,0.8); }
+    box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 -20px 40px rgba(0,0,0,0.8),
+      inset 0 2px 0 rgba(255,255,255,0.08); }
   .play-btn-big:active { transform: scale(0.96); }
   .play-btn-big svg { width: 50px; height: 50px; fill: #fff; margin-left: 8px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4)); }
-  .season-bar { margin-top: auto; margin-bottom: 8px; width: 100%; background: rgba(15,15,18,0.95);
-    border-radius: 20px; padding: 14px 20px 18px; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+  .season-bar { margin-top: auto; margin-bottom: 8px; width: 100%;
+    background: rgba(15,15,18,0.7); backdrop-filter: blur(20px);
+    border-radius: 20px; padding: 14px 20px 18px; position: relative;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
   .season-header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; position: relative; }
   .season-badge-icon { position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
     width: 44px; height: 44px; border-radius: 50%;
@@ -120,7 +160,8 @@
     height: calc(64px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
     display: flex; align-items: center; justify-content: space-around;
     background: linear-gradient(to top, rgba(0,0,0,0.95) 30%, rgba(0,0,0,0.7) 70%, transparent);
-    backdrop-filter: blur(20px); z-index: 50; padding-top: 6px; }
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    z-index: 50; padding-top: 6px; }
   .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     width: 60px; height: 50px; cursor: pointer; color: #555; transition: all 0.15s; position: relative; }
   .tab-item.active { color: #fff; }
@@ -141,18 +182,21 @@
     display: flex; align-items: center; justify-content: space-between; }
   .inv-title { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
   .inv-title .count { color: #555; font-size: 15px; font-weight: 700; margin-left: 6px; }
-  .inv-tokens { display: flex; align-items: center; gap: 5px; background: rgba(255,204,0,0.1);
+  .inv-tokens { display: flex; align-items: center; gap: 5px;
+    background: rgba(255,204,0,0.1); backdrop-filter: blur(12px);
     border: 1px solid rgba(255,204,0,0.3); color: #ffcc00; font-size: 14px;
     font-weight: 800; padding: 6px 12px; border-radius: 999px; }
   .inv-tabs { display: flex; gap: 8px; padding: 12px 20px 16px; overflow-x: auto; scrollbar-width: none; }
   .inv-tabs::-webkit-scrollbar { display: none; }
-  .inv-tab { padding: 8px 18px; border-radius: 999px; background: rgba(255,255,255,0.03);
+  .inv-tab { padding: 8px 18px; border-radius: 999px;
+    background: rgba(255,255,255,0.03); backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.06); color: #888; font-size: 13px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit; }
   .inv-tab.active { background: #fff; color: #000; border-color: #fff; }
   .inv-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr);
     gap: 14px; padding: 0 20px 20px; align-content: start; }
-  .inv-card { background: linear-gradient(160deg, #14141f 0%, #08080f 100%);
+  .inv-card { background: linear-gradient(160deg, rgba(20,20,31,0.9), rgba(8,8,15,0.9));
+    backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 16px;
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -186,7 +230,7 @@
     color: #fff; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1); z-index: 2; }
 
-  /* ========== NEW GLASS LOOTBOX ========== */
+  /* ===== GLASS LOOTBOX ===== */
   .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
   .lootbox-card {
     position: relative;
@@ -194,72 +238,39 @@
     padding: 26px 22px 24px;
     text-align: center;
     border-radius: 26px;
-    background: linear-gradient(160deg, rgba(255,204,0,0.14), rgba(255,100,0,0.04) 55%, rgba(255,255,255,0.02));
+    background: linear-gradient(160deg, rgba(255,204,0,0.12), rgba(255,100,0,0.04) 55%, rgba(255,255,255,0.02));
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid rgba(255,220,120,0.28);
-    box-shadow:
-      0 20px 60px rgba(255,140,0,0.14),
-      0 0 0 1px rgba(255,255,255,0.03) inset,
-      0 30px 80px -40px rgba(255,180,0,0.5) inset;
+    box-shadow: 0 20px 60px rgba(255,140,0,0.14), inset 0 1px 0 rgba(255,255,255,0.15);
     overflow: hidden;
     isolation: isolate;
   }
-  .lootbox-card::before {
-    content: '';
-    position: absolute; inset: -2px;
-    background:
-      radial-gradient(circle at 20% 0%, rgba(255,220,120,0.28), transparent 45%),
+  .lootbox-card::before { content: ''; position: absolute; inset: -2px;
+    background: radial-gradient(circle at 20% 0%, rgba(255,220,120,0.28), transparent 45%),
       radial-gradient(circle at 80% 100%, rgba(255,120,0,0.18), transparent 55%);
-    pointer-events: none; z-index: 0;
-    opacity: 0.9;
-  }
-  .lootbox-card::after {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
-    z-index: 1;
-  }
+    pointer-events: none; z-index: 0; opacity: 0.9; }
+  .lootbox-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent); z-index: 1; }
   .lootbox-card > * { position: relative; z-index: 2; }
-  .lootbox-shine {
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
+  .lootbox-shine { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
     background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.14) 45%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.14) 55%, transparent 70%);
     transform: rotate(15deg);
-    animation: shineSweep 4.5s ease-in-out infinite;
-    pointer-events: none;
-    z-index: 1;
-    opacity: 0.8;
-  }
+    animation: shineSweep 4.5s ease-in-out infinite; pointer-events: none; z-index: 1; opacity: 0.8; }
   @keyframes shineSweep {
     0%, 100% { transform: translateX(-60%) rotate(15deg); }
-    50% { transform: translateX(60%) rotate(15deg); }
-  }
-  .lootbox-icon-wrap {
-    position: relative;
-    width: 96px; height: 96px;
-    margin: 0 auto 14px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .lootbox-icon-glow {
-    position: absolute; inset: -18px;
-    border-radius: 50%;
+    50% { transform: translateX(60%) rotate(15deg); } }
+  .lootbox-icon-wrap { position: relative; width: 96px; height: 96px; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center; }
+  .lootbox-icon-glow { position: absolute; inset: -18px; border-radius: 50%;
     background: radial-gradient(circle, rgba(255,204,0,0.55) 0%, rgba(255,120,0,0.18) 45%, transparent 70%);
-    filter: blur(6px);
-    animation: lootGlowPulse 2.4s ease-in-out infinite;
-    z-index: 0;
-  }
+    filter: blur(6px); animation: lootGlowPulse 2.4s ease-in-out infinite; z-index: 0; }
   @keyframes lootGlowPulse {
     0%,100% { transform: scale(1); opacity: 0.75; }
-    50% { transform: scale(1.15); opacity: 1; }
-  }
-  .lootbox-icon {
-    position: relative; z-index: 1;
-    font-size: 62px; line-height: 1;
+    50% { transform: scale(1.15); opacity: 1; } }
+  .lootbox-icon { position: relative; z-index: 1; font-size: 62px; line-height: 1;
     animation: lootboxBounce 2s ease-in-out infinite;
-    filter: drop-shadow(0 6px 18px rgba(255,180,0,0.6));
-  }
+    filter: drop-shadow(0 6px 18px rgba(255,180,0,0.6)); }
   @keyframes lootboxBounce { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.08); } }
 
   .lootbox-tags { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
@@ -271,21 +282,18 @@
   .lootbox-tag.hot { background: linear-gradient(135deg, #ff6600, #ffcc00); color: #000; }
   .lootbox-tag.sale { background: linear-gradient(135deg, #ff5555, #cc0000); color: #fff; }
 
-  .lootbox-title {
-    font-size: 24px; font-weight: 900; letter-spacing: 0.4px;
+  .lootbox-title { font-size: 24px; font-weight: 900; letter-spacing: 0.4px;
     background: linear-gradient(135deg, #fff8d0 0%, #ffcc00 45%, #ff9500 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 6px;
-    text-shadow: 0 0 40px rgba(255,180,0,0.25);
-  }
+    text-shadow: 0 0 40px rgba(255,180,0,0.25); }
   .lootbox-sub { font-size: 12.5px; color: #a89b78; margin-bottom: 18px; line-height: 1.5; }
   .lootbox-sub b { color: #ffcc00; font-weight: 800; }
 
   .lootbox-price {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 22px;
-    border-radius: 999px;
+    padding: 10px 22px; border-radius: 999px;
     background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,120,0,0.06));
     border: 1px solid rgba(255,204,0,0.35);
     color: #ffcc00;
@@ -296,105 +304,92 @@
   }
   .lootbox-price .coin { font-size: 20px; filter: drop-shadow(0 0 6px rgba(255,204,0,0.6)); }
 
-  .lootbox-remaining {
-    font-size: 11px; font-weight: 800; letter-spacing: 1px;
-    margin-bottom: 6px;
-    color: #ffaa55;
-    text-transform: uppercase;
-  }
+  .lootbox-remaining { font-size: 11px; font-weight: 800; letter-spacing: 1px;
+    margin-bottom: 6px; color: #ffaa55; text-transform: uppercase; }
   .lootbox-remaining.unlimited { color: #4ade80; }
   .lootbox-remaining.soldout { color: #ff5555; }
 
-  .lootbox-serial-hint {
-    font-size: 10.5px; color: #7a6a4a;
-    font-family: 'Courier New', monospace;
-    letter-spacing: 1.5px;
-    margin-bottom: 18px;
-  }
+  .lootbox-serial-hint { font-size: 10.5px; color: #7a6a4a;
+    font-family: 'Courier New', monospace; letter-spacing: 1.5px; margin-bottom: 18px; }
   .lootbox-serial-hint b { color: #ffcc00; }
 
-  .lootbox-btn-buy {
-    position: relative;
-    width: 100%; padding: 16px;
+  .lootbox-btn-buy { position: relative; width: 100%; padding: 16px;
     border: none; border-radius: 999px;
     background: linear-gradient(135deg, #ffdd33 0%, #ffaa00 50%, #ff8800 100%);
     color: #1a0f00;
     font-size: 15px; font-weight: 900; letter-spacing: 1.8px;
-    cursor: pointer; transition: all 0.2s;
-    font-family: inherit;
-    box-shadow:
-      0 10px 30px -8px rgba(255,150,0,0.6),
-      inset 0 1px 0 rgba(255,255,255,0.5),
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+    box-shadow: 0 10px 30px -8px rgba(255,150,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5),
       inset 0 -2px 0 rgba(0,0,0,0.15);
-    text-transform: uppercase;
-    overflow: hidden;
-  }
-  .lootbox-btn-buy::before {
-    content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+    text-transform: uppercase; overflow: hidden; }
+  .lootbox-btn-buy::before { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
     background: linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent);
-    transition: left 0.6s;
-  }
+    transition: left 0.6s; }
   .lootbox-btn-buy:hover::before { left: 120%; }
   .lootbox-btn-buy:active { transform: scale(0.98); }
-  .lootbox-btn-buy:disabled {
-    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-    color: #555; cursor: not-allowed;
-    box-shadow: none;
-  }
+  .lootbox-btn-buy:disabled { background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    color: #555; cursor: not-allowed; box-shadow: none; }
   .lootbox-btn-buy:disabled::before { display: none; }
 
-  .lootbox-error {
-    display: none;
-    margin-top: 12px; padding: 10px 14px;
-    border-radius: 12px;
-    background: rgba(255,50,50,0.12);
+  .lootbox-error { display: none; margin-top: 12px; padding: 10px 14px;
+    border-radius: 12px; background: rgba(255,50,50,0.12);
     border: 1px solid rgba(255,50,50,0.3);
-    color: #ff8080;
-    font-size: 12px; font-weight: 700;
-    line-height: 1.4;
-    animation: shake 0.4s;
-  }
+    color: #ff8080; font-size: 12px; font-weight: 700; line-height: 1.4;
+    animation: shake 0.4s; }
   .lootbox-error.show { display: block; }
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     25% { transform: translateX(-6px); }
-    75% { transform: translateX(6px); }
-  }
+    75% { transform: translateX(6px); } }
 
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9);
-    backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center;
+  /* ===== MODALS (glass) ===== */
+  .modal-overlay { position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    display: none; align-items: center; justify-content: center;
     z-index: 9999; padding: 20px; }
-  .modal-overlay.active { display: flex; }
-  .modal-content { background: linear-gradient(160deg, #0d0d18, #000);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 26px;
+  .modal-overlay.active { display: flex; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-content {
+    background: linear-gradient(160deg, rgba(20,20,30,0.85), rgba(5,5,12,0.95));
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-radius: 24px; padding: 26px;
     max-width: 400px; width: 100%; max-height: 90vh; overflow-y: auto;
     position: relative; }
   .modal-close { position: absolute; top: 14px; right: 14px;
-    width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.06);
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.08); color: #fff; font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; }
+    display: flex; align-items: center; justify-content: center; font-family: inherit; }
+  .modal-close:active { transform: scale(0.92); }
   .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
-  .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
 
   .ton-modal-content { border: 1px solid rgba(255,204,0,0.3); text-align: center; }
   .ton-modal-icon { font-size: 44px; margin-bottom: 10px; }
   .ton-modal-title { font-size: 22px; font-weight: 900; color: #ffcc00; margin-bottom: 6px; }
   .ton-modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
   .ton-modal-sub b { color: #ffcc00; }
-  .ton-field { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  .ton-field { background: rgba(255,255,255,0.03); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 14px; padding: 12px 16px; margin-bottom: 12px; text-align: left; position: relative; }
   .ton-field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 4px; }
   .ton-field .ton-value { font-family: 'Courier New', monospace; font-size: 11px; color: #fff;
     word-break: break-all; padding-right: 76px; line-height: 1.5; }
   .copy-btn { position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
     background: rgba(255,204,0,0.15); border: 1px solid rgba(255,204,0,0.4); color: #ffcc00;
-    border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
   .copy-btn.copied { background: rgba(74,222,128,0.2); color: #4ade80; }
   .ton-warning { background: rgba(255,100,0,0.1); border-left: 3px solid #ff8800;
     border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #ffaa66;
     text-align: left; margin: 14px 0; line-height: 1.5; }
   .ton-status { display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 14px; background: rgba(255,204,0,0.08); border: 1px solid rgba(255,204,0,0.25);
+    padding: 14px; background: rgba(255,204,0,0.08);
+    border: 1px solid rgba(255,204,0,0.25);
     border-radius: 14px; font-size: 13px; color: #ffcc00; font-weight: 700; margin-bottom: 12px;
     line-height: 1.4; flex-direction: column; }
   .ton-status.success { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3); }
@@ -403,8 +398,63 @@
     border-top-color: #ffcc00; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .ton-cancel-btn { width: 100%; padding: 12px; background: transparent;
     border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; color: #888;
-    font-size: 13px; font-weight: 700; cursor: pointer; }
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
+  /* ===== WALLET VERSION PICKER ===== */
+  .wallet-version-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+  .wallet-version-option {
+    position: relative;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .wallet-version-option:active { transform: scale(0.98); }
+  .wallet-version-option.selected {
+    background: linear-gradient(135deg, rgba(74,222,128,0.15), rgba(34,197,94,0.08));
+    border-color: rgba(74,222,128,0.5);
+    box-shadow: 0 0 0 1px rgba(74,222,128,0.2), 0 8px 24px -8px rgba(74,222,128,0.4);
+  }
+  .wallet-version-option.selected::after {
+    content: '✅';
+    position: absolute;
+    top: 12px; right: 14px;
+    font-size: 18px;
+    animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+  .wallet-version-label {
+    font-size: 13px; font-weight: 800;
+    color: #fff;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .wallet-version-label .badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    background: rgba(74,158,255,0.2);
+    color: #4a9eff;
+    border-radius: 999px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
+  .wallet-version-address {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    color: #888;
+    word-break: break-all;
+    line-height: 1.4;
+    padding-right: 24px;
+  }
+  .wallet-version-option.selected .wallet-version-address { color: #a8e6a8; }
+
+  /* ===== DETAIL / WALLET INPUT / etc. ===== */
   .detail-content { text-align: center; }
   .detail-visual { width: 140px; height: 140px; border-radius: 50%; background: #0a0a0a;
     border: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
@@ -428,6 +478,7 @@
   .detail-btn.sell { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000; }
   .detail-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
   .detail-btn:disabled { background: #1a1a1a !important; color: #444 !important; cursor: not-allowed; }
+  .detail-btn:active { transform: scale(0.98); }
 
   .input-field { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: #fff;
@@ -436,6 +487,12 @@
   .btn-primary { width: 100%; padding: 14px; border: none; border-radius: 14px;
     background: linear-gradient(135deg, #4a9eff, #0066cc); color: #fff;
     font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; font-family: inherit; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-success { width: 100%; padding: 14px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff;
+    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .btn-success:active { transform: scale(0.98); }
+  .btn-success:disabled { background: #1a1a1a; color: #555; cursor: not-allowed; }
 
   .loot-anim-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
     display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
@@ -456,7 +513,9 @@
   .loot-anim-reveal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   .loot-reveal-card { width: 210px; height: 260px; border-radius: 24px; padding: 20px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: linear-gradient(160deg, #1a1a2a, #0a0a15); border: 3px solid; }
+    background: linear-gradient(160deg, rgba(26,26,42,0.9), rgba(10,10,21,0.95));
+    backdrop-filter: blur(20px);
+    border: 3px solid; }
   .loot-reveal-card.rarity-common { border-color: #888; }
   .loot-reveal-card.rarity-rare { border-color: #4a9eff; box-shadow: 0 0 80px rgba(74,158,255,0.6); }
   .loot-reveal-card.rarity-epic { border-color: #a55cff; box-shadow: 0 0 80px rgba(165,92,255,0.6); }
@@ -482,32 +541,44 @@
   .admin-trigger { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
     border-radius: 50%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; font-size: 14px; }
-  .admin-panel { background: linear-gradient(160deg, #1a0a0a, #000);
+  .admin-panel { background: linear-gradient(160deg, rgba(26,10,10,0.9), rgba(0,0,0,0.95));
+    backdrop-filter: blur(30px) saturate(180%);
     border: 1px solid rgba(255,50,50,0.3); border-radius: 24px; padding: 26px;
-    max-width: 440px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; }
+    max-width: 460px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
   .admin-title { font-size: 22px; font-weight: 900; color: #ff4444; text-align: center; margin-bottom: 6px; }
   .admin-sub { font-size: 11px; color: #888; letter-spacing: 2px; text-align: center; text-transform: uppercase; margin-bottom: 22px; }
   .admin-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
-  .admin-tab { padding: 8px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08); color: #888; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-  .admin-tab.active { background: #ff3333; color: #fff; border-color: #ff3333; }
-  .admin-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  .admin-tab { padding: 8px 14px; border-radius: 10px;
+    background: rgba(255,255,255,0.03); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08); color: #888; font-size: 12px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .admin-tab.active { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; border-color: #ff3333; }
+  .admin-section { background: rgba(255,255,255,0.02); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
   .admin-section-title { font-size: 12px; color: #ff8800; font-weight: 800;
     letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
   .admin-field { margin-bottom: 10px; }
   .admin-field label { display: block; font-size: 11px; color: #888; margin-bottom: 6px; }
-  .admin-input { width: 100%; padding: 12px 16px; background: #0a0a0a;
+  .admin-input { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff;
     font-size: 15px; font-weight: 700; outline: none; font-family: inherit; }
+  .admin-input:focus { border-color: rgba(255,204,0,0.5); }
   .admin-input.code { font-family: 'Courier New', monospace; font-size: 20px; letter-spacing: 8px;
     text-align: center; padding: 14px; }
+  .admin-textarea { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff;
+    font-size: 12px; font-family: 'Courier New', monospace; outline: none;
+    resize: vertical; min-height: 80px; letter-spacing: 0; font-weight: 600; }
   .admin-btn { width: 100%; padding: 12px; border: none; border-radius: 10px;
     background: linear-gradient(135deg, #ffcc00, #ff9900); color: #000;
     font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 4px; font-family: inherit; }
   .admin-btn.danger { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; }
   .admin-btn.success { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
+  .admin-btn.secondary { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
   .admin-btn.small { padding: 8px 12px; font-size: 12px; width: auto; flex: 1; }
+  .admin-btn:active { transform: scale(0.98); }
+  .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .admin-row { display: flex; gap: 8px; }
   .admin-row > * { flex: 1; }
   .admin-status { text-align: center; font-size: 12px; padding: 8px;
@@ -527,11 +598,9 @@
   .admin-req-status.paid { background: rgba(74,222,128,0.15); color: #4ade80; }
   .admin-req-status.rejected { background: rgba(255,50,50,0.15); color: #ff5555; }
   .admin-wallet-info { background: rgba(74,158,255,0.08); border: 1px solid rgba(74,158,255,0.2);
-    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa;
-    line-height: 1.6; }
-  .admin-wallet-info b { color: #4ade80; font-size: 14px; font-family: 'Courier New', monospace;
-    word-break: break-all; }
-
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #aaa; line-height: 1.6; }
+  .admin-wallet-info b { color: #4ade80; font-size: 13px; font-family: 'Courier New', monospace;
+    word-break: break-all; display: block; margin-top: 2px; }
   .admin-toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
   .admin-toggle-row .lbl { font-size: 13px; color: #fff; font-weight: 700; }
   .admin-toggle { width: 48px; height: 28px; border-radius: 999px; background: #222;
@@ -549,11 +618,13 @@
   .skills-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
   .skills-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
   .token-bar { display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.06));
-    border: 1px solid rgba(255,204,0,0.35); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; }
+    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.05));
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,204,0,0.3); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; }
   .token-bar .lbl { font-size: 12px; color: #ffcc00; letter-spacing: 1px; font-weight: 700; }
   .token-bar .val { font-size: 24px; font-weight: 900; color: #ffcc00; }
-  .skill-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+  .skill-card { background: rgba(10,10,10,0.7); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
   .skill-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .skill-nm { font-size: 16px; font-weight: 800; color: #fff; }
   .skill-lv { font-size: 11px; color: #ffcc00; background: rgba(255,204,0,0.12);
@@ -574,18 +645,19 @@
     padding: calc(16px + env(safe-area-inset-top)) 20px 20px; overflow-y: auto; height: 100%; }
   .shop-title { font-size: 26px; font-weight: 900; color: #fff; margin-bottom: 4px; }
   .shop-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
-  .shop-wallet { background: rgba(74,158,255,0.06); border: 1px solid rgba(74,158,255,0.2);
-    border-radius: 14px; padding: 12px 16px; margin-bottom: 20px;
-    display: flex; justify-content: space-between; align-items: center; font-size: 12px;
-    cursor: pointer; }
+  .shop-wallet { background: rgba(74,158,255,0.06); backdrop-filter: blur(16px);
+    border: 1px solid rgba(74,158,255,0.2); border-radius: 14px; padding: 12px 16px; margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: center; font-size: 12px; cursor: pointer; }
   .shop-wallet .lbl { color: #888; }
   .shop-wallet .val { color: #4ade80; font-family: 'Courier New', monospace; font-weight: 800; font-size: 11px;
     max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .shop-empty { text-align: center; padding: 60px 20px; color: #555; }
   .shop-empty .icon { font-size: 60px; opacity: 0.4; margin-bottom: 16px; }
   .shop-empty .txt { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
-  .shop-item { background: linear-gradient(160deg, #14141f, #08080f); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .shop-item { background: linear-gradient(160deg, rgba(20,20,31,0.9), rgba(8,8,15,0.9));
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 14px;
+    display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
   .shop-item-visual { width: 64px; height: 64px; border-radius: 50%; background: #0a0a0a;
     border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
     overflow: hidden; flex-shrink: 0; }
@@ -611,17 +683,20 @@
   #gameCanvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #000; }
   .top-hud { position: absolute; top: calc(10px + env(safe-area-inset-top));
     left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 30; pointer-events: none; }
-  .pill { background: rgba(0,0,0,0.75); border: 1px solid #1a1a1a; border-radius: 999px;
+  .pill { background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 999px;
     padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff;
     display: flex; align-items: center; gap: 5px; min-width: 58px; justify-content: center; }
   .rank-badge { position: absolute; top: calc(10px + env(safe-area-inset-top));
-    left: calc(10px + env(safe-area-inset-left)); background: rgba(0,0,0,0.75);
-    border: 1px solid #1a1a1a; border-radius: 999px; padding: 6px 12px;
+    left: calc(10px + env(safe-area-inset-left)); background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 6px 12px;
     font-size: 12px; font-weight: 700; color: #fff; z-index: 30; }
   .leaderboard { position: absolute; top: calc(46px + env(safe-area-inset-top));
-    right: calc(10px + env(safe-area-inset-right)); background: rgba(0,0,0,0.8);
-    border: 1px solid #1a1a1a; border-radius: 14px; padding: 8px 12px; z-index: 30;
-    min-width: 130px; max-width: 170px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px); }
+    right: calc(10px + env(safe-area-inset-right)); background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 8px 12px; z-index: 30;
+    min-width: 130px; max-width: 170px; font-size: 11px; font-weight: 600; }
   .lb-title { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase;
     margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.06); }
   .lb-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; gap: 6px; }
@@ -635,9 +710,10 @@
 
   .cashout-btn { position: absolute; top: calc(46px + env(safe-area-inset-top));
     left: calc(10px + env(safe-area-inset-left)); background: linear-gradient(135deg, #ffcc00, #ff8800);
+    backdrop-filter: blur(12px);
     border: none; border-radius: 999px; padding: 8px 14px; font-size: 11px; font-weight: 900;
     color: #000; cursor: pointer; z-index: 30; letter-spacing: 1px;
-    box-shadow: 0 4px 15px rgba(255,204,0,0.4); font-family: inherit; }
+    box-shadow: 0 4px 15px rgba(255,204,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3); font-family: inherit; }
   .cashout-btn:active { transform: scale(0.95); }
 
   #joystick { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom));
@@ -649,6 +725,7 @@
     border-radius: 50%; background: rgba(255,255,255,0.15);
     border: 2px solid rgba(255,255,255,0.4); transform: translate(-50%, -50%); pointer-events: none; }
   .action-btn { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(12px);
     border: 2px solid rgba(255,255,255,0.2); color: #fff; display: none;
     align-items: center; justify-content: center; z-index: 40; touch-action: none;
     cursor: pointer; font-weight: 900; }
@@ -657,12 +734,16 @@
   #splitBtn { bottom: calc(30px + env(safe-area-inset-bottom)); right: calc(30px + env(safe-area-inset-right)); width: 76px; height: 76px; font-size: 22px; }
   #ejectBtn { bottom: calc(116px + env(safe-area-inset-bottom)); right: calc(46px + env(safe-area-inset-right)); width: 50px; height: 50px; font-size: 16px; }
 
-  #gameOverScreen { z-index: 100; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 20px; }
-  .go-panel { background: #000; border: 1px solid #1a1a1a; border-radius: 24px; padding: 28px 22px; max-width: 340px; width: 100%; text-align: center; }
+  #gameOverScreen { z-index: 100; background: rgba(0,0,0,0.92); backdrop-filter: blur(16px);
+    align-items: center; justify-content: center; padding: 20px; }
+  .go-panel { background: linear-gradient(160deg, rgba(20,20,30,0.85), rgba(0,0,0,0.95));
+    backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px; padding: 28px 22px; max-width: 340px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
   .go-panel h1 { font-size: 20px; color: #fff; font-weight: 900; letter-spacing: 3px; margin-bottom: 18px; }
   .go-score { font-size: 54px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
   .go-lbl { font-size: 10px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px; }
-  .go-stats { display: flex; justify-content: space-around; padding: 14px 0; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; margin-bottom: 18px; }
+  .go-stats { display: flex; justify-content: space-around; padding: 14px 0; border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 18px; }
   .go-stat .sv { font-size: 16px; font-weight: 800; color: #fff; }
   .go-stat .sl { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase; margin-top: 3px; }
   .token-earned { display: flex; justify-content: space-between; align-items: center;
@@ -672,18 +753,23 @@
   .token-earned .val { font-size: 22px; font-weight: 900; color: #ffcc00; }
   .play-btn { width: 100%; padding: 16px; border: none; border-radius: 999px;
     background: #fff; color: #000; font-size: 16px; font-weight: 900; letter-spacing: 2px; cursor: pointer; font-family: inherit; }
-  .menu-btn { width: 100%; padding: 14px; margin-top: 8px; border: 1px solid #1a1a1a;
-    border-radius: 999px; background: transparent; color: #fff; font-size: 14px;
-    font-weight: 700; letter-spacing: 2px; cursor: pointer; font-family: inherit; }
+  .play-btn:active { transform: scale(0.98); }
+  .menu-btn { width: 100%; padding: 14px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px; background: rgba(255,255,255,0.04); backdrop-filter: blur(12px);
+    color: #fff; font-size: 14px; font-weight: 700; letter-spacing: 2px; cursor: pointer; font-family: inherit; }
+  .menu-btn:active { transform: scale(0.98); }
+
   #errOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); color: #ff4444;
     padding: 20px; font-family: monospace; font-size: 12px; display: none;
     z-index: 99999; overflow: auto; white-space: pre-wrap; }
   #errOverlay.show { display: block; }
 
   .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: rgba(0,0,0,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
+    background: rgba(0,0,0,0.9); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
     padding: 14px 22px; font-size: 13px; font-weight: 700; color: #fff; z-index: 10001;
-    opacity: 0; transition: all 0.3s; pointer-events: none; max-width: 90vw; text-align: center; }
+    opacity: 0; transition: all 0.3s; pointer-events: none; max-width: 90vw; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.success { border-color: rgba(74,222,128,0.4); color: #4ade80; }
   .toast.error { border-color: rgba(255,50,50,0.4); color: #ff5555; }
@@ -712,6 +798,7 @@
 <div class="toast" id="toast"></div>
 <div id="app">
 
+  <!-- LOADING -->
   <div id="loadingScreen" class="screen active">
     <canvas id="loadingCanvas"></canvas>
     <div class="loading-content">
@@ -723,6 +810,7 @@
     </div>
   </div>
 
+  <!-- MENU -->
   <div id="menuScreen" class="screen">
     <canvas id="menuCanvas"></canvas>
     <div class="menu-content">
@@ -788,6 +876,7 @@
     <div class="tab-bar" id="menuTabBar"></div>
   </div>
 
+  <!-- INVENTORY -->
   <div id="inventoryScreen" class="screen">
     <div class="inv-header">
       <div class="inv-title">🎒 Locker<span class="count" id="invCount">0</span></div>
@@ -820,6 +909,7 @@
     <div class="tab-bar" id="invTabBar"></div>
   </div>
 
+  <!-- SHOP -->
   <div id="shopScreen" class="screen">
     <div class="shop-wrap">
       <div class="shop-title">🛍️ Shop</div>
@@ -833,6 +923,7 @@
     <div class="tab-bar" id="shopTabBar"></div>
   </div>
 
+  <!-- SKILLS -->
   <div id="skillsScreen" class="screen">
     <div class="skills-wrap">
       <div class="admin-trigger" id="adminTrigger">⚙️</div>
@@ -864,6 +955,7 @@
     <div class="tab-bar" id="skillsTabBar"></div>
   </div>
 
+  <!-- SEASON -->
   <div id="seasonScreen" class="screen">
     <div class="placeholder">
       <div class="icon">👑</div>
@@ -872,6 +964,7 @@
     <div class="tab-bar" id="seasonTabBar"></div>
   </div>
 
+  <!-- GAME -->
   <div id="gameScreen" class="screen">
     <canvas id="gameCanvas"></canvas>
     <div class="top-hud">
@@ -890,6 +983,7 @@
     <div class="action-btn" id="ejectBtn">⊕</div>
   </div>
 
+  <!-- GAME OVER -->
   <div id="gameOverScreen" class="screen">
     <div class="go-panel">
       <h1>GAME OVER</h1>
@@ -909,6 +1003,7 @@
     </div>
   </div>
 
+  <!-- TON MODAL -->
   <div class="modal-overlay" id="tonModal">
     <div class="modal-content ton-modal-content">
       <button class="modal-close" id="closeTonModal">✕</button>
@@ -931,6 +1026,7 @@
     </div>
   </div>
 
+  <!-- DETAIL MODAL -->
   <div class="modal-overlay" id="detailModal">
     <div class="modal-content detail-content">
       <button class="modal-close" id="closeDetailModal">✕</button>
@@ -952,6 +1048,7 @@
     </div>
   </div>
 
+  <!-- WALLET MODAL -->
   <div class="modal-overlay" id="walletModal">
     <div class="modal-content">
       <button class="modal-close" id="closeWalletModal">✕</button>
@@ -962,6 +1059,19 @@
     </div>
   </div>
 
+  <!-- WALLET VERSION PICKER MODAL -->
+  <div class="modal-overlay" id="walletPickerModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeWalletPicker">✕</button>
+      <div class="modal-title">🔑 Choose Wallet Version</div>
+      <div class="modal-sub">We derived 4 wallet addresses from your mnemonic. Pick the one that matches your wallet (compare with your wallet app).</div>
+      <div class="wallet-version-list" id="walletVersionList"></div>
+      <button class="btn-success" id="confirmWalletVersionBtn" disabled>✅ Confirm & Save</button>
+      <button class="btn-secondary" id="cancelWalletVersionBtn" style="width:100%;padding:14px;border:none;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:14px;font-weight:900;letter-spacing:1.5px;cursor:pointer;font-family:inherit;margin-top:8px;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- LOOTBOX ANIMATION -->
   <div class="loot-anim-overlay" id="lootAnimOverlay">
     <div class="loot-anim-stage">
       <div class="loot-anim-particles" id="lootParticles"></div>
@@ -979,6 +1089,7 @@
     </div>
   </div>
 
+  <!-- ADMIN MODAL -->
   <div class="modal-overlay" id="adminModal">
     <div class="admin-panel">
       <button class="modal-close" id="adminCloseBtn">✕</button>
@@ -1059,17 +1170,17 @@
             <div class="admin-wallet-info" id="adminTonWalletInfo">
               Address: <b id="adminTonAddress">not set</b><br>
               Balance: <b id="adminTonBalance">—</b> TON
+              <div id="adminTonVersion" style="font-size:10px;color:#888;margin-top:4px;"></div>
             </div>
             <div class="admin-field">
               <label>Paste 12 or 24-word mnemonic</label>
-              <textarea class="admin-input" id="adminMnemonicInput" rows="4" placeholder="word1 word2 word3 ..." style="font-family:'Courier New',monospace;font-size:12px;resize:vertical;min-height:80px;letter-spacing:0;"></textarea>
+              <textarea class="admin-input admin-textarea" id="adminMnemonicInput" rows="4" placeholder="word1 word2 word3 ..."></textarea>
             </div>
-            <button class="admin-btn success" id="adminSaveMnemonicBtn">💾 Save & Init Wallet</button>
+            <button class="admin-btn success" id="adminSaveMnemonicBtn">🔍 Preview Wallet Versions</button>
             <button class="admin-btn" id="adminRefreshWalletBtn" style="margin-top:6px;">🔄 Refresh Balance</button>
             <button class="admin-btn danger" id="adminClearMnemonicBtn" style="margin-top:6px;">🗑️ Remove Wallet</button>
             <div style="font-size:11px;color:#666;margin-top:10px;line-height:1.5;">
-              ⚠️ Mnemonic is encrypted with your admin password and stored in the database.
-              If you change ADMIN_PASSWORD env, you must re-enter it here.
+              ⚠️ After clicking Preview, you'll see 4 wallet versions. Pick the one that matches your wallet (compare address with your wallet app). Mnemonic is encrypted with your admin password.
             </div>
           </div>
         </div>
@@ -1120,7 +1231,6 @@ var TON_CHECK_INTERVAL_MS = 2500;
 var TON_MAX_CHECKS = 120;
 var LOOTBOX_COOLDOWN_MS = 1500;
 var LOOTBOX_ERROR_HIDE_MS = 5000;
-var DEFAULT_TON_ADDRESS = '';
 
 var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
 
@@ -1147,7 +1257,7 @@ var Save = {
   autopayEnabled: false,
   serialStatus: { next: 1, soldOut: false },
   skinPrices: {},
-  tonWalletAddress: DEFAULT_TON_ADDRESS,
+  tonWalletAddress: '',
   dirty: false,
 
   applyServerData: function(u) {
@@ -1277,6 +1387,8 @@ var autopayEnabled = false;
 var detailContext = { skinId: null, serial: null, instance: null };
 var lootboxLastClickAt = 0;
 var lootboxErrorTimer = null;
+var pendingWalletVersions = [];
+var selectedWalletVersion = null;
 
 /* ============ UTILS ============ */
 function $(id) { return document.getElementById(id); }
@@ -1326,6 +1438,7 @@ function preloadSkinImages() {
       (function(skin) {
         var img = new Image();
         img.onload = function() { updateSkinPreview(); renderInventory(); };
+        img.onerror = function() { /* silent */ };
         img.src = skin.img;
         SKIN_IMAGES[skin.id] = img;
       })(SKINS[i]);
@@ -1335,6 +1448,7 @@ function preloadSkinImages() {
 
 function toast(msg, type) {
   var el = $('toast');
+  if (!el) return;
   el.textContent = msg;
   el.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(el._t);
@@ -1360,7 +1474,6 @@ function setLootboxBtnState(mode, text) {
   if (!btn) return;
   btn.disabled = (mode === 'disabled');
   btn.textContent = text;
-  btn.dataset.mode = mode;
 }
 
 /* ============ STARS ============ */
@@ -1417,16 +1530,19 @@ function getPlayerName() {
 function initSocket() {
   if (typeof io === 'undefined') { showLoadingError('Server library not loaded'); return; }
   connectionAttempts++;
-  $('loadingAttempt').textContent = connectionAttempts > 1 ? 'Attempt ' + connectionAttempts + ' / ' + MAX_ATTEMPTS : '';
-  $('loadingText').textContent = connectionAttempts > 1 ? 'Server is waking up...' : 'Connecting to server...';
+  var lAtt = $('loadingAttempt');
+  var lTxt = $('loadingText');
+  if (lAtt) lAtt.textContent = connectionAttempts > 1 ? 'Attempt ' + connectionAttempts + ' / ' + MAX_ATTEMPTS : '';
+  if (lTxt) lTxt.textContent = connectionAttempts > 1 ? 'Server is waking up...' : 'Connecting to server...';
   socket = io({
     reconnection: true, reconnectionAttempts: MAX_ATTEMPTS,
     reconnectionDelay: 3000, timeout: 20000
   });
 
   socket.on('connect', function() {
-    $('loadingText').textContent = 'Authenticating...';
-    $('loadingRetryBtn').classList.remove('show');
+    if (lTxt) lTxt.textContent = 'Authenticating...';
+    var lr = $('loadingRetryBtn');
+    if (lr) lr.classList.remove('show');
     connectionAttempts = 0;
     socket.emit('auth', { initData: getTelegramInitData(), deviceId: getDeviceId() });
   });
@@ -1440,7 +1556,7 @@ function initSocket() {
     autopayEnabled = Save.autopayEnabled;
     selectedSkin = Save.currentSkin;
     selectedSerial = Save.currentSerial;
-    $('loadingText').textContent = 'Loading...';
+    if (lTxt) lTxt.textContent = 'Loading...';
     setTimeout(function() {
       openScreen('menuScreen');
       updateSkinPreview();
@@ -1451,7 +1567,7 @@ function initSocket() {
   });
 
   socket.on('auth_error', function() {
-    $('loadingText').textContent = 'Retrying auth...';
+    if (lTxt) lTxt.textContent = 'Retrying auth...';
     setTimeout(function() {
       socket.emit('auth', { deviceId: getDeviceId() });
     }, 2000);
@@ -1491,7 +1607,8 @@ function initSocket() {
     if (btn) { btn.textContent = '🔓 Unlock'; btn.disabled = false; }
     if (!res || !res.ok) {
       adminPassword = '';
-      $('adminPasswordInput').value = '';
+      var pwd = $('adminPasswordInput');
+      if (pwd) pwd.value = '';
       toast('❌ Wrong password', 'error');
       return;
     }
@@ -1548,37 +1665,63 @@ function initSocket() {
   socket.on('admin_wallet_info', function(res) {
     var addrEl = $('adminTonAddress');
     var balEl = $('adminTonBalance');
+    var verEl = $('adminTonVersion');
     if (res && res.ok) {
       if (addrEl) addrEl.textContent = res.address || 'not set';
       if (balEl) balEl.textContent = (res.balance !== null && res.balance !== undefined) ? res.balance.toFixed(4) : '—';
+      if (verEl) verEl.textContent = res.version ? 'Version: ' + res.version : '';
     } else {
       if (addrEl) addrEl.textContent = 'error';
       if (balEl) balEl.textContent = '—';
+      if (verEl) verEl.textContent = '';
     }
   });
 
-  socket.on('admin_set_mnemonic_result', function(res) {
+  socket.on('admin_preview_mnemonic_result', function(res) {
     var btn = $('adminSaveMnemonicBtn');
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Save & Init Wallet'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Preview Wallet Versions'; }
+    if (!res || !res.ok) {
+      showAdminStatus('❌ ' + (res && res.message ? res.message : 'Invalid mnemonic'), 'error');
+      return;
+    }
+    pendingWalletVersions = res.versions || [];
+    selectedWalletVersion = null;
+    renderWalletVersions();
+    $('walletPickerModal').classList.add('active');
+  });
+
+  socket.on('admin_commit_mnemonic_result', function(res) {
     if (res && res.ok) {
+      closeWalletPicker();
       var addrEl = $('adminTonAddress');
       var balEl = $('adminTonBalance');
+      var verEl = $('adminTonVersion');
       if (addrEl) addrEl.textContent = res.address || '—';
       if (balEl) balEl.textContent = (res.balance !== null && res.balance !== undefined) ? res.balance.toFixed(4) : '—';
-      $('adminMnemonicInput').value = '';
-      showAdminStatus('✅ Wallet set', 'success');
+      if (verEl) verEl.textContent = res.version ? 'Version: ' + res.version : '';
+      var input = $('adminMnemonicInput');
+      if (input) input.value = '';
+      showAdminStatus('✅ Wallet saved: ' + res.version, 'success');
       toast('✅ TON wallet ready', 'success');
     } else {
       showAdminStatus('❌ ' + (res && res.message ? res.message : 'Failed'), 'error');
     }
   });
 
+  socket.on('admin_cancel_mnemonic_result', function() {
+    closeWalletPicker();
+    pendingWalletVersions = [];
+    selectedWalletVersion = null;
+  });
+
   socket.on('admin_clear_mnemonic_result', function(res) {
     if (res && res.ok) {
       var addrEl = $('adminTonAddress');
       var balEl = $('adminTonBalance');
+      var verEl = $('adminTonVersion');
       if (addrEl) addrEl.textContent = 'not set';
       if (balEl) balEl.textContent = '—';
+      if (verEl) verEl.textContent = '';
       showAdminStatus('✅ Wallet removed', 'success');
     }
   });
@@ -1779,8 +1922,10 @@ function initSocket() {
 }
 
 function showLoadingError(msg) {
-  $('loadingText').textContent = msg;
-  $('loadingRetryBtn').classList.add('show');
+  var t = $('loadingText');
+  if (t) t.textContent = msg;
+  var b = $('loadingRetryBtn');
+  if (b) b.classList.add('show');
 }
 
 /* ============ JOYSTICK ============ */
@@ -2633,7 +2778,8 @@ function bindControlButtons() {
 /* ============ SCREENS ============ */
 function openScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
-  $(id).classList.add('active');
+  var el = $(id);
+  if (el) el.classList.add('active');
 }
 
 function tabBarHTML(activeTab) {
@@ -2758,23 +2904,14 @@ function updateLootboxUI() {
   var soldOut = Save.serialStatus.soldOut;
   var noWallet = !Save.tonWalletAddress;
 
-  // Determine button state
-  if (soldOut) {
-    setLootboxBtnState('disabled', '🚫 All 999 Sold Out');
-  } else if (lockedCount === 0) {
-    setLootboxBtnState('disabled', '✅ All Skins Unlocked');
-  } else if (remaining === 0) {
-    setLootboxBtnState('disabled', '🚫 Sold Out');
-  } else if (noWallet) {
-    setLootboxBtnState('disabled', '⚠️ Wallet Not Set');
-  } else {
-    setLootboxBtnState('active', '🔓 Open Lootbox');
-  }
+  if (soldOut) setLootboxBtnState('disabled', '🚫 All 999 Sold Out');
+  else if (lockedCount === 0) setLootboxBtnState('disabled', '✅ All Skins Unlocked');
+  else if (remaining === 0) setLootboxBtnState('disabled', '🚫 Sold Out');
+  else if (noWallet) setLootboxBtnState('disabled', '⚠️ Wallet Not Set');
+  else setLootboxBtnState('active', '🔓 Open Lootbox');
 
-  // Price
   if ($('lootboxPrice')) $('lootboxPrice').textContent = Save.lootboxPrice.toString();
 
-  // Remaining
   var remEl = $('lootboxRemaining');
   if (remEl) {
     remEl.classList.remove('unlimited', 'soldout');
@@ -2783,13 +2920,11 @@ function updateLootboxUI() {
     else remEl.textContent = '📦 ' + remaining + ' Remaining';
   }
 
-  // Serial hint
   if ($('lootboxSerialHint')) {
     if (soldOut) $('lootboxSerialHint').textContent = 'SOLD OUT';
     else $('lootboxSerialHint').innerHTML = 'Next serial: <b>' + fmtSerial(Save.serialStatus.next) + '</b> / 999';
   }
 
-  // Tag
   var tagsEl = $('lootboxTags');
   if (tagsEl) {
     tagsEl.innerHTML = '';
@@ -2801,7 +2936,6 @@ function updateLootboxUI() {
     }
   }
 
-  // Wallet not set error hint
   if (noWallet && lockedCount > 0 && !soldOut && remaining !== 0) {
     showLootboxError('Wallet not configured by admin yet. Try again later.');
   }
@@ -2917,6 +3051,56 @@ function saveWallet() {
   var w = $('walletInput').value.trim();
   if (!w) { toast('Enter a wallet address', 'error'); return; }
   socket.emit('save_wallet', { wallet: w });
+}
+
+/* ============ WALLET VERSION PICKER ============ */
+function renderWalletVersions() {
+  var list = $('walletVersionList');
+  if (!list) return;
+  list.innerHTML = '';
+  pendingWalletVersions.forEach(function(v, i) {
+    var opt = document.createElement('div');
+    opt.className = 'wallet-version-option';
+    opt.dataset.vid = v.id;
+    opt.innerHTML =
+      '<div class="wallet-version-label">' +
+        '<span>' + escapeHtml(v.name) + '</span>' +
+        '<span class="badge">' + escapeHtml(v.id.toUpperCase()) + '</span>' +
+      '</div>' +
+      '<div class="wallet-version-address">' + escapeHtml(v.address) + '</div>';
+    opt.addEventListener('click', function() {
+      document.querySelectorAll('.wallet-version-option').forEach(function(o) { o.classList.remove('selected'); });
+      opt.classList.add('selected');
+      selectedWalletVersion = v.id;
+      var btn = $('confirmWalletVersionBtn');
+      if (btn) btn.disabled = false;
+    });
+    list.appendChild(opt);
+  });
+  var cBtn = $('confirmWalletVersionBtn');
+  if (cBtn) cBtn.disabled = true;
+  selectedWalletVersion = null;
+}
+function closeWalletPicker() {
+  $('walletPickerModal').classList.remove('active');
+}
+function confirmWalletVersion() {
+  if (!selectedWalletVersion) return;
+  var btn = $('confirmWalletVersionBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving...';
+  socket.emit('admin_commit_mnemonic', {
+    password: adminPassword,
+    versionId: selectedWalletVersion
+  });
+  setTimeout(function() {
+    btn.disabled = false;
+    btn.textContent = '✅ Confirm & Save';
+  }, 3000);
+}
+function cancelWalletVersion() {
+  socket.emit('admin_cancel_mnemonic', { password: adminPassword });
+  closeWalletPicker();
 }
 
 /* ============ SHOP ============ */
@@ -3136,7 +3320,7 @@ function updateOnlineCount() {
   el.textContent = count > 0 ? count : '—';
 }
 
-/* ============ TON LOOTBOX (v3.5.0 with stronger handling) ============ */
+/* ============ TON LOOTBOX ============ */
 var tonPayment = {
   isChecking: false,
   checkCount: 0,
@@ -3153,46 +3337,20 @@ function generateMemo() {
 }
 
 function openTonModal() {
-  // Guard: cooldown
   var now = Date.now();
   if (now - lootboxLastClickAt < LOOTBOX_COOLDOWN_MS) {
     showLootboxError('Please wait a moment before trying again');
     return;
   }
   lootboxLastClickAt = now;
-
   hideLootboxError();
 
-  // Guard: socket
-  if (!socket || !socket.connected) {
-    showLootboxError('Not connected to server. Check your internet.');
-    return;
-  }
-
-  // Guard: wallet
-  if (!Save.tonWalletAddress) {
-    showLootboxError('Wallet not configured by admin yet.');
-    return;
-  }
-
-  // Guard: sold out
-  if (Save.serialStatus.soldOut) {
-    showLootboxError('All 999 serials have been sold');
-    return;
-  }
-
-  // Guard: no skins left
+  if (!socket || !socket.connected) { showLootboxError('Not connected to server.'); return; }
+  if (!Save.tonWalletAddress) { showLootboxError('Wallet not configured by admin yet.'); return; }
+  if (Save.serialStatus.soldOut) { showLootboxError('All 999 serials have been sold'); return; }
   var locked = getLockedSkins();
-  if (locked.length === 0) {
-    showLootboxError('You already own all skins!');
-    return;
-  }
-
-  // Guard: sold out by admin
-  if (Save.lootboxRemaining === 0) {
-    showLootboxError('Lootbox is sold out');
-    return;
-  }
+  if (locked.length === 0) { showLootboxError('You already own all skins!'); return; }
+  if (Save.lootboxRemaining === 0) { showLootboxError('Lootbox is sold out'); return; }
 
   tonPayment.currentMemo = generateMemo();
   tonPayment.checkCount = 0;
@@ -3235,7 +3393,6 @@ function startTonCheck() {
 function checkTonTransaction() {
   if (!tonPayment.isChecking || !tonPayment.currentMemo) return;
 
-  // Socket check
   if (!socket || !socket.connected) {
     stopTonCheck();
     $('tonStatus').innerHTML = '❌ Disconnected. Reopen the lootbox.';
@@ -3465,7 +3622,7 @@ function refreshAdminWalletInfo() {
   }
   socket.emit('admin_get_wallet_info', { password: adminPassword });
 }
-function saveAdminMnemonic() {
+function previewAdminMnemonic() {
   if (!adminPassword) { showAdminStatus('❌ Login first', 'error'); return; }
   var input = $('adminMnemonicInput');
   var m = (input.value || '').trim();
@@ -3477,8 +3634,8 @@ function saveAdminMnemonic() {
   }
   var btn = $('adminSaveMnemonicBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Saving...';
-  socket.emit('admin_set_mnemonic', { password: adminPassword, mnemonic: m });
+  btn.textContent = '⏳ Loading...';
+  socket.emit('admin_preview_mnemonic', { password: adminPassword, mnemonic: m });
 }
 function clearAdminMnemonic() {
   if (!adminPassword) return;
@@ -3672,11 +3829,18 @@ function init() {
     if (autopayTog) autopayTog.addEventListener('click', toggleAutopay);
 
     var saveMnBtn = $('adminSaveMnemonicBtn');
-    if (saveMnBtn) saveMnBtn.addEventListener('click', saveAdminMnemonic);
+    if (saveMnBtn) saveMnBtn.addEventListener('click', previewAdminMnemonic);
     var refreshWBtn = $('adminRefreshWalletBtn');
     if (refreshWBtn) refreshWBtn.addEventListener('click', refreshAdminWalletInfo);
     var clearMnBtn = $('adminClearMnemonicBtn');
     if (clearMnBtn) clearMnBtn.addEventListener('click', clearAdminMnemonic);
+
+    var closeWP = $('closeWalletPicker');
+    if (closeWP) closeWP.addEventListener('click', cancelWalletVersion);
+    var cancelWBtn = $('cancelWalletVersionBtn');
+    if (cancelWBtn) cancelWBtn.addEventListener('click', cancelWalletVersion);
+    var confirmWBtn = $('confirmWalletVersionBtn');
+    if (confirmWBtn) confirmWBtn.addEventListener('click', confirmWalletVersion);
 
     document.querySelectorAll('.admin-btn[data-tag]').forEach(function(btn) {
       btn.addEventListener('click', function() { setLootboxTag(btn.getAttribute('data-tag')); });
@@ -3701,4 +3865,4 @@ else init();
 </script>
 
 </body>
- </html>
+</html>
