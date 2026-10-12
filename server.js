@@ -1,4 +1,4 @@
-// server.js - Planet.io Online v3.4.0
+// server.js - Planet.io Online v3.4.1
 'use strict';
 const express = require('express');
 const http = require('http');
@@ -53,9 +53,11 @@ let db = null;
 let dbReady = false;
 
 if (DATABASE_URL) {
+  // Detect if URL is public proxy or internal
+  const isInternal = DATABASE_URL.includes('.railway.internal');
   db = new Pool({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: isInternal ? false : { rejectUnauthorized: false },
     max: 5
   });
   initDatabase();
@@ -264,8 +266,8 @@ async function initTonWallet() {
   }
   try {
     const words = TON_MNEMONIC.trim().split(/\s+/);
-    if (words.length !== 24) {
-      console.error('❌ TON_MNEMONIC must have 24 words, got ' + words.length);
+    if (words.length !== 12 && words.length !== 24) {
+      console.error('❌ TON_MNEMONIC must have 12 or 24 words, got ' + words.length);
       return;
     }
     hotWalletKeyPair = await mnemonicToPrivateKey(words);
@@ -279,6 +281,7 @@ async function initTonWallet() {
       console.warn('⚠️ TON_WALLET_ADDRESS does not match derived wallet address!');
       console.warn('   Env:     ' + TON_WALLET_ADDRESS);
       console.warn('   Derived: ' + hotWallet.address.toString());
+      console.warn('   → Using derived address for verification');
     }
   } catch (e) {
     console.error('❌ TON wallet init failed:', e.message);
@@ -311,7 +314,8 @@ async function sendTonToUser(toAddress, amountTon) {
 }
 
 async function verifyTonPayment(memo, expectedAmount) {
-  const walletAddr = TON_WALLET_ADDRESS;
+  // Always check the derived wallet address (where mnemonic can sign)
+  const walletAddr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
   const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=30';
   const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
   try {
@@ -717,6 +721,9 @@ io.on('connection', (socket) => {
     const prices = await getSkinPrices();
     const serialStatus = await getSerialStatus();
 
+    // Use derived wallet address if available, else env
+    const walletAddr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
+
     socket.emit('auth_ok', {
       user: {
         id: user.telegram_id,
@@ -733,7 +740,7 @@ io.on('connection', (socket) => {
       settings: settings,
       skinPrices: prices,
       serialStatus: serialStatus,
-      tonWalletAddress: TON_WALLET_ADDRESS
+      tonWalletAddress: walletAddr
     });
   });
 
@@ -902,10 +909,11 @@ io.on('connection', (socket) => {
       return;
     }
     const balance = await getHotWalletBalance();
+    const addr = hotWallet ? hotWallet.address.toString() : TON_WALLET_ADDRESS;
     socket.emit('admin_wallet_balance', {
       ok: balance !== null,
       balance: balance,
-      address: TON_WALLET_ADDRESS
+      address: addr
     });
   });
 
@@ -1152,7 +1160,7 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.4.0 on ' + PORT);
+    console.log('🪐 Planet.io v3.4.1 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
     console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
