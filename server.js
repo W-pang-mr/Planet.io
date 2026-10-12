@@ -1,11 +1,20 @@
-// server.js - Planet.io Online v3.5.0
+// server.js - Planet.io Online v3.6.0
 'use strict';
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-const { TonClient, WalletContractV5R1, internal, SendMode, Address } = require('@ton/ton');
+const {
+  TonClient,
+  WalletContractV5R1,
+  WalletContractV4,
+  WalletContractV3R1,
+  WalletContractV3R2,
+  internal,
+  SendMode,
+  Address
+} = require('@ton/ton');
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 
 const app = express();
@@ -45,7 +54,15 @@ const SPLIT_LAUNCH_SPEED = 1300;
 const MASS_DECAY_RATE = 0.002;
 const MASS_DECAY_MIN = 40;
 
-/* ================= ENCRYPTION HELPERS ================= */
+const WALLET_VERSION_ORDER = ['v5r1', 'v4r2', 'v3r2', 'v3r1'];
+const WALLET_VERSION_LABELS = {
+  v5r1: 'W5 · V5R1 (Tonkeeper)',
+  v4r2: 'V4R2 (MyTonWallet, default)',
+  v3r2: 'V3R2 (legacy)',
+  v3r1: 'V3R1 (legacy)'
+};
+
+/* ================= ENCRYPTION ================= */
 function deriveKey(password) {
   return crypto.scryptSync(String(password), 'planetio_salt_v1', 32);
 }
@@ -71,6 +88,35 @@ function decryptMnemonic(payload, password) {
     dec += decipher.final('utf8');
     return dec;
   } catch (e) { return null; }
+}
+
+/* ================= WALLET FACTORY ================= */
+function createWalletByVersion(versionId, publicKey) {
+  switch (versionId) {
+    case 'v5r1': return WalletContractV5R1.create({ workchain: 0, publicKey });
+    case 'v4r2': return WalletContractV4.create({ workchain: 0, publicKey });
+    case 'v3r2': return WalletContractV3R2.create({ workchain: 0, publicKey });
+    case 'v3r1': return WalletContractV3R1.create({ workchain: 0, publicKey });
+    default: return WalletContractV5R1.create({ workchain: 0, publicKey });
+  }
+}
+
+function deriveAllVersions(publicKey) {
+  const out = [];
+  for (const vid of WALLET_VERSION_ORDER) {
+    try {
+      const w = createWalletByVersion(vid, publicKey);
+      out.push({
+        id: vid,
+        name: WALLET_VERSION_LABELS[vid] || vid,
+        address: w.address.toString(),
+        addressUserFriendly: w.address.toString({ bounceable: false, testOnly: false })
+      });
+    } catch (e) {
+      console.error('derive ' + vid + ':', e.message);
+    }
+  }
+  return out;
 }
 
 /* ================= DATABASE ================= */
@@ -278,58 +324,53 @@ async function setAdminSetting(key, value) {
   } catch (e) { return false; }
 }
 
+async function getAdminSetting(key) {
+  if (!dbReady) return null;
+  try {
+    const r = await db.query('SELECT value FROM admin_settings WHERE key = $1', [key]);
+    return r.rows.length > 0 ? r.rows[0].value : null;
+  } catch (e) { return null; }
+}
+
 /* ================= TON WALLET ================= */
 let hotWallet = null;
 let hotWalletKeyPair = null;
 let tonClient = null;
+let hotWalletVersion = null;
 
 async function initTonWallet() {
-  let mnemonic = null;
-
-  // 1) Try DB first
-  if (dbReady) {
-    try {
-      const r = await db.query(`SELECT value FROM admin_settings WHERE key = 'ton_mnemonic_enc'`);
-      if (r.rows.length > 0 && r.rows[0].value) {
-        const dec = decryptMnemonic(r.rows[0].value, ADMIN_PASSWORD);
-        if (dec) {
-          mnemonic = dec;
-          console.log('🔑 Loaded TON mnemonic from DB (encrypted)');
-        } else {
-          console.warn('⚠️ Could not decrypt DB mnemonic — wrong ADMIN_PASSWORD?');
-        }
-      }
-    } catch (e) {
-      console.error('DB mnemonic load error:', e.message);
-    }
-  }
-
-  if (!mnemonic) {
-    console.warn('⚠️ No mnemonic in DB. Set it via admin panel.');
+  if (!dbReady) {
+    console.warn('⚠️ DB not ready — cannot load wallet');
     return;
   }
-
-  await setMnemonic(mnemonic, 'startup');
-}
-
-async function setMnemonic(mnemonic, source) {
   try {
+    const encMnemonic = await getAdminSetting('ton_mnemonic_enc');
+    if (!encMnemonic) {
+      console.warn('⚠️ No mnemonic in DB. Set via admin panel.');
+      return;
+    }
+    const mnemonic = decryptMnemonic(encMnemonic, ADMIN_PASSWORD);
+    if (!mnemonic) {
+      console.warn('⚠️ Cannot decrypt mnemonic — ADMIN_PASSWORD changed?');
+      return;
+    }
+    const versionId = (await getAdminSetting('ton_wallet_version')) || 'v5r1';
     const words = mnemonic.trim().split(/\s+/);
     if (words.length !== 12 && words.length !== 24) {
-      throw new Error('Mnemonic must have 12 or 24 words, got ' + words.length);
+      console.error('❌ Stored mnemonic invalid');
+      return;
     }
     const kp = await mnemonicToPrivateKey(words);
-    const wallet = WalletContractV5R1.create({ workchain: 0, publicKey: kp.publicKey });
+    const wallet = createWalletByVersion(versionId, kp.publicKey);
     hotWalletKeyPair = kp;
     hotWallet = wallet;
+    hotWalletVersion = versionId;
     if (!tonClient) {
       tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
     }
-    console.log('✅ TON wallet ready (' + source + '): ' + wallet.address.toString());
-    return wallet.address.toString();
+    console.log('✅ TON wallet ready (' + versionId + '): ' + wallet.address.toString());
   } catch (e) {
-    console.error('❌ setMnemonic failed:', e.message);
-    throw e;
+    console.error('❌ TON wallet init failed:', e.message);
   }
 }
 
@@ -398,7 +439,6 @@ async function processSellRequest(requestId) {
 
   const amount = parseFloat(req.price_ton);
   const recipient = req.user_wallet;
-
   try {
     const balance = await getHotWalletBalance();
     if (balance === null || balance < amount + 0.01) {
@@ -720,6 +760,8 @@ io.on('connection', (socket) => {
   console.log('🟢 ' + socket.id);
   let currentUserId = null;
   let isAdminAuthed = false;
+  let pendingMnemonic = null;
+  let pendingKeyPair = null;
 
   function checkAdmin(pw) { return String(pw) === ADMIN_PASSWORD; }
 
@@ -787,7 +829,7 @@ io.on('connection', (socket) => {
     socket.emit('admin_login_result', { ok });
   });
 
-  /* ===== NEW: TON Wallet management ===== */
+  /* ===== Wallet management ===== */
   socket.on('admin_get_wallet_info', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) {
       socket.emit('admin_wallet_info', { ok: false });
@@ -795,55 +837,118 @@ io.on('connection', (socket) => {
     }
     const address = hotWallet ? hotWallet.address.toString() : null;
     const balance = await getHotWalletBalance();
-    socket.emit('admin_wallet_info', { ok: true, address, balance });
+    socket.emit('admin_wallet_info', {
+      ok: true,
+      address,
+      balance,
+      version: hotWalletVersion
+    });
   });
 
-  socket.on('admin_set_mnemonic', async (data) => {
+  /* Step 1: validate mnemonic, derive all versions, show to admin */
+  socket.on('admin_preview_mnemonic', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Auth failed' });
+      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Auth failed' });
       return;
     }
     const mnemonic = String(data.mnemonic || '').trim();
     if (!mnemonic) {
-      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Empty' });
+      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Empty' });
       return;
     }
     const words = mnemonic.split(/\s+/);
     if (words.length !== 12 && words.length !== 24) {
-      socket.emit('admin_set_mnemonic_result', { ok: false, message: 'Need 12 or 24 words, got ' + words.length });
+      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Need 12 or 24 words, got ' + words.length });
       return;
     }
-
     try {
-      const address = await setMnemonic(mnemonic, 'admin');
+      const kp = await mnemonicToPrivateKey(words);
+      const versions = deriveAllVersions(kp.publicKey);
+      pendingMnemonic = mnemonic;
+      pendingKeyPair = kp;
+      socket.emit('admin_preview_mnemonic_result', { ok: true, versions });
+    } catch (e) {
+      socket.emit('admin_preview_mnemonic_result', { ok: false, message: e.message });
+    }
+  });
 
-      // Encrypt & save
+  /* Step 2: admin picked a version, now save & init */
+  socket.on('admin_commit_mnemonic', async (data) => {
+    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
+      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Auth failed' });
+      return;
+    }
+    if (!pendingMnemonic || !pendingKeyPair) {
+      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'No pending mnemonic — enter again' });
+      return;
+    }
+    const versionId = String(data.versionId || 'v5r1');
+    if (WALLET_VERSION_ORDER.indexOf(versionId) < 0) {
+      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Invalid version' });
+      return;
+    }
+    try {
+      const wallet = createWalletByVersion(versionId, pendingKeyPair.publicKey);
+      hotWallet = wallet;
+      hotWalletKeyPair = pendingKeyPair;
+      hotWalletVersion = versionId;
+      if (!tonClient) {
+        tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
+      }
+
       if (dbReady) {
-        const enc = encryptMnemonic(mnemonic, ADMIN_PASSWORD);
+        const enc = encryptMnemonic(pendingMnemonic, ADMIN_PASSWORD);
         await db.query(
           `INSERT INTO admin_settings (key, value) VALUES ('ton_mnemonic_enc', $1)
            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
           [enc]
         );
+        await db.query(
+          `INSERT INTO admin_settings (key, value) VALUES ('ton_wallet_version', $1)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          [versionId]
+        );
       }
 
+      pendingMnemonic = null;
+      pendingKeyPair = null;
+
       const balance = await getHotWalletBalance();
-      socket.emit('admin_set_mnemonic_result', { ok: true, address, balance });
+      console.log('✅ Wallet committed: ' + versionId + ' @ ' + wallet.address.toString());
+      socket.emit('admin_commit_mnemonic_result', {
+        ok: true,
+        address: wallet.address.toString(),
+        balance,
+        version: versionId
+      });
     } catch (e) {
-      socket.emit('admin_set_mnemonic_result', { ok: false, message: e.message });
+      console.error('commit mnemonic:', e.message);
+      socket.emit('admin_commit_mnemonic_result', { ok: false, message: e.message });
     }
+  });
+
+  socket.on('admin_cancel_mnemonic', (data) => {
+    if (!isAdminAuthed) return;
+    pendingMnemonic = null;
+    pendingKeyPair = null;
+    socket.emit('admin_cancel_mnemonic_result', { ok: true });
   });
 
   socket.on('admin_clear_mnemonic', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (dbReady) {
-      try { await db.query(`DELETE FROM admin_settings WHERE key = 'ton_mnemonic_enc'`); } catch (e) {}
+      try {
+        await db.query(`DELETE FROM admin_settings WHERE key = 'ton_mnemonic_enc'`);
+        await db.query(`DELETE FROM admin_settings WHERE key = 'ton_wallet_version'`);
+      } catch (e) {}
     }
     hotWallet = null;
     hotWalletKeyPair = null;
+    hotWalletVersion = null;
     socket.emit('admin_clear_mnemonic_result', { ok: true });
   });
 
+  /* ===== Other admin actions ===== */
   socket.on('admin_add_tokens', async (data) => {
     if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
     if (!currentUserId || !dbReady) return;
@@ -853,7 +958,6 @@ io.on('connection', (socket) => {
       const newTokens = r.rows.length > 0 ? r.rows[0].tokens : 0;
       socket.emit('admin_add_tokens_result', { ok: true, tokens: newTokens });
     } catch (e) {
-      console.error('admin_add_tokens:', e.message);
       socket.emit('admin_add_tokens_result', { ok: false });
     }
   });
@@ -873,7 +977,6 @@ io.on('connection', (socket) => {
         [JSON.stringify(skins), currentUserId]);
       socket.emit('admin_unlock_all_result', { ok: true, unlockedSkins: skins });
     } catch (e) {
-      console.error('admin_unlock_all:', e.message);
       socket.emit('admin_unlock_all_result', { ok: false });
     }
   });
@@ -891,13 +994,13 @@ io.on('connection', (socket) => {
       );
       socket.emit('admin_wipe_all_result', { ok: true, unlockedSkins: fresh });
     } catch (e) {
-      console.error('admin_wipe_all:', e.message);
       socket.emit('admin_wipe_all_result', { ok: false });
     }
   });
 
   socket.on('admin_set', async (data) => {
     if (!isAdminAuthed || !data || !data.key || !checkAdmin(data.password)) return;
+    if (data.key === 'ton_mnemonic_enc' || data.key === 'ton_wallet_version') return;
     const ok = await setAdminSetting(data.key, data.value);
     if (ok) io.emit('settings_update', await getAdminSettings());
     socket.emit('admin_set_result', { ok, key: data.key });
@@ -914,10 +1017,7 @@ io.on('connection', (socket) => {
          FROM sell_requests ORDER BY created_at DESC LIMIT 100`
       );
       socket.emit('admin_requests', r.rows);
-    } catch (e) {
-      console.error('admin_get_requests:', e.message);
-      socket.emit('admin_requests', []);
-    }
+    } catch (e) { socket.emit('admin_requests', []); }
   });
 
   socket.on('admin_pay_request', async (data) => {
@@ -1042,7 +1142,6 @@ io.on('connection', (socket) => {
       await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
         [data.memo, currentUserId, Date.now()]);
     } catch (e) {
-      console.error('Lootbox save error:', e.message);
       if (remaining > 0) {
         await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
       }
@@ -1184,10 +1283,10 @@ setInterval(() => {
 (async () => {
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.5.0 on ' + PORT);
+    console.log('🪐 Planet.io v3.6.0 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
     console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
-    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗ (set via admin panel)'));
+    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() + ' (' + hotWalletVersion + ')' : '✗ (set via admin panel)'));
     console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626)'));
   });
 })();
