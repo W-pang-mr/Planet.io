@@ -3,1558 +3,1258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>🪐 Planet.io</title>
+<meta name="theme-color" content="#05060f">
+<title>Nebula Drift</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-<script src="/vendor/tonconnect-ui.min.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff;
-    font-family: 'Segoe UI', Roboto, -apple-system, Arial, sans-serif;
-    touch-action: none; overscroll-behavior: none; position: fixed; -webkit-font-smoothing: antialiased; }
-  #app { position: fixed; inset: 0; }
-  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
-  .screen.active { display: flex; }
-
-  #loadingScreen { background: #000; align-items: center; justify-content: center; }
-  #loadingCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-  .loading-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-  .loading-logo { font-size: clamp(38px, 12vw, 64px); font-weight: 900; letter-spacing: 4px;
-    background: linear-gradient(45deg, #4a9eff, #a55cff, #ff6bd6, #ffcc00, #4a9eff);
-    background-size: 300% 300%; -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; animation: gradShift 3s ease infinite; }
-  @keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-  .loading-spinner { width: 44px; height: 44px; border: 3px solid rgba(74,158,255,0.15);
-    border-top-color: #4a9eff; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 13px; color: #888; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 0 20px; }
-  .loading-retry-btn { display: none; padding: 12px 28px; background: linear-gradient(135deg, #4a9eff, #0066cc);
-    color: #fff; border: none; border-radius: 999px; font-size: 14px; font-weight: 800;
-    letter-spacing: 1.5px; cursor: pointer; margin-top: 10px; font-family: inherit; }
-  .loading-retry-btn.show { display: block; }
-  .loading-attempt { font-size: 11px; color: #555; letter-spacing: 1px; }
-
-  #menuScreen { background: #000; position: relative; overflow: hidden; }
-  #menuCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-  .menu-content { position: relative; z-index: 1; width: 100%; height: 100%;
-    display: flex; flex-direction: column;
-    padding: calc(12px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom)); }
-  .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 44px; }
-  .top-left, .top-right { display: flex; align-items: center; gap: 8px; }
-  .close-btn { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); color: #fff; font-size: 14px; font-weight: 600;
-    cursor: pointer; padding: 8px 14px; border-radius: 999px; font-family: inherit; }
-  .close-btn svg { width: 16px; height: 16px; }
-  .close-btn:active { transform: scale(0.95); }
-  .icon-circle { width: 40px; height: 40px; border-radius: 50%;
-    background: rgba(255,255,255,0.04); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center;
-    justify-content: center; cursor: pointer; color: #fff; transition: all 0.15s; }
-  .icon-circle:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
-  .icon-circle svg { width: 20px; height: 20px; }
-  .page-title { position: absolute; left: 50%; top: calc(18px + env(safe-area-inset-top));
-    transform: translateX(-50%); font-size: 20px; font-weight: 800; color: #fff; letter-spacing: 0.5px; z-index: 2; }
-  .main-area { flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: flex-start; padding-top: 15px; position: relative; }
-  .token-counter { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.05));
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,204,0,0.3);
-    border-radius: 999px; padding: 8px 16px 8px 12px; font-size: 16px; font-weight: 700;
-    color: #ffcc00; box-shadow: 0 4px 20px rgba(255,204,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1); }
-  .skin-preview-wrap { position: relative; margin-top: 8px; width: 120px; height: 120px;
-    display: flex; align-items: center; justify-content: center; }
-  .skin-glow { position: absolute; inset: -14px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(60,220,180,0.4) 0%, rgba(60,220,180,0.1) 40%, transparent 70%);
-    animation: skinPulse 2.5s ease-in-out infinite; pointer-events: none; }
-  @keyframes skinPulse { 0%,100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.12); opacity: 1; } }
-  .skin-preview { width: 110px; height: 110px; border-radius: 50%; background: #111;
-    border: 2px solid rgba(255,255,255,0.15); overflow: hidden;
-    display: flex; align-items: center; justify-content: center; position: relative; z-index: 1;
-    box-shadow: 0 0 30px rgba(60,220,180,0.3), inset 0 0 20px rgba(0,0,0,0.6); }
-  .skin-preview img { width: 100%; height: 100%; object-fit: cover; animation: skinRotate 8s linear infinite; }
-  @keyframes skinRotate { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.05); } 100% { transform: rotate(360deg) scale(1); } }
-  .skin-preview .emoji-fallback { font-size: 55px; }
-  .skin-level-badge { position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
-    background: #000; border: 2px solid rgba(255,255,255,0.2); border-radius: 999px;
-    padding: 2px 10px; font-size: 11px; font-weight: 800; color: #fff; z-index: 3;
-    min-width: 32px; text-align: center; }
-  .online-pill { display: flex; align-items: center; gap: 8px; background: rgba(20,20,25,0.8);
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 600;
-    color: #fff; margin-top: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-  .online-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
-  .online-pill .count { color: #4ade80; font-weight: 800; }
-  .mode-selector { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
-  .mode-btn { background: rgba(30,30,35,0.7); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 11px 22px;
-    font-size: 12px; font-weight: 900; letter-spacing: 1.5px; color: #888; cursor: pointer;
-    transition: all 0.15s; text-transform: uppercase; text-align: center; min-width: 120px; font-family: inherit; }
-  .mode-btn.active { color: #fff; background: linear-gradient(135deg, rgba(74,158,255,0.9), rgba(0,102,204,0.9));
-    border-color: rgba(74,158,255,0.5); box-shadow: 0 4px 20px rgba(74,158,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2); }
-  .mode-btn:active { transform: scale(0.96); }
-  .play-row { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 20px; position: relative; }
-  .arrow-btn { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.03);
-    backdrop-filter: blur(12px); border: 2px solid rgba(255,255,255,0.15); color: #fff;
-    display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
-  .arrow-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.08); }
-  .arrow-btn svg { width: 20px; height: 20px; }
-  .play-btn-big { width: 160px; height: 160px; border-radius: 50%;
-    background: radial-gradient(circle at 50% 30%, rgba(40,40,45,0.9) 0%, rgba(0,0,0,0.95) 70%);
-    backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1);
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    transition: all 0.2s; position: relative;
-    box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 -20px 40px rgba(0,0,0,0.8), inset 0 2px 0 rgba(255,255,255,0.08); }
-  .play-btn-big:active { transform: scale(0.96); }
-  .play-btn-big svg { width: 50px; height: 50px; fill: #fff; margin-left: 8px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4)); }
-  .season-bar { margin-top: auto; margin-bottom: 8px; width: 100%;
-    background: rgba(15,15,18,0.7); backdrop-filter: blur(20px);
-    border-radius: 20px; padding: 14px 20px 18px; position: relative;
-    border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-  .season-header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; position: relative; }
-  .season-badge-icon { position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
-    width: 44px; height: 44px; border-radius: 50%;
-    background: radial-gradient(circle at 50% 40%, #ffcc00 0%, #cc7700 100%);
-    border: 3px solid #000; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; box-shadow: 0 0 20px rgba(255,200,0,0.3); }
-  .season-title { font-size: 14px; font-weight: 700; color: #fff; }
-  .season-progress { width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
-  .season-progress-fill { height: 100%; background: linear-gradient(90deg, #fff, #ccc); border-radius: 3px; width: 60%; }
-  .premium-badge { display: flex; align-items: center; justify-content: center; gap: 6px;
-    margin-top: 10px; font-size: 12px; font-weight: 600; color: #aaa; }
-  .premium-badge .status { display: flex; align-items: center; gap: 5px; color: #4ade80; font-weight: 800; }
-  .premium-badge .status .dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
-
-  .tab-bar { position: absolute; bottom: 0; left: 0; right: 0;
-    height: calc(64px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
-    display: flex; align-items: center; justify-content: space-around;
-    background: linear-gradient(to top, rgba(0,0,0,0.95) 30%, rgba(0,0,0,0.7) 70%, transparent);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 50; padding-top: 6px; }
-  .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    width: 60px; height: 50px; cursor: pointer; color: #555; transition: all 0.15s; position: relative; }
-  .tab-item.active { color: #fff; }
-  .tab-item:active { transform: scale(0.9); }
-  .tab-item svg { width: 24px; height: 24px; }
-  .tab-item .tab-icon-wrap { position: relative; padding: 4px 12px; border-radius: 14px; }
-  .tab-item.active .tab-icon-wrap { background: rgba(255,255,255,0.1); }
-  .tab-item .tab-label { font-size: 10px; font-weight: 700; }
-  .tab-badge { position: absolute; top: -2px; right: -4px; background: #ff3333; color: #fff;
-    border-radius: 999px; font-size: 9px; font-weight: 800; padding: 1px 5px;
-    border: 2px solid #000; min-width: 16px; text-align: center; }
-  .tab-badge.green { background: #4ade80; color: #000; }
-  .tab-badge.dark { background: #333; color: #aaa; }
-
-  #inventoryScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .inv-header { padding: calc(18px + env(safe-area-inset-top)) 20px 6px;
-    display: flex; align-items: center; justify-content: space-between; }
-  .inv-title { font-size: 26px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
-  .inv-title .count { color: #555; font-size: 15px; font-weight: 700; margin-left: 6px; }
-  .inv-tokens { display: flex; align-items: center; gap: 5px; background: rgba(255,204,0,0.1);
-    backdrop-filter: blur(12px); border: 1px solid rgba(255,204,0,0.3); color: #ffcc00;
-    font-size: 14px; font-weight: 800; padding: 6px 12px; border-radius: 999px; }
-  .inv-tabs { display: flex; gap: 8px; padding: 12px 20px 16px; overflow-x: auto; scrollbar-width: none; }
-  .inv-tabs::-webkit-scrollbar { display: none; }
-  .inv-tab { padding: 8px 18px; border-radius: 999px; background: rgba(255,255,255,0.03);
-    backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); color: #888;
-    font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit; }
-  .inv-tab.active { background: #fff; color: #000; border-color: #fff; }
-  .inv-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr);
-    gap: 14px; padding: 0 20px 20px; align-content: start; }
-  .inv-card { background: linear-gradient(160deg, rgba(20,20,31,0.9), rgba(8,8,15,0.9));
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 20px; padding: 16px; display: flex; flex-direction: column;
-    align-items: center; gap: 10px; cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    position: relative; overflow: hidden; opacity: 0; animation: cardIn 0.35s ease forwards; }
-  @keyframes cardIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-  .inv-card:active { transform: scale(0.97); }
-  .inv-card::before { content: ''; position: absolute; inset: 0;
-    background: radial-gradient(circle at 50% 0%, var(--glow, transparent) 0%, transparent 60%);
-    opacity: 0.35; pointer-events: none; }
-  .inv-card.selected { border-color: rgba(255,255,255,0.4); box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 8px 30px rgba(74,222,128,0.15); }
-  .inv-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 10px;
-    width: 24px; height: 24px; background: #4ade80; color: #000; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; z-index: 2; }
-  .inv-card-visual { width: 84px; height: 84px; border-radius: 50%; background: #0a0a0a;
-    border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;
-    overflow: hidden; position: relative; z-index: 1; margin-top: 4px; }
-  .inv-card-visual img { width: 100%; height: 100%; object-fit: cover; }
-  .inv-card-visual .emoji-fallback { font-size: 40px; }
-  .inv-card-info { display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 1; }
-  .inv-card-name { font-size: 14px; font-weight: 800; color: #fff; text-align: center; letter-spacing: 0.2px; }
-  .inv-card-serial { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700;
-    color: #ffcc00; letter-spacing: 1px; padding: 2px 8px; background: rgba(255,204,0,0.08); border-radius: 999px; }
-  .inv-card-rarity { position: absolute; top: 10px; left: 10px; font-size: 9px; font-weight: 900;
-    letter-spacing: 1px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; z-index: 2; }
-  .rarity-common { background: rgba(150,150,150,0.15); color: #aaa; }
-  .rarity-rare { background: rgba(74,158,255,0.15); color: #4a9eff; }
-  .rarity-epic { background: rgba(165,92,255,0.15); color: #a55cff; }
-  .rarity-legendary { background: rgba(255,204,0,0.15); color: #ffcc00; }
-  .inv-card-count { position: absolute; bottom: 10px; right: 10px; font-size: 11px; font-weight: 800;
-    color: #fff; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.1); z-index: 2; }
-
-  .lootbox-section { padding: 0 20px 20px; display: flex; justify-content: center; }
-  .lootbox-card { position: relative; width: 100%; max-width: 400px; padding: 26px 22px 24px;
-    text-align: center; border-radius: 26px;
-    background: linear-gradient(160deg, rgba(255,204,0,0.12), rgba(255,100,0,0.04) 55%, rgba(255,255,255,0.02));
-    backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid rgba(255,220,120,0.28);
-    box-shadow: 0 20px 60px rgba(255,140,0,0.14), inset 0 1px 0 rgba(255,255,255,0.15);
-    overflow: hidden; isolation: isolate; }
-  .lootbox-card::before { content: ''; position: absolute; inset: -2px;
-    background: radial-gradient(circle at 20% 0%, rgba(255,220,120,0.28), transparent 45%),
-      radial-gradient(circle at 80% 100%, rgba(255,120,0,0.18), transparent 55%);
-    pointer-events: none; z-index: 0; opacity: 0.9; }
-  .lootbox-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent); z-index: 1; }
-  .lootbox-card > * { position: relative; z-index: 2; }
-  .lootbox-shine { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.14) 45%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.14) 55%, transparent 70%);
-    transform: rotate(15deg); animation: shineSweep 4.5s ease-in-out infinite;
-    pointer-events: none; z-index: 1; opacity: 0.8; }
-  @keyframes shineSweep { 0%, 100% { transform: translateX(-60%) rotate(15deg); } 50% { transform: translateX(60%) rotate(15deg); } }
-  .lootbox-icon-wrap { position: relative; width: 96px; height: 96px; margin: 0 auto 14px;
-    display: flex; align-items: center; justify-content: center; }
-  .lootbox-icon-glow { position: absolute; inset: -18px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,204,0,0.55) 0%, rgba(255,120,0,0.18) 45%, transparent 70%);
-    filter: blur(6px); animation: lootGlowPulse 2.4s ease-in-out infinite; z-index: 0; }
-  @keyframes lootGlowPulse { 0%,100% { transform: scale(1); opacity: 0.75; } 50% { transform: scale(1.15); opacity: 1; } }
-  .lootbox-icon { position: relative; z-index: 1; font-size: 62px; line-height: 1;
-    animation: lootboxBounce 2s ease-in-out infinite;
-    filter: drop-shadow(0 6px 18px rgba(255,180,0,0.6)); }
-  @keyframes lootboxBounce { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.08); } }
-  .lootbox-tags { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
-  .lootbox-tag { font-size: 9px; font-weight: 900; padding: 4px 12px; border-radius: 999px;
-    letter-spacing: 1.2px; text-transform: uppercase; backdrop-filter: blur(8px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-  .lootbox-tag.new { background: linear-gradient(135deg, #4ade80, #22c55e); color: #000; }
-  .lootbox-tag.hot { background: linear-gradient(135deg, #ff6600, #ffcc00); color: #000; }
-  .lootbox-tag.sale { background: linear-gradient(135deg, #ff5555, #cc0000); color: #fff; }
-  .lootbox-title { font-size: 24px; font-weight: 900; letter-spacing: 0.4px;
-    background: linear-gradient(135deg, #fff8d0 0%, #ffcc00 45%, #ff9500 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 6px; text-shadow: 0 0 40px rgba(255,180,0,0.25); }
-  .lootbox-sub { font-size: 12.5px; color: #a89b78; margin-bottom: 18px; line-height: 1.5; }
-  .lootbox-sub b { color: #ffcc00; font-weight: 800; }
-  .lootbox-price { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px;
-    border-radius: 999px; background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,120,0,0.06));
-    border: 1px solid rgba(255,204,0,0.35); color: #ffcc00; font-size: 19px; font-weight: 900;
-    font-variant-numeric: tabular-nums; box-shadow: 0 6px 24px -8px rgba(255,204,0,0.5),
-    inset 0 1px 0 rgba(255,255,255,0.15); margin-bottom: 10px; }
-  .lootbox-price .coin { font-size: 20px; filter: drop-shadow(0 0 6px rgba(255,204,0,0.6)); }
-  .lootbox-remaining { font-size: 11px; font-weight: 800; letter-spacing: 1px;
-    margin-bottom: 6px; color: #ffaa55; text-transform: uppercase; }
-  .lootbox-remaining.unlimited { color: #4ade80; }
-  .lootbox-remaining.soldout { color: #ff5555; }
-  .lootbox-serial-hint { font-size: 10.5px; color: #7a6a4a; font-family: 'Courier New', monospace;
-    letter-spacing: 1.5px; margin-bottom: 18px; }
-  .lootbox-serial-hint b { color: #ffcc00; }
-  .lootbox-btn-buy { position: relative; width: 100%; padding: 16px; border: none; border-radius: 999px;
-    background: linear-gradient(135deg, #ffdd33 0%, #ffaa00 50%, #ff8800 100%); color: #1a0f00;
-    font-size: 15px; font-weight: 900; letter-spacing: 1.8px; cursor: pointer;
-    transition: all 0.2s; font-family: inherit;
-    box-shadow: 0 10px 30px -8px rgba(255,150,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5),
-      inset 0 -2px 0 rgba(0,0,0,0.15); text-transform: uppercase; overflow: hidden; }
-  .lootbox-btn-buy::before { content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-    background: linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent); transition: left 0.6s; }
-  .lootbox-btn-buy:hover::before { left: 120%; }
-  .lootbox-btn-buy:active { transform: scale(0.98); }
-  .lootbox-btn-buy:disabled { background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-    color: #555; cursor: not-allowed; box-shadow: none; }
-  .lootbox-btn-buy:disabled::before { display: none; }
-  .lootbox-error { display: none; margin-top: 12px; padding: 10px 14px; border-radius: 12px;
-    background: rgba(255,50,50,0.12); border: 1px solid rgba(255,50,50,0.3); color: #ff8080;
-    font-size: 12px; font-weight: 700; line-height: 1.4; animation: shake 0.4s; }
-  .lootbox-error.show { display: block; }
-  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
-    display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
-  .modal-overlay.active { display: flex; animation: fadeIn 0.25s; }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .modal-content { background: linear-gradient(160deg, rgba(20,20,30,0.85), rgba(5,5,12,0.95));
-    backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
-    border-radius: 24px; padding: 26px; max-width: 400px; width: 100%;
-    max-height: 90vh; overflow-y: auto; position: relative; }
-  .modal-close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px;
-    border-radius: 50%; background: rgba(255,255,255,0.06); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); color: #fff; font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; font-family: inherit; }
-  .modal-close:active { transform: scale(0.92); }
-  .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
-  .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
-
-  .ton-modal-content { border: 1px solid rgba(255,204,0,0.3); text-align: center; }
-  .ton-modal-icon { font-size: 44px; margin-bottom: 10px; }
-  .ton-modal-title { font-size: 22px; font-weight: 900; color: #ffcc00; margin-bottom: 6px; }
-  .ton-modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
-  .ton-modal-sub b { color: #ffcc00; }
-  .ton-field { background: rgba(255,255,255,0.03); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px 16px;
-    margin-bottom: 12px; text-align: left; position: relative; }
-  .ton-field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 4px; }
-  .ton-field .ton-value { font-family: 'Courier New', monospace; font-size: 11px; color: #fff;
-    word-break: break-all; padding-right: 76px; line-height: 1.5; }
-  .copy-btn { position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
-    background: rgba(255,204,0,0.15); border: 1px solid rgba(255,204,0,0.4); color: #ffcc00;
-    border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
-  .copy-btn.copied { background: rgba(74,222,128,0.2); color: #4ade80; }
-  .ton-warning { background: rgba(255,100,0,0.1); border-left: 3px solid #ff8800;
-    border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #ffaa66;
-    text-align: left; margin: 14px 0; line-height: 1.5; }
-  .ton-status { display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 14px; background: rgba(255,204,0,0.08); border: 1px solid rgba(255,204,0,0.25);
-    border-radius: 14px; font-size: 13px; color: #ffcc00; font-weight: 700;
-    margin-bottom: 12px; line-height: 1.4; flex-direction: column; }
-  .ton-status.success { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3); }
-  .ton-status.error { background: rgba(255,50,50,0.1); color: #ff5555; border-color: rgba(255,50,50,0.3); }
-  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,204,0,0.2);
-    border-top-color: #ffcc00; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  .ton-cancel-btn { width: 100%; padding: 12px; background: transparent;
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; color: #888;
-    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
-
-  .wallet-version-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
-  .wallet-version-option { position: relative; padding: 14px 16px; border-radius: 16px;
-    background: rgba(255,255,255,0.03); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; text-align: left; }
-  .wallet-version-option:active { transform: scale(0.98); }
-  .wallet-version-option.selected { background: linear-gradient(135deg, rgba(74,222,128,0.15), rgba(34,197,94,0.08));
-    border-color: rgba(74,222,128,0.5); box-shadow: 0 0 0 1px rgba(74,222,128,0.2), 0 8px 24px -8px rgba(74,222,128,0.4); }
-  .wallet-version-option.selected::after { content: '✅'; position: absolute; top: 12px; right: 14px;
-    font-size: 18px; animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-  @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
-  .wallet-version-label { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 4px;
-    display: flex; align-items: center; gap: 6px; }
-  .wallet-version-label .badge { font-size: 9px; padding: 2px 6px; background: rgba(74,158,255,0.2);
-    color: #4a9eff; border-radius: 999px; font-weight: 900; letter-spacing: 0.5px; }
-  .wallet-version-address { font-family: 'Courier New', monospace; font-size: 10.5px;
-    color: #888; word-break: break-all; line-height: 1.4; padding-right: 24px; }
-  .wallet-version-option.selected .wallet-version-address { color: #a8e6a8; }
-
-  .detail-content { text-align: center; }
-  .detail-visual { width: 140px; height: 140px; border-radius: 50%; background: #0a0a0a;
-    border: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center;
-    justify-content: center; overflow: hidden; margin: 10px auto 16px; position: relative; }
-  .detail-visual img { width: 100%; height: 100%; object-fit: cover; }
-  .detail-visual .emoji-fallback { font-size: 70px; }
-  .detail-name { font-size: 26px; font-weight: 900; margin-bottom: 6px; }
-  .detail-serial { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 800;
-    color: #ffcc00; letter-spacing: 2px; padding: 6px 14px; background: rgba(255,204,0,0.1);
-    border: 1px solid rgba(255,204,0,0.3); border-radius: 999px; display: inline-block; margin-bottom: 14px; }
-  .detail-rarity { display: inline-block; font-size: 11px; font-weight: 900; letter-spacing: 2px;
-    padding: 5px 14px; border-radius: 999px; margin-bottom: 20px; text-transform: uppercase; }
-  .detail-row { display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
-  .detail-row .lbl { color: #888; }
-  .detail-row .val { color: #fff; font-weight: 700; }
-  .detail-price { font-size: 20px; color: #ffcc00; font-weight: 900; font-family: 'Courier New', monospace; }
-  .detail-btn { width: 100%; padding: 15px; border: none; border-radius: 14px;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer;
-    margin-top: 10px; font-family: inherit; }
-  .detail-btn.primary { background: linear-gradient(135deg, #4ade80, #16a34a); color: #000; }
-  .detail-btn.sell { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000; }
-  .detail-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
-  .detail-btn:disabled { background: #1a1a1a !important; color: #444 !important; cursor: not-allowed; }
-  .detail-btn:active { transform: scale(0.98); }
-
-  .input-field { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: #fff;
-    font-size: 13px; font-family: 'Courier New', monospace; outline: none; margin-bottom: 12px; }
-  .input-field:focus { border-color: rgba(74,222,128,0.5); }
-  .btn-primary { width: 100%; padding: 14px; border: none; border-radius: 14px;
-    background: linear-gradient(135deg, #4a9eff, #0066cc); color: #fff;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; font-family: inherit; }
-  .btn-primary:active { transform: scale(0.98); }
-  .btn-success { width: 100%; padding: 14px; border: none; border-radius: 14px;
-    background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer;
-    font-family: inherit; margin-top: 8px; }
-  .btn-success:active { transform: scale(0.98); }
-  .btn-success:disabled { background: #1a1a1a; color: #555; cursor: not-allowed; }
-  .btn-secondary { width: 100%; padding: 14px; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 14px; background: rgba(255,255,255,0.06); color: #fff;
-    font-size: 14px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer;
-    font-family: inherit; margin-top: 8px; }
-  .btn-secondary:active { transform: scale(0.98); }
-
-  .loot-anim-overlay { position: fixed; inset: 0;
-    background: radial-gradient(circle at center, rgba(20,10,0,0.98), #000);
-    display: none; align-items: center; justify-content: center; z-index: 10000; overflow: hidden; }
-  .loot-anim-overlay.active { display: flex; }
-  .loot-anim-stage { position: relative; width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center; flex-direction: column; }
-  .loot-anim-box { font-size: 140px; margin-bottom: 30px; position: relative; z-index: 2;
-    filter: drop-shadow(0 0 40px rgba(255,204,0,0.6)); }
-  .loot-anim-box.shaking { animation: boxShake 0.4s ease-in-out infinite; }
-  @keyframes boxShake { 0%,100% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(-8deg) scale(1.05); } 75% { transform: rotate(8deg) scale(1.05); } }
-  .loot-anim-box.burst { animation: boxBurst 0.5s ease-out forwards; }
-  @keyframes boxBurst { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
-  .loot-anim-particles { position: absolute; top: 50%; left: 50%; pointer-events: none; z-index: 1; }
-  .loot-particle { position: absolute; width: 12px; height: 12px; border-radius: 50%; pointer-events: none; }
-  @keyframes particleBurst { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); opacity: 0; } }
-  .loot-anim-reveal { position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%) scale(0); opacity: 0;
-    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s; z-index: 3; }
-  .loot-anim-reveal.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  .loot-reveal-card { width: 210px; height: 260px; border-radius: 24px; padding: 20px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: linear-gradient(160deg, rgba(26,26,42,0.9), rgba(10,10,21,0.95));
-    backdrop-filter: blur(20px); border: 3px solid; }
-  .loot-reveal-card.rarity-common { border-color: #888; }
-  .loot-reveal-card.rarity-rare { border-color: #4a9eff; box-shadow: 0 0 80px rgba(74,158,255,0.6); }
-  .loot-reveal-card.rarity-epic { border-color: #a55cff; box-shadow: 0 0 80px rgba(165,92,255,0.6); }
-  .loot-reveal-card.rarity-legendary { border-color: #ffcc00; box-shadow: 0 0 100px rgba(255,204,0,0.8); }
-  .loot-reveal-visual { width: 130px; height: 130px; border-radius: 50%; margin-bottom: 12px;
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
-    background: #0a0a0a; border: 2px solid rgba(255,255,255,0.15); }
-  .loot-reveal-visual img { width: 100%; height: 100%; object-fit: cover; }
-  .loot-reveal-visual .emoji-fallback { font-size: 70px; }
-  .loot-reveal-rarity { font-size: 11px; font-weight: 900; letter-spacing: 2px;
-    text-transform: uppercase; margin-bottom: 4px; }
-  .loot-reveal-name { font-size: 18px; font-weight: 900; color: #fff; text-align: center; }
-  .loot-reveal-serial { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800;
-    color: #ffcc00; margin-top: 6px; letter-spacing: 2px; }
-  .loot-reveal-continue { margin-top: 30px; padding: 14px 40px; background: #fff; color: #000;
-    border: none; border-radius: 999px; font-size: 15px; font-weight: 900;
-    letter-spacing: 2px; cursor: pointer; opacity: 0; transition: opacity 0.3s;
-    z-index: 4; font-family: inherit; }
-  .loot-reveal-continue.show { opacity: 1; }
-  .loot-reveal-title { font-size: 16px; color: #ffcc00; font-weight: 800; letter-spacing: 3px;
-    text-transform: uppercase; opacity: 0; transition: opacity 0.3s; position: absolute;
-    top: 15%; left: 50%; transform: translateX(-50%); z-index: 4;
-    text-shadow: 0 0 20px rgba(255,204,0,0.6); }
-  .loot-reveal-title.show { opacity: 1; }
-
-  .admin-trigger { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
-    border-radius: 50%; background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center;
-    justify-content: center; cursor: pointer; color: #555; font-size: 14px; }
-  .admin-panel { background: linear-gradient(160deg, rgba(26,10,10,0.9), rgba(0,0,0,0.95));
-    backdrop-filter: blur(30px) saturate(180%);
-    border: 1px solid rgba(255,50,50,0.3); border-radius: 24px; padding: 26px;
-    max-width: 460px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
-  .admin-title { font-size: 22px; font-weight: 900; color: #ff4444; text-align: center; margin-bottom: 6px; }
-  .admin-sub { font-size: 11px; color: #888; letter-spacing: 2px; text-align: center;
-    text-transform: uppercase; margin-bottom: 22px; }
-  .admin-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
-  .admin-tab { padding: 8px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
-    backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08); color: #888;
-    font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; }
-  .admin-tab.active { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; border-color: #ff3333; }
-  .admin-section { background: rgba(255,255,255,0.02); backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
-  .admin-section-title { font-size: 12px; color: #ff8800; font-weight: 800;
-    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
-  .admin-field { margin-bottom: 10px; }
-  .admin-field label { display: block; font-size: 11px; color: #888; margin-bottom: 6px; }
-  .admin-input { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff;
-    font-size: 15px; font-weight: 700; outline: none; font-family: inherit; }
-  .admin-input:focus { border-color: rgba(255,204,0,0.5); }
-  .admin-input.code { font-family: 'Courier New', monospace; font-size: 20px;
-    letter-spacing: 8px; text-align: center; padding: 14px; }
-  .admin-textarea { width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff;
-    font-size: 12px; font-family: 'Courier New', monospace; outline: none;
-    resize: vertical; min-height: 80px; letter-spacing: 0; font-weight: 600; }
-  .admin-btn { width: 100%; padding: 12px; border: none; border-radius: 10px;
-    background: linear-gradient(135deg, #ffcc00, #ff9900); color: #000;
-    font-size: 13px; font-weight: 900; cursor: pointer; margin-top: 4px; font-family: inherit; }
-  .admin-btn.danger { background: linear-gradient(135deg, #ff3333, #cc0000); color: #fff; }
-  .admin-btn.success { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
-  .admin-btn.secondary { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
-  .admin-btn.small { padding: 8px 12px; font-size: 12px; width: auto; flex: 1; }
-  .admin-btn:active { transform: scale(0.98); }
-  .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .admin-row { display: flex; gap: 8px; }
-  .admin-row > * { flex: 1; }
-  .admin-status { text-align: center; font-size: 12px; padding: 8px;
-    border-radius: 8px; margin-top: 10px; display: none; }
-  .admin-status.show { display: block; }
-  .admin-status.success { background: rgba(74,222,128,0.1); color: #4ade80; }
-  .admin-status.error { background: rgba(255,50,50,0.1); color: #ff5555; }
-  .admin-req { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px; padding: 12px; margin-bottom: 10px; }
-  .admin-req-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .admin-req-skin { font-size: 14px; font-weight: 800; color: #fff; }
-  .admin-req-price { font-size: 14px; font-weight: 800; color: #ffcc00; font-family: 'Courier New', monospace; }
-  .admin-req-wallet { font-family: 'Courier New', monospace; font-size: 10px; color: #888;
-    word-break: break-all; margin-bottom: 8px; }
-  .admin-req-status { font-size: 10px; font-weight: 800; padding: 3px 8px;
-    border-radius: 999px; text-transform: uppercase; }
-  .admin-req-status.pending { background: rgba(255,204,0,0.15); color: #ffcc00; }
-  .admin-req-status.processing { background: rgba(74,158,255,0.15); color: #4a9eff; }
-  .admin-req-status.paid { background: rgba(74,222,128,0.15); color: #4ade80; }
-  .admin-req-status.rejected { background: rgba(255,50,50,0.15); color: #ff5555; }
-  .admin-wallet-info { background: rgba(74,158,255,0.08); border: 1px solid rgba(74,158,255,0.2);
-    border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 12px;
-    color: #aaa; line-height: 1.6; }
-  .admin-wallet-info b { color: #4ade80; font-size: 13px; font-family: 'Courier New', monospace;
-    word-break: break-all; display: block; margin-top: 2px; }
-  .admin-toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
-  .admin-toggle-row .lbl { font-size: 13px; color: #fff; font-weight: 700; }
-  .admin-toggle { width: 48px; height: 28px; border-radius: 999px; background: #222;
-    border: 1px solid rgba(255,255,255,0.1); position: relative; cursor: pointer;
-    transition: all 0.2s; flex-shrink: 0; }
-  .admin-toggle.on { background: linear-gradient(135deg, #33cc33, #178a1e); border-color: transparent; }
-  .admin-toggle .knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
-    border-radius: 50%; background: #fff; transition: all 0.2s; }
-  .admin-toggle.on .knob { left: 24px; }
-
-  #skillsScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .skills-wrap { width: 100%; max-width: 440px; margin: 0 auto;
-    padding: calc(16px + env(safe-area-inset-top)) 20px 20px; display: flex;
-    flex-direction: column; height: 100%; overflow-y: auto; position: relative; }
-  .skills-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
-  .skills-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
-  .token-bar { display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,150,0,0.05));
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,204,0,0.3);
-    border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; }
-  .token-bar .lbl { font-size: 12px; color: #ffcc00; letter-spacing: 1px; font-weight: 700; }
-  .token-bar .val { font-size: 24px; font-weight: 900; color: #ffcc00; }
-  .skill-card { background: rgba(10,10,10,0.7); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 18px; margin-bottom: 14px; }
-  .skill-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .skill-nm { font-size: 16px; font-weight: 800; color: #fff; }
-  .skill-lv { font-size: 11px; color: #ffcc00; background: rgba(255,204,0,0.12);
-    padding: 3px 10px; border-radius: 999px; font-weight: 800; }
-  .skill-desc { font-size: 12px; color: #777; line-height: 1.6; margin-bottom: 14px; }
-  .skill-desc b { color: #4ade80; }
-  .progress-bar { width: 100%; height: 6px; background: #111; border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
-  .progress-fill { height: 100%; background: linear-gradient(90deg, #ffcc00, #ffaa00);
-    border-radius: 3px; transition: width 0.4s ease; }
-  .upgrade-btn { width: 100%; padding: 14px; border: 1px solid rgba(255,204,0,0.3);
-    border-radius: 12px; background: linear-gradient(135deg, #ffcc00, #ff9900);
-    color: #000; font-size: 14px; font-weight: 900; cursor: pointer; font-family: inherit; }
-  .upgrade-btn:disabled { background: #111; color: #444; border-color: #1a1a1a; cursor: not-allowed; }
-  .upgrade-btn.maxed { background: linear-gradient(135deg, #33cc33, #178a1e); color: #fff; }
-
-  #shopScreen { background: radial-gradient(circle at 50% 0%, #0a0a1a 0%, #000 100%);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .shop-wrap { width: 100%; max-width: 440px; margin: 0 auto;
-    padding: calc(16px + env(safe-area-inset-top)) 20px 20px; overflow-y: auto; height: 100%; }
-  .shop-title { font-size: 26px; font-weight: 900; color: #fff; margin-bottom: 4px; }
-  .shop-sub { font-size: 11px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; }
-  .shop-wallet { background: rgba(74,158,255,0.06); backdrop-filter: blur(16px);
-    border: 1px solid rgba(74,158,255,0.2); border-radius: 14px; padding: 12px 16px;
-    margin-bottom: 20px; display: flex; justify-content: space-between;
-    align-items: center; font-size: 12px; cursor: pointer; }
-  .shop-wallet .lbl { color: #888; }
-  .shop-wallet .val { color: #4ade80; font-family: 'Courier New', monospace; font-weight: 800;
-    font-size: 11px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .shop-empty { text-align: center; padding: 60px 20px; color: #555; }
-  .shop-empty .icon { font-size: 60px; opacity: 0.4; margin-bottom: 16px; }
-  .shop-empty .txt { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
-  .shop-item { background: linear-gradient(160deg, rgba(20,20,31,0.9), rgba(8,8,15,0.9));
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 18px; padding: 14px; display: flex; align-items: center;
-    gap: 14px; margin-bottom: 12px; }
-  .shop-item-visual { width: 64px; height: 64px; border-radius: 50%; background: #0a0a0a;
-    border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center;
-    justify-content: center; overflow: hidden; flex-shrink: 0; }
-  .shop-item-visual img { width: 100%; height: 100%; object-fit: cover; }
-  .shop-item-visual .emoji-fallback { font-size: 30px; }
-  .shop-item-info { flex: 1; min-width: 0; }
-  .shop-item-name { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 2px; }
-  .shop-item-serial { font-family: 'Courier New', monospace; font-size: 11px; color: #ffcc00; letter-spacing: 1px; }
-  .shop-item-price { font-family: 'Courier New', monospace; font-size: 13px; color: #4ade80;
-    font-weight: 800; margin-top: 4px; }
-  .shop-item-price small { color: #666; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; }
-  .shop-sell-btn { padding: 10px 16px; background: linear-gradient(135deg, #ffcc00, #ff8800);
-    border: none; border-radius: 10px; color: #000; font-size: 12px; font-weight: 900;
-    letter-spacing: 1px; cursor: pointer; flex-shrink: 0; font-family: inherit; }
-  .shop-sell-btn:disabled { background: #1a1a1a; color: #555; cursor: not-allowed; }
-
-  .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 16px; color: #444; padding: 40px 20px; text-align: center; }
-  .placeholder .icon { font-size: 60px; opacity: 0.5; }
-  .placeholder .txt { font-size: 16px; font-weight: 700; color: #666; letter-spacing: 1px; }
-
-  #gameScreen { padding: 0; }
-  #gameScreen.active { display: block; }
-  #gameCanvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #000; }
-  .top-hud { position: absolute; top: calc(10px + env(safe-area-inset-top));
-    left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 30; pointer-events: none; }
-  .pill { background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 999px;
-    padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff;
-    display: flex; align-items: center; gap: 5px; min-width: 58px; justify-content: center; }
-  .rank-badge { position: absolute; top: calc(10px + env(safe-area-inset-top));
-    left: calc(10px + env(safe-area-inset-left)); background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 700;
-    color: #fff; z-index: 30; }
-  .leaderboard { position: absolute; top: calc(46px + env(safe-area-inset-top));
-    right: calc(10px + env(safe-area-inset-right)); background: rgba(0,0,0,0.75);
-    backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px; padding: 8px 12px; z-index: 30; min-width: 130px;
-    max-width: 170px; font-size: 11px; font-weight: 600; }
-  .lb-title { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase;
-    margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .lb-row { display: flex; justify-content: space-between; align-items: center;
-    padding: 2px 0; gap: 6px; }
-  .lb-row.you { color: #ffcc00; font-weight: 800; }
-  .lb-rank { color: #555; min-width: 16px; }
-  .lb-row.you .lb-rank { color: #ffcc00; }
-  .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
-  .lb-row.you .lb-name { color: #ffcc00; }
-  .lb-score { color: #888; font-weight: 700; }
-  .lb-row.you .lb-score { color: #ffcc00; }
-
-  .cashout-btn { position: absolute; top: calc(46px + env(safe-area-inset-top));
-    left: calc(10px + env(safe-area-inset-left));
-    background: linear-gradient(135deg, #ffcc00, #ff8800); backdrop-filter: blur(12px);
-    border: none; border-radius: 999px; padding: 8px 14px; font-size: 11px;
-    font-weight: 900; color: #000; cursor: pointer; z-index: 30; letter-spacing: 1px;
-    box-shadow: 0 4px 15px rgba(255,204,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3); font-family: inherit; }
-  .cashout-btn:active { transform: scale(0.95); }
-
-  #joystick { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom));
-    left: calc(20px + env(safe-area-inset-left)); width: 130px; height: 130px;
-    z-index: 40; display: none; touch-action: none; }
-  #joystick.visible { display: block; }
-  .joy-base { position: absolute; inset: 0; border-radius: 50%;
-    background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.12); }
-  .joy-knob { position: absolute; top: 50%; left: 50%; width: 52px; height: 52px;
-    border-radius: 50%; background: rgba(255,255,255,0.15);
-    border: 2px solid rgba(255,255,255,0.4); transform: translate(-50%, -50%);
-    pointer-events: none; }
-  .action-btn { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(12px); border: 2px solid rgba(255,255,255,0.2); color: #fff;
-    display: none; align-items: center; justify-content: center; z-index: 40;
-    touch-action: none; cursor: pointer; font-weight: 900; }
-  .action-btn.visible { display: flex; }
-  .action-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
-  #splitBtn { bottom: calc(30px + env(safe-area-inset-bottom)); right: calc(30px + env(safe-area-inset-right)); width: 76px; height: 76px; font-size: 22px; }
-  #ejectBtn { bottom: calc(116px + env(safe-area-inset-bottom)); right: calc(46px + env(safe-area-inset-right)); width: 50px; height: 50px; font-size: 16px; }
-
-  #gameOverScreen { z-index: 100; background: rgba(0,0,0,0.92); backdrop-filter: blur(16px);
-    align-items: center; justify-content: center; padding: 20px; }
-  .go-panel { background: linear-gradient(160deg, rgba(20,20,30,0.85), rgba(0,0,0,0.95));
-    backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 24px; padding: 28px 22px; max-width: 340px; width: 100%;
-    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
-  .go-panel h1 { font-size: 20px; color: #fff; font-weight: 900; letter-spacing: 3px; margin-bottom: 18px; }
-  .go-score { font-size: 54px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
-  .go-lbl { font-size: 10px; color: #555; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px; }
-  .go-stats { display: flex; justify-content: space-around; padding: 14px 0;
-    border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 18px; }
-  .go-stat .sv { font-size: 16px; font-weight: 800; color: #fff; }
-  .go-stat .sl { font-size: 9px; letter-spacing: 1.5px; color: #555; text-transform: uppercase; margin-top: 3px; }
-  .token-earned { display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,150,0,0.08));
-    border: 1px solid rgba(255,204,0,0.4); border-radius: 14px; padding: 12px 18px; margin-bottom: 16px; }
-  .token-earned .lbl { font-size: 12px; color: #ffcc00; font-weight: 700; }
-  .token-earned .val { font-size: 22px; font-weight: 900; color: #ffcc00; }
-  .play-btn { width: 100%; padding: 16px; border: none; border-radius: 999px;
-    background: #fff; color: #000; font-size: 16px; font-weight: 900;
-    letter-spacing: 2px; cursor: pointer; font-family: inherit; }
-  .play-btn:active { transform: scale(0.98); }
-  .menu-btn { width: 100%; padding: 14px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 999px; background: rgba(255,255,255,0.04); backdrop-filter: blur(12px);
-    color: #fff; font-size: 14px; font-weight: 700; letter-spacing: 2px;
-    cursor: pointer; font-family: inherit; }
-  .menu-btn:active { transform: scale(0.98); }
-
-  #errOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); color: #ff4444;
-    padding: 20px; font-family: monospace; font-size: 12px; display: none;
-    z-index: 99999; overflow: auto; white-space: pre-wrap; }
-  #errOverlay.show { display: block; }
-
-  .toast { position: fixed; bottom: 100px; left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: rgba(0,0,0,0.9); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
-    padding: 14px 22px; font-size: 13px; font-weight: 700; color: #fff;
-    z-index: 10001; opacity: 0; transition: all 0.3s; pointer-events: none;
-    max-width: 90vw; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast.success { border-color: rgba(74,222,128,0.4); color: #4ade80; }
-  .toast.error { border-color: rgba(255,50,50,0.4); color: #ff5555; }
-
-  @media (orientation: landscape) and (max-height: 500px) {
-    #joystick { width: 100px; height: 100px; bottom: 10px; left: 10px; }
-    .joy-knob { width: 40px; height: 40px; }
-    #splitBtn { width: 60px; height: 60px; font-size: 18px; bottom: 15px; right: 15px; }
-    #ejectBtn { width: 42px; height: 42px; font-size: 14px; bottom: 82px; right: 25px; }
-    .play-btn-big { width: 130px; height: 130px; }
-    .play-btn-big svg { width: 40px; height: 40px; }
-    .skin-preview-wrap { width: 90px; height: 90px; }
-    .skin-preview { width: 84px; height: 84px; }
-    .skin-preview .emoji-fallback { font-size: 40px; }
-    .main-area { padding-top: 5px; }
-    .tab-bar { height: calc(54px + env(safe-area-inset-bottom)); }
-    .tab-item { width: 50px; height: 42px; }
-    .tab-item svg { width: 20px; height: 20px; }
-    .leaderboard { font-size: 10px; min-width: 110px; padding: 6px 8px; }
-  }
-
-  /* =====================================================================
-     GLASS THEME v2  (liquid-glass look for the whole app)
-     Loaded last so it overrides the older flat styles.
-     ===================================================================== */
-  :root {
-    --g-fill: rgba(255,255,255,0.07);
-    --g-fill-2: rgba(255,255,255,0.11);
-    --g-fill-deep: rgba(14,16,32,0.42);
-    --g-line: rgba(255,255,255,0.17);
-    --g-line-soft: rgba(255,255,255,0.09);
-    --g-hl: inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(255,255,255,0.05);
-    --g-shadow: 0 12px 38px rgba(0,0,0,0.45);
-    --g-blur: blur(22px) saturate(175%);
-    --g-blur-sm: blur(14px) saturate(160%);
-    --c-blue: 74,158,255;
-    --c-gold: 255,196,40;
-    --c-green: 74,222,128;
-    --c-red: 255,85,85;
-  }
-
-  /* ---------- aurora backdrop (gives the glass something to refract) ---------- */
-  #inventoryScreen, #shopScreen, #skillsScreen, #seasonScreen { background-color: #03040c; position: absolute; }
-  #inventoryScreen::before, #shopScreen::before, #skillsScreen::before, #seasonScreen::before,
-  #menuScreen::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    background:
-      radial-gradient(48% 34% at 14% 8%,  rgba(88,120,255,0.42), transparent 70%),
-      radial-gradient(42% 30% at 92% 24%, rgba(190,80,255,0.30), transparent 70%),
-      radial-gradient(52% 36% at 70% 98%, rgba(0,205,185,0.26),  transparent 70%),
-      radial-gradient(38% 26% at 6% 78%,  rgba(255,120,170,0.20), transparent 70%);
-  }
-  #menuScreen::after { mix-blend-mode: screen; opacity: 0.9; }
-  #inventoryScreen > *, #shopScreen > *, #skillsScreen > *, #seasonScreen > * { position: relative; z-index: 1; }
-  #inventoryScreen > .tab-bar, #shopScreen > .tab-bar, #skillsScreen > .tab-bar, #seasonScreen > .tab-bar,
-  #menuScreen > .tab-bar { position: absolute; z-index: 50; }
-  .inv-grid, .shop-wrap, .skills-wrap { -webkit-overflow-scrolling: touch; }
-
-  /* ---------- generic glass surfaces ---------- */
-  .modal-content, .go-panel, .admin-panel, .lootbox-card, .inv-card, .shop-item, .shop-wallet, .skill-card,
-  .token-bar, .season-bar, .online-pill, .leaderboard, .admin-section, .admin-req, .ton-field,
-  .wallet-version-option, .loot-reveal-card, .toast, .confirm-content {
-    background: linear-gradient(155deg, rgba(255,255,255,0.13), rgba(255,255,255,0.045) 55%, rgba(255,255,255,0.08)) !important;
-    border: 1px solid var(--g-line) !important;
-    -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
-    box-shadow: var(--g-shadow), var(--g-hl) !important;
-  }
-  .inv-card, .shop-item, .skill-card, .admin-req, .admin-section, .ton-field, .wallet-version-option {
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm);
-    box-shadow: 0 6px 22px rgba(0,0,0,0.30), var(--g-hl) !important;
-  }
-  .modal-content, .go-panel, .admin-panel, .confirm-content {
-    background: linear-gradient(155deg, rgba(40,46,86,0.55), rgba(10,12,26,0.62) 60%, rgba(30,34,70,0.50)) !important;
-    border-radius: 28px;
-  }
-  .admin-panel { border-color: rgba(255,90,90,0.32) !important; }
-  .modal-overlay { background: rgba(4,6,16,0.55); -webkit-backdrop-filter: blur(14px) saturate(130%); backdrop-filter: blur(14px) saturate(130%); }
-  #gameOverScreen { background: rgba(4,6,16,0.62); }
-  .loot-anim-overlay { background: radial-gradient(circle at center, rgba(40,24,6,0.80), rgba(3,3,10,0.94));
-    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-  .modal-close, .icon-circle, .close-btn, .arrow-btn, .admin-trigger {
-    background: var(--g-fill-2) !important; border: 1px solid var(--g-line) !important;
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm);
-    box-shadow: var(--g-hl), 0 4px 14px rgba(0,0,0,0.25);
-  }
-
-  /* ---------- pills / chips / tabs ---------- */
-  .pill, .rank-badge, .token-counter, .inv-tokens, .skill-lv, .inv-tab, .admin-tab, .mode-btn, .inv-card-serial,
-  .detail-serial, .lootbox-price, .ton-status, .detail-rarity {
-    background: var(--g-fill) !important; border: 1px solid var(--g-line-soft) !important;
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm);
-    box-shadow: var(--g-hl);
-  }
-  .token-counter, .inv-tokens, .skill-lv, .inv-card-serial, .detail-serial, .lootbox-price {
-    background: linear-gradient(135deg, rgba(var(--c-gold),0.22), rgba(var(--c-gold),0.07)) !important;
-    border-color: rgba(var(--c-gold),0.40) !important;
-  }
-  .inv-tab.active, .admin-tab.active {
-    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(220,230,255,0.80)) !important;
-    color: #0a0c18 !important; border-color: #fff !important;
-  }
-  .admin-tab.active { background: linear-gradient(135deg, rgba(255,90,90,0.75), rgba(190,30,30,0.6)) !important; color:#fff !important; border-color: rgba(255,140,140,0.6) !important; }
-  .mode-btn.active {
-    background: linear-gradient(135deg, rgba(var(--c-blue),0.70), rgba(40,90,230,0.45)) !important;
-    border-color: rgba(170,210,255,0.55) !important; color: #fff;
-  }
-  .ton-status.success { background: linear-gradient(135deg, rgba(var(--c-green),0.28), rgba(var(--c-green),0.08)) !important; border-color: rgba(var(--c-green),0.5) !important; }
-  .ton-status.error   { background: linear-gradient(135deg, rgba(var(--c-red),0.26), rgba(var(--c-red),0.07)) !important; border-color: rgba(var(--c-red),0.5) !important; }
-
-  /* ---------- tab bar = floating glass dock ---------- */
-  .tab-bar {
-    left: 12px !important; right: 12px !important; bottom: calc(10px + env(safe-area-inset-bottom)) !important;
-    height: 66px !important; padding: 0 6px !important; border-radius: 26px;
-    background: linear-gradient(155deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05)) !important;
-    border: 1px solid var(--g-line);
-    -webkit-backdrop-filter: blur(26px) saturate(190%); backdrop-filter: blur(26px) saturate(190%);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.5), var(--g-hl);
-  }
-  .tab-item { color: rgba(255,255,255,0.5); }
-  .tab-item.active { color: #fff; }
-  .tab-item.active .tab-icon-wrap { background: rgba(255,255,255,0.18); box-shadow: var(--g-hl); }
-  .menu-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
-  #inventoryScreen, #shopScreen, #skillsScreen { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
-
-  /* ---------- buttons: tinted glass ---------- */
-  .btn-primary, .btn-success, .detail-btn.primary, .detail-btn.sell, .upgrade-btn, .shop-sell-btn,
-  .lootbox-btn-buy, .cashout-btn, .play-btn, .admin-btn, .ton-pay-btn, .loading-retry-btn {
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm);
-    color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,0.45);
-    border: 1px solid rgba(255,255,255,0.38);
-    box-shadow: 0 10px 28px -10px rgba(0,0,0,0.7), var(--g-hl);
-  }
-  .btn-primary, .loading-retry-btn { background: linear-gradient(135deg, rgba(var(--c-blue),0.62), rgba(40,90,230,0.36)); }
-  .btn-success, .detail-btn.primary, .admin-btn.success { background: linear-gradient(135deg, rgba(var(--c-green),0.55), rgba(22,150,80,0.32)); }
-  .detail-btn.sell, .upgrade-btn, .shop-sell-btn, .lootbox-btn-buy, .cashout-btn {
-    background: linear-gradient(135deg, rgba(255,214,60,0.62), rgba(255,130,10,0.36)); border-color: rgba(255,226,140,0.6);
-    color: #fffbe8;
-  }
-  .play-btn { background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(214,226,255,0.66)); color: #0a0c18; text-shadow: none; }
-  .upgrade-btn.maxed { background: linear-gradient(135deg, rgba(var(--c-green),0.55), rgba(22,150,80,0.32)); border-color: rgba(var(--c-green),0.55); }
-  .btn-secondary, .detail-btn.secondary, .menu-btn, .ton-cancel-btn, .admin-btn.secondary {
-    background: var(--g-fill) !important; border: 1px solid var(--g-line) !important; color: #fff;
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm); box-shadow: var(--g-hl);
-  }
-  .admin-btn { background: var(--g-fill-2); }
-  .admin-btn.danger { background: linear-gradient(135deg, rgba(255,70,70,0.62), rgba(170,20,20,0.40)); border-color: rgba(255,150,150,0.55); }
-  .btn-success:disabled, .upgrade-btn:disabled, .shop-sell-btn:disabled, .lootbox-btn-buy:disabled,
-  .admin-btn:disabled, .ton-pay-btn:disabled {
-    background: rgba(255,255,255,0.05) !important; color: rgba(255,255,255,0.34) !important;
-    border-color: rgba(255,255,255,0.08) !important; box-shadow: none !important; text-shadow: none !important;
-  }
-  .detail-btn:disabled { background: rgba(255,255,255,0.05) !important; color: rgba(255,255,255,0.34) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
-
-  /* ---------- inputs ---------- */
-  .input-field, .admin-input, .admin-textarea {
-    background: rgba(255,255,255,0.06) !important; border: 1px solid var(--g-line) !important; color: #fff;
-    -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm); box-shadow: inset 0 2px 8px rgba(0,0,0,0.25);
-  }
-  .input-field:focus, .admin-input:focus, .admin-textarea:focus { border-color: rgba(170,210,255,0.7) !important; box-shadow: 0 0 0 3px rgba(var(--c-blue),0.22), inset 0 2px 8px rgba(0,0,0,0.25); }
-  .copy-btn { background: rgba(var(--c-gold),0.2); -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm); }
-  .progress-bar, .season-progress { background: rgba(255,255,255,0.08); box-shadow: inset 0 1px 3px rgba(0,0,0,0.4); }
-
-  /* ---------- play button / skin preview ---------- */
-  .play-btn-big {
-    background: radial-gradient(circle at 50% 22%, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 55%, rgba(0,0,0,0.25)) !important;
-    border: 1px solid rgba(255,255,255,0.28) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%);
-    box-shadow: 0 0 60px rgba(var(--c-blue),0.25), 0 20px 50px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -18px 36px rgba(0,0,0,0.35) !important;
-  }
-  .skin-preview, .inv-card-visual, .shop-item-visual, .detail-visual, .loot-reveal-visual {
-    background: rgba(255,255,255,0.06) !important; border: 1px solid var(--g-line) !important;
-    box-shadow: inset 0 2px 10px rgba(0,0,0,0.35), 0 6px 18px rgba(0,0,0,0.3);
-  }
-  .inv-card.selected { border-color: rgba(var(--c-green),0.7) !important; }
-  .lootbox-card { border-color: rgba(255,226,140,0.38) !important; }
-  .go-score, .inv-title, .shop-title, .skills-title { text-shadow: 0 2px 18px rgba(120,150,255,0.35); }
-
-  /* ---------- game HUD ---------- */
-  .leaderboard { -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
-  .joy-base { background: rgba(255,255,255,0.05); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-color: rgba(255,255,255,0.22); }
-  .joy-knob { background: rgba(255,255,255,0.22); box-shadow: var(--g-hl), 0 4px 14px rgba(0,0,0,0.4); }
-  .action-btn { background: var(--g-fill-2); border-color: rgba(255,255,255,0.32); box-shadow: var(--g-hl); }
-
-  /* ---------- toast ---------- */
-  .toast { border-radius: 18px; }
-  .toast.success { border-color: rgba(var(--c-green),0.55) !important; }
-  .toast.error { border-color: rgba(var(--c-red),0.55) !important; }
-
-  /* TonConnect's own sheet must always be above our glass overlays */
-  #tc-widget-root { position: fixed; top: 0; left: 0; z-index: 2147483000; }
-
-  /* no-backdrop-filter fallback */
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .modal-content, .go-panel, .admin-panel, .confirm-content, .tab-bar { background: rgba(18,22,44,0.94) !important; }
-  }
-
-  /* =====================================================================
-     NEW: TON payment modal, wallet modal, confirm modal, payout history
-     ===================================================================== */
-  .ton-modal-content { text-align: center; border-color: rgba(255,226,140,0.35) !important; }
-  .ton-modal-sub { margin-bottom: 14px; }
-  .ton-steps { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 14px; }
-  .ton-step { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 800;
-    letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.4); min-width: 58px; }
-  .ton-step i { font-style: normal; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 12px; background: var(--g-fill); border: 1px solid var(--g-line); box-shadow: var(--g-hl); }
-  .ton-step.active { color: #ffd34d; }
-  .ton-step.active i { background: linear-gradient(135deg, rgba(255,214,60,0.7), rgba(255,130,10,0.4)); border-color: rgba(255,226,140,0.7); color: #fff; }
-  .ton-step.done { color: rgb(var(--c-green)); }
-  .ton-step.done i { background: linear-gradient(135deg, rgba(var(--c-green),0.6), rgba(22,150,80,0.35)); border-color: rgba(var(--c-green),0.6); color: #fff; }
-  .ton-step-line { flex: 0 0 26px; height: 2px; border-radius: 2px; background: var(--g-line-soft); margin-bottom: 16px; }
-  .ton-wallet-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 12px;
-    border-radius: 16px; font-size: 12px; color: rgba(255,255,255,0.7); background: var(--g-fill); border: 1px solid var(--g-line-soft); box-shadow: var(--g-hl); }
-  .ton-wallet-line .addr { font-family: 'Courier New', monospace; font-weight: 800; color: rgb(var(--c-green)); font-size: 11px; }
-  .ton-wallet-line .off { color: #ffb36b; font-weight: 700; }
-  .ton-pay-btn { width: 100%; padding: 16px; border-radius: 999px; font-size: 15px; font-weight: 900; letter-spacing: 1.4px; cursor: pointer;
-    font-family: inherit; margin-bottom: 12px; text-transform: uppercase;
-    background: linear-gradient(135deg, rgba(255,214,60,0.66), rgba(255,130,10,0.4)); border-color: rgba(255,226,140,0.65); }
-  .ton-pay-btn:active { transform: scale(0.98); }
-  .ton-status { min-height: 0; }
-  .ton-status:empty { display: none; }
-  .ton-status small { font-size: 10.5px; opacity: 0.75; font-weight: 600; }
-  .ton-manual { text-align: left; margin-bottom: 12px; border-radius: 16px; background: var(--g-fill); border: 1px solid var(--g-line-soft); padding: 4px 12px; }
-  .ton-manual summary { cursor: pointer; padding: 10px 0; font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.65); letter-spacing: 0.5px; list-style: none; }
-  .ton-manual summary::-webkit-details-marker { display: none; }
-  .ton-manual summary::after { content: ' ▾'; }
-  .ton-manual[open] summary::after { content: ' ▴'; }
-  .ton-deeplink { display: block; text-align: center; padding: 11px; margin: 4px 0 10px; border-radius: 14px; font-size: 12px; font-weight: 800;
-    color: #fff; text-decoration: none; background: linear-gradient(135deg, rgba(var(--c-blue),0.5), rgba(40,90,230,0.3)); border: 1px solid rgba(170,210,255,0.45); }
-  .ton-check-btn { width: 100%; padding: 11px; margin-bottom: 10px; border-radius: 14px; font-size: 12px; font-weight: 800; cursor: pointer;
-    font-family: inherit; color: #fff; background: var(--g-fill-2); border: 1px solid var(--g-line); }
-
-  .wallet-connected-card { display: none; padding: 12px 14px; margin-bottom: 12px; border-radius: 16px; text-align: left;
-    background: linear-gradient(135deg, rgba(var(--c-green),0.22), rgba(var(--c-green),0.06)); border: 1px solid rgba(var(--c-green),0.45); box-shadow: var(--g-hl); }
-  .wallet-connected-card.show { display: block; }
-  .wallet-connected-card .lbl { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
-  .wallet-connected-card .addr { font-family: 'Courier New', monospace; font-size: 12px; font-weight: 800; color: rgb(var(--c-green)); word-break: break-all; }
-  .wallet-or { text-align: center; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin: 14px 0 10px; }
-  #disconnectWalletBtn { display: none; }
-  #disconnectWalletBtn.show { display: block; }
-
-  .confirm-content { max-width: 340px; text-align: center; }
-  .confirm-icon { font-size: 44px; margin-bottom: 8px; }
-  .confirm-content .modal-sub { margin-bottom: 16px; word-break: break-word; }
-  .confirm-content .btn-success.danger { background: linear-gradient(135deg, rgba(255,70,70,0.62), rgba(170,20,20,0.40)); border-color: rgba(255,150,150,0.55); }
-
-  .shop-hist-title { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.45); margin: 22px 0 10px; }
-  .hist-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; margin-bottom: 8px; border-radius: 16px;
-    background: var(--g-fill); border: 1px solid var(--g-line-soft); box-shadow: var(--g-hl); -webkit-backdrop-filter: var(--g-blur-sm); backdrop-filter: var(--g-blur-sm); }
-  .hist-item .nm { font-size: 13px; font-weight: 800; color: #fff; }
-  .hist-item .sub { font-family: 'Courier New', monospace; font-size: 10.5px; color: rgba(255,255,255,0.5); margin-top: 2px; }
-  .hist-item .amt { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800; color: rgb(var(--c-green)); text-align: right; }
-  .hist-chip { display: inline-block; margin-top: 4px; font-size: 9px; font-weight: 900; letter-spacing: 1px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; }
-  .hist-chip.pending, .hist-chip.processing { background: rgba(255,204,0,0.18); color: #ffcc00; }
-  .hist-chip.paid { background: rgba(var(--c-green),0.2); color: rgb(var(--c-green)); }
-  .hist-chip.rejected, .hist-chip.failed { background: rgba(var(--c-red),0.2); color: #ff7b7b; }
-  .hist-chip.check_needed { background: rgba(var(--c-blue),0.2); color: #8cc2ff; }
-  .hist-link { display: block; margin-top: 3px; font-size: 10px; color: #8cc2ff; text-decoration: underline; cursor: pointer; }
-
-  .admin-req-status.failed { background: rgba(255,50,50,0.15); color: #ff5555; }
-  .admin-req-status.check_needed { background: rgba(74,158,255,0.15); color: #8cc2ff; }
-  .admin-req-status.refund_pending, .admin-req-status.refunding, .admin-req-status.refund_failed { background: rgba(255,136,0,0.18); color: #ffa94d; }
-  .admin-req-status.completed, .admin-req-status.refunded { background: rgba(74,222,128,0.15); color: #4ade80; }
-  .admin-req-err { font-size: 10.5px; color: #ff9a9a; margin: 4px 0 8px; line-height: 1.4; word-break: break-word; }
-
-  /* inventory: let the whole screen scroll so cards are never squashed */
-  #inventoryScreen { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-  #inventoryScreen .inv-grid { flex: 0 0 auto; overflow: visible; }
-  #inventoryScreen .inv-card { min-height: 170px; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{
+  --fill:rgba(255,255,255,.07);--fill2:rgba(255,255,255,.12);--line:rgba(255,255,255,.17);--line2:rgba(255,255,255,.09);
+  --hl:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.05);
+  --blur:blur(22px) saturate(175%);--blur2:blur(14px) saturate(160%);
+  --blue:90,170,255;--gold:255,200,60;--green:74,222,128;--red:255,90,90;--violet:170,110,255;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#04050d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.aurora{position:fixed;inset:0;pointer-events:none;z-index:1;mix-blend-mode:screen;opacity:.85;
+  background:radial-gradient(46% 32% at 12% 6%,rgba(88,120,255,.34),transparent 70%),radial-gradient(40% 28% at 94% 22%,rgba(190,80,255,.26),transparent 70%),
+  radial-gradient(50% 34% at 70% 98%,rgba(0,205,185,.22),transparent 70%),radial-gradient(36% 24% at 4% 80%,rgba(255,120,170,.16),transparent 70%)}
+.screen{position:fixed;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;padding:calc(18px + var(--sat)) 18px calc(18px + var(--sab))}
+.screen.on{display:flex}
+.glass{background:linear-gradient(155deg,rgba(255,255,255,.14),rgba(255,255,255,.045) 55%,rgba(255,255,255,.08));border:1px solid var(--line);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 12px 38px rgba(0,0,0,.45),var(--hl)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.3px;
+  background:var(--fill);border:1px solid var(--line2);-webkit-backdrop-filter:var(--blur2);backdrop-filter:var(--blur2);box-shadow:var(--hl)}
+.pill.gold{background:linear-gradient(135deg,rgba(var(--gold),.24),rgba(var(--gold),.07));border-color:rgba(var(--gold),.42);color:#ffe9a8}
+.pill.link{cursor:pointer}
+/* home */
+#home .top{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px}
+#home .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;gap:6px}
+.logo{font-size:38px;font-weight:900;letter-spacing:6px;text-align:center;line-height:1;background:linear-gradient(180deg,#fff,#a9c4ff 60%,#9d7bff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 22px rgba(120,150,255,.55))}
+.tag{font-size:11px;letter-spacing:5px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px}
+#prevWrap{width:190px;height:190px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative}
+#prev{width:190px;height:190px}
+.pname{font-weight:900;font-size:18px;letter-spacing:1px;margin-top:6px}
+.psub{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.5);text-transform:uppercase}
+.arrows{display:flex;gap:10px;margin-top:6px}
+.btn{border:1px solid rgba(255,255,255,.38);color:#fff;font-family:inherit;font-weight:900;letter-spacing:1.3px;text-transform:uppercase;cursor:pointer;
+  -webkit-backdrop-filter:var(--blur2);backdrop-filter:var(--blur2);box-shadow:0 10px 28px -10px rgba(0,0,0,.7),var(--hl);text-shadow:0 1px 8px rgba(0,0,0,.45);transition:transform .12s}
+.btn:active{transform:scale(.97)}
+.btn.play{width:100%;max-width:340px;padding:18px;border-radius:999px;font-size:17px;color:#0a0c18;text-shadow:none;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(206,220,255,.7))}
+.btn.blue{background:linear-gradient(135deg,rgba(var(--blue),.62),rgba(40,90,230,.36))}
+.btn.gold{background:linear-gradient(135deg,rgba(255,214,60,.64),rgba(255,130,10,.38));border-color:rgba(255,226,140,.62);color:#fffbe8}
+.btn.green{background:linear-gradient(135deg,rgba(var(--green),.56),rgba(22,150,80,.32))}
+.btn.red{background:linear-gradient(135deg,rgba(255,70,70,.62),rgba(170,20,20,.4));border-color:rgba(255,150,150,.55)}
+.btn.ghost{background:var(--fill);border-color:var(--line)}
+.btn:disabled{background:rgba(255,255,255,.05)!important;color:rgba(255,255,255,.34)!important;border-color:rgba(255,255,255,.08)!important;box-shadow:none;text-shadow:none;cursor:default}
+.btn.sm{padding:9px 14px;font-size:11px;border-radius:14px}
+.btn.md{padding:14px;font-size:13px;border-radius:18px;width:100%}
+.dock{width:100%;max-width:380px;display:flex;gap:8px;padding:8px;border-radius:26px;margin-top:14px}
+.dock button{flex:1;padding:10px 4px;border:0;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dock button b{font-size:21px;font-weight:400}
+.dock button:active{background:rgba(255,255,255,.14)}
+.dock .badge{position:absolute;top:-4px;right:6px;font-size:8px;padding:2px 6px;border-radius:999px;background:rgba(var(--gold),.9);color:#2a1800}
+/* modal */
+.modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(4,6,16,.55);-webkit-backdrop-filter:blur(14px) saturate(130%);backdrop-filter:blur(14px) saturate(130%)}
+.modal.on{display:flex}
+.sheet{width:100%;max-width:400px;max-height:88vh;overflow-y:auto;border-radius:28px;padding:22px 20px;position:relative;
+  background:linear-gradient(155deg,rgba(40,46,86,.58),rgba(10,12,26,.66) 60%,rgba(30,34,70,.52));border:1px solid var(--line);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 18px 60px rgba(0,0,0,.6),var(--hl);-webkit-overflow-scrolling:touch}
+.sheet h2{font-size:21px;font-weight:900;margin-bottom:4px;letter-spacing:.5px}
+.sheet .sub{font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:14px}
+.x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--fill2);color:#fff;font-size:14px;cursor:pointer;box-shadow:var(--hl)}
+.row{display:flex;gap:8px;margin-top:10px}
+.field{padding:11px 13px;border-radius:14px;margin-bottom:10px;background:var(--fill);border:1px solid var(--line2);box-shadow:var(--hl)}
+.field label{display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:5px}
+.field .v{font-family:'Courier New',monospace;font-size:12px;font-weight:700;word-break:break-all;color:#ffe9a8}
+input.in,textarea.in,select.in{width:100%;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:#fff;font-family:'Courier New',monospace;font-size:12px;outline:none;margin-bottom:9px;user-select:text;-webkit-user-select:text;touch-action:auto}
+textarea.in{min-height:84px;resize:vertical}
+select.in{font-family:inherit}
+input.in:focus,textarea.in:focus{border-color:rgba(170,210,255,.7);box-shadow:0 0 0 3px rgba(var(--blue),.2)}
+.note{font-size:11px;line-height:1.5;padding:10px 12px;border-radius:12px;margin:8px 0;background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.28);color:#ffd08a}
+.note.red{background:rgba(255,70,70,.1);border-color:rgba(255,70,70,.3);color:#ffb0b0}
+.note.green{background:rgba(var(--green),.1);border-color:rgba(var(--green),.3);color:#a8f0c4}
+.st{padding:11px 13px;border-radius:14px;font-size:12px;font-weight:700;margin:10px 0;display:none;line-height:1.5;background:var(--fill);border:1px solid var(--line2)}
+.st.on{display:block}.st.ok{background:rgba(var(--green),.16);border-color:rgba(var(--green),.5)}.st.err{background:rgba(var(--red),.16);border-color:rgba(var(--red),.5)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.steps{display:flex;align-items:center;justify-content:center;gap:6px;margin:4px 0 14px}
+.step{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);min-width:58px}
+.step i{font-style:normal;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--fill);border:1px solid var(--line)}
+.step.a{color:#ffd34d}.step.a i{background:linear-gradient(135deg,rgba(255,214,60,.7),rgba(255,130,10,.4));color:#fff}
+.step.d{color:rgb(var(--green))}.step.d i{background:linear-gradient(135deg,rgba(var(--green),.6),rgba(22,150,80,.35));color:#fff}
+.sl{flex:0 0 24px;height:2px;border-radius:2px;background:var(--line2);margin-bottom:16px}
+details.man{border-radius:16px;background:var(--fill);border:1px solid var(--line2);padding:4px 12px;margin:10px 0;text-align:left}
+details.man summary{cursor:pointer;padding:10px 0;font-size:12px;font-weight:800;color:rgba(255,255,255,.65);list-style:none}
+details.man summary::-webkit-details-marker{display:none}
+.odds{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 12px}
+.odd{padding:8px 10px;border-radius:12px;font-size:11px;font-weight:800;display:flex;justify-content:space-between;background:var(--fill);border:1px solid var(--line2)}
+/* locker */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+.card{border-radius:20px;padding:12px 8px 10px;text-align:center;cursor:pointer;position:relative;background:linear-gradient(155deg,rgba(255,255,255,.12),rgba(255,255,255,.04));border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.3),var(--hl)}
+.card canvas{width:78px;height:78px}
+.card .n{font-size:13px;font-weight:900;margin-top:2px}
+.card .s{font-size:10px;font-family:'Courier New',monospace;color:#ffe9a8;margin-top:2px;min-height:13px}
+.card.eq{border-color:rgba(var(--green),.75)}
+.card.eq::after{content:'✓';position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:rgba(var(--green),.9);color:#032a14;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+.card.lock canvas{filter:grayscale(1) brightness(.5)}
+.rar{font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border-radius:999px;display:inline-block;margin-top:3px}
+.rar.common{background:rgba(255,255,255,.12);color:#cfd6e8}.rar.rare{background:rgba(var(--blue),.22);color:#9fd0ff}
+.rar.epic{background:rgba(var(--violet),.25);color:#d1b4ff}.rar.legendary{background:rgba(var(--gold),.25);color:#ffd96b}
+.hist{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;margin-bottom:8px;border-radius:14px;background:var(--fill);border:1px solid var(--line2);font-size:12px}
+.hist code{font-size:10px;color:rgba(255,255,255,.5);word-break:break-all}
+.chip{font-size:9px;font-weight:900;letter-spacing:1px;padding:3px 8px;border-radius:999px;text-transform:uppercase;display:inline-block}
+.chip.pending,.chip.verifying{background:rgba(255,204,0,.18);color:#ffcc00}.chip.paid{background:rgba(var(--green),.2);color:rgb(var(--green))}
+.chip.error,.chip.rejected,.chip.invalid{background:rgba(var(--red),.2);color:#ff8a8a}.chip.unconfirmed,.chip.ok{background:rgba(var(--blue),.2);color:#8cc2ff}
+.hr{height:1px;background:var(--line2);margin:14px 0}
+.h3{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:14px 0 8px}
+/* hud */
+#hud{position:fixed;inset:0;z-index:4;display:none;pointer-events:none}
+#hud.on{display:block}
+#hud .tl{position:absolute;top:calc(12px + var(--sat));left:12px;display:flex;flex-direction:column;gap:6px}
+#hud .tc{position:absolute;top:calc(12px + var(--sat));left:50%;transform:translateX(-50%)}
+#hud .tr{position:absolute;top:calc(12px + var(--sat));right:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+#hud .lb{position:absolute;top:calc(110px + var(--sat));right:12px;width:130px;padding:8px 10px;border-radius:16px;font-size:11px;font-weight:700}
+#hud .lb div{display:flex;justify-content:space-between;gap:6px;padding:2px 0;opacity:.85}
+#hud .lb .me{color:#7dffb3;opacity:1}
+#dash{position:absolute;right:20px;bottom:calc(30px + var(--sab));width:84px;height:84px;border-radius:50%;pointer-events:auto;font-size:30px;border:1px solid rgba(255,255,255,.35);color:#fff;font-weight:900;
+  background:radial-gradient(circle at 50% 25%,rgba(255,255,255,.28),rgba(var(--blue),.18) 60%,rgba(0,0,0,.2));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.5),var(--hl);overflow:hidden}
+#dash i{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);height:0}
+#dash span{position:relative}
+#joy{position:absolute;width:120px;height:120px;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.05);display:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#joy b{position:absolute;width:54px;height:54px;border-radius:50%;left:33px;top:33px;background:rgba(255,255,255,.26);box-shadow:var(--hl),0 4px 14px rgba(0,0,0,.4)}
+#zonewarn{position:absolute;top:calc(60px + var(--sat));left:50%;transform:translateX(-50%);display:none;color:#ff8a8a}
+#msg{position:absolute;top:30%;left:0;right:0;text-align:center;font-size:20px;font-weight:900;letter-spacing:2px;opacity:0;transition:opacity .4s;text-shadow:0 2px 18px rgba(0,0,0,.7)}
+/* over */
+#over .panel{margin:auto;width:100%;max-width:360px;border-radius:30px;padding:26px 22px;text-align:center}
+#over h1{font-size:26px;font-weight:900;letter-spacing:3px;margin-bottom:4px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.stat{padding:12px;border-radius:16px;background:var(--fill);border:1px solid var(--line2)}
+.stat b{display:block;font-size:20px;font-weight:900}.stat span{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.5)}
+/* reveal */
+#reveal{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(40,24,6,.82),rgba(3,3,10,.95));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+#reveal.on{display:flex}
+#revC{width:240px;height:240px}
+#reveal h2{font-size:30px;font-weight:900;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:calc(30px + var(--sab));transform:translate(-50%,30px);opacity:0;z-index:200;padding:12px 18px;border-radius:18px;font-size:13px;font-weight:800;max-width:86%;text-align:center;transition:all .3s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-height:640px){#prevWrap,#prev{width:140px;height:140px}.logo{font-size:30px}}
 </style>
 </head>
 <body>
+<canvas id="cv"></canvas>
+<div class="aurora"></div>
 
-<div id="errOverlay"></div>
-<div class="toast" id="toast"></div>
-<div id="app">
-
-  <!-- LOADING -->
-  <div id="loadingScreen" class="screen active">
-    <canvas id="loadingCanvas"></canvas>
-    <div class="loading-content">
-      <div class="loading-logo">PLANET.IO</div>
-      <div class="loading-spinner"></div>
-      <div class="loading-text" id="loadingText">Connecting to server...</div>
-      <div class="loading-attempt" id="loadingAttempt"></div>
-      <button class="loading-retry-btn" id="loadingRetryBtn">🔄 Retry</button>
-    </div>
+<div id="home" class="screen on">
+  <div class="top">
+    <span class="pill gold" id="coinsPill">🪙 0</span>
+    <span class="pill link" id="walletPill">🔗 Connect</span>
   </div>
-
-  <!-- MENU -->
-  <div id="menuScreen" class="screen">
-    <canvas id="menuCanvas"></canvas>
-    <div class="menu-content">
-      <div class="top-bar">
-        <div class="top-left">
-          <button class="close-btn" id="closeBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            <span>Close</span>
-          </button>
-        </div>
-        <div class="top-right">
-          <div class="icon-circle" id="friendsBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg>
-          </div>
-          <div class="icon-circle" id="settingsBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </div>
-        </div>
-      </div>
-      <div class="page-title">Planet.io</div>
-      <div class="main-area">
-        <div class="token-counter">
-          <span>🪙</span><span id="menuTokens">0</span>
-        </div>
-        <div class="skin-preview-wrap">
-          <div class="skin-glow"></div>
-          <div class="skin-preview" id="skinPreview"></div>
-          <div class="skin-level-badge" id="skinBadge">5</div>
-        </div>
-        <div class="online-pill">
-          <span>Online:</span>
-          <span class="dot"></span>
-          <span class="count" id="onlineCount">0</span>
-        </div>
-        <div class="mode-selector">
-          <div class="mode-btn active" id="modeClassicBtn">🎮 CLASSIC</div>
-          <div class="mode-btn" id="modeOnlineBtn">🌐 ONLINE</div>
-        </div>
-        <div class="play-row">
-          <button class="arrow-btn" id="prevSkinBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button class="play-btn-big" id="playBtn">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-          <button class="arrow-btn" id="nextSkinBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="season-bar">
-        <div class="season-header">
-          <div class="season-badge-icon">👑</div>
-          <div class="season-title">Season finished</div>
-        </div>
-        <div class="season-progress"><div class="season-progress-fill"></div></div>
-      </div>
-      <div class="premium-badge">
-        <span>💎</span><span>Premium:</span>
-        <span class="status"><span class="dot"></span>Active</span>
-      </div>
-    </div>
-    <div class="tab-bar" id="menuTabBar"></div>
+  <div class="mid">
+    <div class="logo" id="logo">NEBULA<br>DRIFT</div>
+    <div class="tag">Eat · Grow · Survive the storm</div>
+    <div id="prevWrap" class="glass"><canvas id="prev" width="380" height="380"></canvas></div>
+    <div class="pname" id="pname">Pulse</div>
+    <div class="psub" id="psub">Best 0</div>
+    <div class="arrows"><button class="btn sm ghost" id="prevSkin">‹</button><button class="btn sm ghost" id="nextSkin">›</button></div>
   </div>
-
-  <!-- INVENTORY -->
-  <div id="inventoryScreen" class="screen">
-    <div class="inv-header">
-      <div class="inv-title">🎒 Locker<span class="count" id="invCount">0</span></div>
-      <div class="inv-tokens">🪙 <span id="invTokens">0</span></div>
-    </div>
-    <div class="inv-tabs">
-      <div class="inv-tab active" data-filter="all">All</div>
-      <div class="inv-tab" data-filter="common">Common</div>
-      <div class="inv-tab" data-filter="rare">Rare</div>
-      <div class="inv-tab" data-filter="legendary">Legendary</div>
-    </div>
-    <div class="inv-grid" id="invGrid"></div>
-    <div class="lootbox-section">
-      <div class="lootbox-card">
-        <div class="lootbox-shine"></div>
-        <div class="lootbox-tags" id="lootboxTags"></div>
-        <div class="lootbox-icon-wrap">
-          <div class="lootbox-icon-glow"></div>
-          <div class="lootbox-icon">🎁</div>
-        </div>
-        <div class="lootbox-title">Mystery Lootbox</div>
-        <div class="lootbox-sub">Get a random <b>locked</b> skin with<br>its own <b>unique serial</b></div>
-        <div class="lootbox-price"><span class="coin">💎</span><span id="lootboxPrice">0.01</span><span>TON</span></div>
-        <div class="lootbox-remaining" id="lootboxRemaining"></div>
-        <div class="lootbox-serial-hint" id="lootboxSerialHint"></div>
-        <button class="lootbox-btn-buy" id="openLootboxBtn">🔓 Open Lootbox</button>
-        <div class="lootbox-error" id="lootboxError"></div>
-      </div>
-    </div>
-    <div class="tab-bar" id="invTabBar"></div>
+  <button class="btn play" id="playBtn">▶ Play</button>
+  <div class="dock glass">
+    <button id="dLocker"><b>🎒</b>Locker</button>
+    <button id="dBox" style="position:relative"><b>🎁</b>Lootbox<span class="badge">TON</span></button>
+    <button id="dWallet"><b>💼</b>Wallet</button>
   </div>
-
-  <!-- SHOP -->
-  <div id="shopScreen" class="screen">
-    <div class="shop-wrap">
-      <div class="shop-title">🛍️ Shop</div>
-      <div class="shop-sub">Sell your skins for TON</div>
-      <div class="shop-wallet" id="shopWalletBox">
-        <span class="lbl">Your TON wallet</span>
-        <span class="val" id="shopWallet">Tap to set</span>
-      </div>
-      <div id="shopList"></div>
-      <div class="shop-hist-title">📜 Payouts</div>
-      <div id="shopHistory"></div>
-    </div>
-    <div class="tab-bar" id="shopTabBar"></div>
-  </div>
-
-  <!-- SKILLS -->
-  <div id="skillsScreen" class="screen">
-    <div class="skills-wrap">
-      <div class="admin-trigger" id="adminTrigger">⚙️</div>
-      <div class="skills-title">⚡ Skills</div>
-      <div class="skills-sub">Upgrade your abilities</div>
-      <div class="token-bar">
-        <span class="lbl">🪙 TOKENS AVAILABLE</span>
-        <span class="val" id="skillsTokens">0</span>
-      </div>
-      <div class="skill-card">
-        <div class="skill-hdr">
-          <div class="skill-nm">⚡ Speed Boost</div>
-          <div class="skill-lv">Lv. <span id="speedLevel">0</span>/50</div>
-        </div>
-        <div class="skill-desc">+<b>5%</b> speed per level. Current: <b id="speedBonus">+0%</b></div>
-        <div class="progress-bar"><div class="progress-fill" id="speedProgress" style="width:0%;"></div></div>
-        <button class="upgrade-btn" id="upgradeSpeedBtn">Upgrade (100 🪙)</button>
-      </div>
-      <div class="skill-card">
-        <div class="skill-hdr">
-          <div class="skill-nm">🌌 Start Mass</div>
-          <div class="skill-lv">Lv. <span id="massLevel">0</span>/15</div>
-        </div>
-        <div class="skill-desc">+<b>3 more mass</b> per level. Current: <b id="massBonus">100</b></div>
-        <div class="progress-bar"><div class="progress-fill" id="massProgress" style="width:0%;"></div></div>
-        <button class="upgrade-btn" id="upgradeMassBtn">Upgrade (300 🪙)</button>
-      </div>
-    </div>
-    <div class="tab-bar" id="skillsTabBar"></div>
-  </div>
-
-  <!-- SEASON -->
-  <div id="seasonScreen" class="screen">
-    <div class="placeholder">
-      <div class="icon">👑</div>
-      <div class="txt">SEASON</div>
-    </div>
-    <div class="tab-bar" id="seasonTabBar"></div>
-  </div>
-
-  <!-- GAME -->
-  <div id="gameScreen" class="screen">
-    <canvas id="gameCanvas"></canvas>
-    <div class="top-hud">
-      <div class="pill">⚖️ <span id="massVal">0</span></div>
-      <div class="pill">🪙 <span id="tokenVal">0</span></div>
-      <div class="pill">⏱ <span id="timeVal">00:00</span></div>
-    </div>
-    <div class="rank-badge">🏆 <span id="rankVal">#1</span></div>
-    <button class="cashout-btn" id="cashoutBtn">💰 CASH OUT</button>
-    <div class="leaderboard">
-      <div class="lb-title">LEADERBOARD</div>
-      <div id="lbList"></div>
-    </div>
-    <div id="joystick"><div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div></div>
-    <div class="action-btn" id="splitBtn">✂</div>
-    <div class="action-btn" id="ejectBtn">⊕</div>
-  </div>
-
-  <!-- GAME OVER -->
-  <div id="gameOverScreen" class="screen">
-    <div class="go-panel">
-      <h1>GAME OVER</h1>
-      <div class="go-score" id="goScore">0</div>
-      <div class="go-lbl">Max Mass</div>
-      <div class="go-stats">
-        <div class="go-stat"><div class="sv" id="goTime">00:00</div><div class="sl">Survived</div></div>
-        <div class="go-stat"><div class="sv" id="goRank">-</div><div class="sl">Rank</div></div>
-        <div class="go-stat"><div class="sv" id="goKills">0</div><div class="sl">Kills</div></div>
-      </div>
-      <div class="token-earned">
-        <span class="lbl">🪙 TOKENS EARNED</span>
-        <span class="val" id="goTokens">+0</span>
-      </div>
-      <button class="play-btn" id="restartBtn">PLAY AGAIN</button>
-      <button class="menu-btn" id="menuBtn">MAIN MENU</button>
-    </div>
-  </div>
-
-  <!-- TON MODAL -->
-  <div class="modal-overlay" id="tonModal">
-    <div class="modal-content ton-modal-content">
-      <button class="modal-close" id="closeTonModal">✕</button>
-      <div class="ton-modal-icon">💎</div>
-      <h2 class="ton-modal-title">Mystery Lootbox</h2>
-      <p class="ton-modal-sub">Pay <b id="tonAmount">0.01</b> TON with your wallet</p>
-      <div class="ton-steps" id="tonSteps">
-        <div class="ton-step active" data-step="1"><i>1</i><span>Pay</span></div>
-        <div class="ton-step-line"></div>
-        <div class="ton-step" data-step="2"><i>2</i><span>Confirm</span></div>
-        <div class="ton-step-line"></div>
-        <div class="ton-step" data-step="3"><i>3</i><span>Receive</span></div>
-      </div>
-      <div class="ton-wallet-line" id="tonWalletLine"></div>
-      <button class="ton-pay-btn" id="tonPayBtn" disabled>Preparing…</button>
-      <div class="ton-status" id="tonStatus"></div>
-      <details class="ton-manual" id="tonManual">
-        <summary>Pay manually instead</summary>
-        <div class="ton-field">
-          <label>Wallet Address</label>
-          <div class="ton-value" id="tonAddress">—</div>
-          <button class="copy-btn" id="copyAddressBtn">📋 Copy</button>
-        </div>
-        <div class="ton-field">
-          <label>Comment / Memo (REQUIRED)</label>
-          <div class="ton-value" id="tonMemo">—</div>
-          <button class="copy-btn" id="copyMemoBtn">📋 Copy</button>
-        </div>
-        <a class="ton-deeplink" id="tonDeepLink" href="#">Open in wallet app</a>
-        <button class="ton-check-btn" id="tonCheckBtn">🔄 I've paid — check now</button>
-        <div class="ton-warning">⚠️ Send the <b>exact amount</b> with the memo above. Your own memo is unique to you.</div>
-      </details>
-      <button class="ton-cancel-btn" id="cancelTonBtn">Close</button>
-    </div>
-  </div>
-
-  <!-- CONFIRM MODAL -->
-  <div class="modal-overlay" id="confirmModal" style="z-index:10050;">
-    <div class="modal-content confirm-content">
-      <div class="confirm-icon" id="confirmIcon">❓</div>
-      <div class="modal-title" id="confirmTitle"></div>
-      <div class="modal-sub" id="confirmText"></div>
-      <button class="btn-success" id="confirmOkBtn">Confirm</button>
-      <button class="btn-secondary" id="confirmCancelBtn">Cancel</button>
-    </div>
-  </div>
-
-  
-<!-- DETAIL MODAL -->
-  <div class="modal-overlay" id="detailModal">
-    <div class="modal-content detail-content">
-      <button class="modal-close" id="closeDetailModal">✕</button>
-      <div class="detail-visual" id="detailVisual"></div>
-      <div class="detail-name" id="detailName">Skin</div>
-      <div class="detail-serial" id="detailSerial">#------</div>
-      <div><span class="detail-rarity" id="detailRarity">RARE</span></div>
-      <div class="detail-row">
-        <span class="lbl">Source</span>
-        <span class="val" id="detailSource">lootbox</span>
-      </div>
-      <div class="detail-row" id="detailPriceRow" style="display:none;">
-        <span class="lbl">Sell Price</span>
-        <span class="detail-price" id="detailPrice">0.00 TON</span>
-      </div>
-      <button class="detail-btn primary" id="detailSelectBtn">✓ SELECT</button>
-      <button class="detail-btn sell" id="detailSellBtn" style="display:none;">💰 SELL FOR TON</button>
-      <button class="detail-btn secondary" id="detailCloseBtn">CLOSE</button>
-    </div>
-  </div>
-
-  <!-- WALLET MODAL -->
-  <div class="modal-overlay" id="walletModal">
-    <div class="modal-content">
-      <button class="modal-close" id="closeWalletModal">✕</button>
-      <div class="modal-title">💼 Your TON Wallet</div>
-      <div class="modal-sub">Connect once — skin sales are paid to this wallet automatically.</div>
-      <div class="wallet-connected-card" id="walletConnectedCard">
-        <div class="lbl">Payout wallet</div>
-        <div class="addr" id="walletConnectedAddr">—</div>
-      </div>
-      <button class="btn-primary" id="connectWalletBtn">🔗 Connect Wallet</button>
-      <button class="btn-secondary" id="disconnectWalletBtn">Disconnect</button>
-      <div class="wallet-or">or enter address</div>
-      <input type="text" class="input-field" id="walletInput" placeholder="UQ... or EQ..." autocomplete="off" autocapitalize="off" spellcheck="false" />
-      <button class="btn-success" id="saveWalletBtn">SAVE ADDRESS</button>
-    </div>
-  </div>
-
-  
-<!-- WALLET VERSION PICKER -->
-  <div class="modal-overlay" id="walletPickerModal">
-    <div class="modal-content">
-      <button class="modal-close" id="closeWalletPicker">✕</button>
-      <div class="modal-title">🔑 Choose Wallet Version</div>
-      <div class="modal-sub">We derived multiple addresses from your mnemonic. Compare with your wallet app and pick the matching one.</div>
-      <div class="wallet-version-list" id="walletVersionList"></div>
-      <button class="btn-success" id="confirmWalletVersionBtn" disabled>✅ Confirm & Save</button>
-      <button class="btn-secondary" id="cancelWalletVersionBtn">Cancel</button>
-    </div>
-  </div>
-
-  <!-- LOOTBOX ANIMATION -->
-  <div class="loot-anim-overlay" id="lootAnimOverlay">
-    <div class="loot-anim-stage">
-      <div class="loot-anim-particles" id="lootParticles"></div>
-      <div class="loot-anim-box" id="lootBox">🎁</div>
-      <div class="loot-reveal-title" id="lootRevealTitle">✨ UNLOCKED ✨</div>
-      <div class="loot-anim-reveal" id="lootReveal">
-        <div class="loot-reveal-card" id="lootRevealCard">
-          <div class="loot-reveal-visual" id="lootRevealVisual"></div>
-          <div class="loot-reveal-rarity" id="lootRevealRarity">RARE</div>
-          <div class="loot-reveal-name" id="lootRevealName">Skin</div>
-          <div class="loot-reveal-serial" id="lootRevealSerial">#------</div>
-        </div>
-      </div>
-      <button class="loot-reveal-continue" id="lootContinueBtn">CONTINUE</button>
-    </div>
-  </div>
-
-  <!-- ADMIN MODAL -->
-  <div class="modal-overlay" id="adminModal">
-    <div class="admin-panel">
-      <button class="modal-close" id="adminCloseBtn">✕</button>
-      <div class="admin-title">👑 ADMIN PANEL</div>
-      <div class="admin-sub">Authorized Access Only</div>
-
-      <div id="adminPassStep">
-        <div class="admin-field">
-          <label>Enter Password</label>
-          <input type="password" class="admin-input code" id="adminPasswordInput" placeholder="●●●●●●" maxlength="32">
-        </div>
-        <button class="admin-btn" id="adminLoginBtn">🔓 Unlock</button>
-      </div>
-
-      <div id="adminControls" style="display:none;">
-        <div class="admin-tabs">
-          <div class="admin-tab active" data-atab="lootbox">Lootbox</div>
-          <div class="admin-tab" data-atab="requests">Requests</div>
-          <div class="admin-tab" data-atab="prices">Prices</div>
-          <div class="admin-tab" data-atab="wallet">🔑 Wallet</div>
-          <div class="admin-tab" data-atab="actions">Actions</div>
-        </div>
-
-        <div class="admin-pane" id="adminPaneLootbox">
-          <div class="admin-section">
-            <div class="admin-section-title">💰 Lootbox Settings</div>
-            <div class="admin-field">
-              <label>Price (TON)</label>
-              <input type="number" step="0.001" class="admin-input" id="adminPriceInput">
-            </div>
-            <div class="admin-field">
-              <label>Remaining (-1 = unlimited)</label>
-              <input type="number" class="admin-input" id="adminRemainingInput">
-            </div>
-            <button class="admin-btn success" id="adminSaveSettingsBtn">💾 Save</button>
-          </div>
-          <div class="admin-section">
-            <div class="admin-section-title">🏷️ Tag</div>
-            <div class="admin-row">
-              <button class="admin-btn small" data-tag="new">NEW</button>
-              <button class="admin-btn small" data-tag="hot">HOT</button>
-            </div>
-            <div class="admin-row" style="margin-top:6px;">
-              <button class="admin-btn small" data-tag="sale">SALE</button>
-              <button class="admin-btn small" data-tag="">NONE</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="admin-pane" id="adminPaneRequests" style="display:none;">
-          <div class="admin-wallet-info">
-            Hot wallet balance: <b id="adminWalletBalance">loading...</b> TON
-          </div>
-          <div class="admin-section">
-            <div class="admin-section-title">🤖 Auto-Pay</div>
-            <div class="admin-toggle-row">
-              <span class="lbl">Auto-pay new requests</span>
-              <div class="admin-toggle" id="autopayToggle">
-                <div class="knob"></div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:#666;margin-top:6px;">
-              When ON, new sell requests are paid automatically
-            </div>
-          </div>
-          <button class="admin-btn" id="adminRefreshRequestsBtn">🔄 Refresh Requests</button>
-          <div id="adminRequestsList" style="margin-top:12px;"></div>
-          <div class="admin-section" style="margin-top:14px;">
-            <div class="admin-section-title">🎁 Lootbox payments</div>
-            <button class="admin-btn" id="adminRefreshOrdersBtn">🔄 Refresh Payments</button>
-            <div id="adminOrdersList" style="margin-top:10px;"></div>
-          </div>
-        </div>
-
-        <div class="admin-pane" id="adminPanePrices" style="display:none;">
-          <div class="admin-section">
-            <div class="admin-section-title">🏷️ Skin Prices</div>
-            <div id="adminPricesList"></div>
-          </div>
-        </div>
-
-        <div class="admin-pane" id="adminPaneWallet" style="display:none;">
-          <div class="admin-section">
-            <div class="admin-section-title">🔑 TON Wallet</div>
-            <div class="admin-wallet-info" id="adminTonWalletInfo">
-              Address: <b id="adminTonAddress">not set</b><br>
-              Balance: <b id="adminTonBalance">—</b> TON
-              <div id="adminTonVersion" style="font-size:10px;color:#888;margin-top:4px;"></div>
-            </div>
-            <div class="admin-field">
-              <label>Paste 12 or 24-word mnemonic</label>
-              <textarea class="admin-textarea" id="adminMnemonicInput" rows="4" placeholder="word1 word2 word3 ..."></textarea>
-            </div>
-            <button class="admin-btn success" id="adminSaveMnemonicBtn">🔍 Preview Wallet Versions</button>
-            <button class="admin-btn" id="adminRefreshWalletBtn" style="margin-top:6px;">🔄 Refresh Balance</button>
-            <button class="admin-btn danger" id="adminClearMnemonicBtn" style="margin-top:6px;">🗑️ Remove Wallet</button>
-            <div style="font-size:11px;color:#666;margin-top:10px;line-height:1.5;">
-              ⚠️ After clicking Preview, you'll see multiple wallet versions. Pick the one that matches your wallet app (compare address). Mnemonic is encrypted with your admin password.
-            </div>
-          </div>
-        </div>
-
-        <div class="admin-pane" id="adminPaneActions" style="display:none;">
-          <div class="admin-section">
-            <div class="admin-section-title">⚡ Actions</div>
-            <button class="admin-btn" id="adminAddTokensBtn">+1000 🪙</button>
-            <button class="admin-btn" style="margin-top:6px;" id="adminUnlockAllBtn">🔓 Unlock All</button>
-          </div>
-          <div class="admin-section" style="border-color: rgba(255,50,50,0.3);">
-            <div class="admin-section-title" style="color:#ff3333;">⚠️ Danger</div>
-            <button class="admin-btn danger" id="adminWipeAllBtn">🗑️ Wipe ALL</button>
-          </div>
-        </div>
-
-        <div class="admin-status" id="adminStatus"></div>
-      </div>
-    </div>
-  </div>
-
 </div>
-<script>
-"use strict";
 
-window.onerror = function(msg, url, line, col, err) {
-  var el = document.getElementById('errOverlay');
-  if (el) { el.classList.add('show'); el.textContent = 'ERROR: ' + msg + '\nLine: ' + line + ':' + col + '\n\n' + (err && err.stack ? err.stack : ''); }
+<div id="hud">
+  <div class="tl"><span class="pill" id="hMass">◉ 20</span><span class="pill" id="hKills">⚔ 0</span></div>
+  <div class="tc"><span class="pill" id="hZone">🌀 Zone 0:00</span></div>
+  <div class="tr"><span class="pill" id="hRank">#1</span><span class="pill" id="hTime">0:00</span></div>
+  <div class="lb glass" id="hLb"></div>
+  <span class="pill" id="zonewarn">⚠ Outside the zone!</span>
+  <div id="msg"></div>
+  <div id="joy"><b></b></div>
+  <button id="dash"><i></i><span>⚡</span></button>
+</div>
+
+<div id="over" class="screen">
+  <div class="panel glass">
+    <h1 id="ovT">DRIFTED OUT</h1>
+    <div class="psub" id="ovSub">eaten by Nova</div>
+    <div class="stats">
+      <div class="stat"><b id="ovMass">0</b><span>Peak mass</span></div>
+      <div class="stat"><b id="ovTime">0:00</b><span>Survived</span></div>
+      <div class="stat"><b id="ovKills">0</b><span>Takedowns</span></div>
+      <div class="stat"><b id="ovCoins">+0</b><span>Coins</span></div>
+    </div>
+    <button class="btn md green" id="againBtn">Play again</button>
+    <div class="row"><button class="btn md ghost" id="homeBtn">Home</button></div>
+  </div>
+</div>
+
+<!-- LOCKER -->
+<div class="modal" id="mLocker"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h2>🎒 Locker</h2><div class="sub">Tap a skin to equip it. Lootbox skins can be sold for TON.</div>
+  <div class="grid" id="lockGrid"></div>
+  <div class="h3">Sale history</div>
+  <div id="saleHist"></div>
+</div></div>
+
+<!-- SKIN DETAIL -->
+<div class="modal" id="mDetail"><div class="sheet" style="text-align:center">
+  <button class="x" data-close>✕</button>
+  <canvas id="detC" width="360" height="360" style="width:170px;height:170px"></canvas>
+  <h2 id="detN">Skin</h2><div id="detR"></div><div class="psub" id="detS" style="margin:6px 0 14px"></div>
+  <button class="btn md green" id="detEq">Equip</button>
+  <div class="row"><button class="btn md gold" id="detSell">Sell for TON</button></div>
+  <div class="note" id="detNote" style="display:none"></div>
+</div></div>
+
+<!-- LOOTBOX -->
+<div class="modal" id="mBox"><div class="sheet" style="text-align:center">
+  <button class="x" data-close>✕</button>
+  <div style="font-size:54px">🎁</div>
+  <h2>Mystery Lootbox</h2>
+  <div class="sub">One random skin, minted with a unique serial. Pay <b id="boxPrice" style="color:#ffd34d">0.1</b> TON.</div>
+  <div class="odds" id="boxOdds"></div>
+  <div class="steps" id="boxSteps">
+    <div class="step a"><i>1</i><span>Pay</span></div><div class="sl"></div>
+    <div class="step"><i>2</i><span>Confirm</span></div><div class="sl"></div>
+    <div class="step"><i>3</i><span>Receive</span></div>
+  </div>
+  <button class="btn md gold" id="boxPay">💎 Pay with wallet</button>
+  <div class="st" id="boxSt"></div>
+  <details class="man" id="boxMan"><summary>Pay with a link instead ▾</summary>
+    <div class="field"><label>Address</label><div class="v" id="manAddr">—</div></div>
+    <div class="field"><label>Comment (required)</label><div class="v" id="manMemo">—</div></div>
+    <button class="btn md blue" id="manLink">Open in Tonkeeper</button>
+    <div class="row"><button class="btn md ghost" id="manCopy">Copy comment</button></div>
+    <div class="note">Send the exact amount with the comment. The skin arrives automatically after the payment lands.</div>
+  </details>
+  <div id="boxPending"></div>
+</div></div>
+
+<!-- SELL -->
+<div class="modal" id="mSell"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h2>💰 Sale code</h2>
+  <div class="sub" id="sellSub">Send this code to the admin. After the admin verifies your purchase on chain, the TON is sent back to the wallet that paid for the box.</div>
+  <div class="field"><label>Your sale code</label><div class="v" id="sellCode" style="user-select:all;-webkit-user-select:all">—</div></div>
+  <button class="btn md green" id="sellCopy">Copy code</button>
+  <div class="row"><button class="btn md blue" id="sellTg">Send to admin on Telegram</button></div>
+  <div class="note">Keep this code until you are paid. The skin has been removed from your locker; you can undo the sale from “Sale history”.</div>
+</div></div>
+
+<!-- WALLET -->
+<div class="modal" id="mWallet"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h2>💼 Wallet</h2><div class="sub">Connect the TON wallet you pay with. Payouts for sold skins return to the wallet that bought the box.</div>
+  <div class="field"><label>Status</label><div class="v" id="wAddr">Not connected</div></div>
+  <button class="btn md blue" id="wConnect">🔗 Connect wallet</button>
+  <div class="row"><button class="btn md ghost" id="wDisc">Disconnect</button></div>
+</div></div>
+
+<!-- CONFIRM -->
+<div class="modal" id="mConfirm" style="z-index:90"><div class="sheet" style="text-align:center">
+  <div style="font-size:44px" id="cIcon">❓</div><h2 id="cT"></h2><div class="sub" id="cX"></div>
+  <button class="btn md green" id="cOk">Confirm</button>
+  <div class="row"><button class="btn md ghost" id="cNo">Cancel</button></div>
+</div></div>
+
+<!-- ADMIN -->
+<div class="modal" id="mAdmin"><div class="sheet" style="max-width:440px">
+  <button class="x" data-close>✕</button>
+  <h2>🛡 Admin</h2>
+  <div id="admLock">
+    <div class="sub" id="admLockSub">Enter your admin password.</div>
+    <input class="in" id="admPass" type="password" placeholder="Admin password" autocomplete="off">
+    <button class="btn md blue" id="admUnlock">Unlock</button>
+    <div class="st" id="admLockSt"></div>
+  </div>
+  <div id="admMain" style="display:none">
+    <div class="h3">1 · Payout wallet (24 words)</div>
+    <div class="field"><label>Payout wallet address</label><div class="v" id="admAddr">not set</div></div>
+    <div class="field"><label>Balance</label><div class="v" id="admBal">—</div></div>
+    <textarea class="in" id="admWords" placeholder="word1 word2 … word24  (stored encrypted on THIS device only)"></textarea>
+    <select class="in" id="admVer"><option value="v4R2">Wallet version V4R2 (recommended)</option><option value="v3R2">Wallet version V3R2</option></select>
+    <button class="btn md green" id="admSaveW">Save &amp; derive address</button>
+    <div class="note">After saving, compare the address above with the address shown in your wallet app. If they differ, pick another version. Never use your main wallet — use a dedicated payout wallet.</div>
+    <div class="h3">2 · Lootbox settings</div>
+    <input class="in" id="admRecv" placeholder="Wallet address that receives box payments">
+    <input class="in" id="admPrice" placeholder="Lootbox price (TON)" inputmode="decimal">
+    <div class="h3">Sell prices (TON)</div><div id="admPrices"></div>
+    <input class="in" id="admTg" placeholder="Admin Telegram username (no @)">
+    <input class="in" id="admKey" placeholder="toncenter API key (optional)">
+    <button class="btn md blue" id="admSaveC">Save settings on this device</button>
+    <div class="row"><button class="btn md ghost" id="admSnip">Copy CONFIG snippet for index.html</button></div>
+    <div class="note">Settings saved here apply only on THIS device (good for testing). To make them live for every player, paste the CONFIG snippet into index.html.</div>
+    <div class="h3">3 · Sale requests</div>
+    <textarea class="in" id="admCodes" placeholder="Paste sale codes here (one per line)"></textarea>
+    <button class="btn md blue" id="admAdd">Add &amp; verify codes</button>
+    <div id="admReqs" style="margin-top:10px"></div>
+    <div class="row"><button class="btn md gold" id="admPayAll">Pay all verified</button></div>
+    <div class="h3">4 · Tools</div>
+    <button class="btn md green" id="admTest">▶ Run full self-test</button>
+    <div class="row"><button class="btn md ghost" id="admGift">Give myself a test skin</button></div>
+    <div class="row"><button class="btn md ghost" id="admBackup">Copy admin backup (requests)</button></div>
+    <div id="admTestOut" style="margin-top:10px"></div>
+    <div class="row"><button class="btn md red" id="admLockBtn">Lock admin</button></div>
+  </div>
+</div></div>
+
+<div id="reveal">
+  <div class="tag" style="color:#ffd34d">You got</div>
+  <canvas id="revC" width="480" height="480"></canvas>
+  <h2 id="revN">Skin</h2><div id="revR"></div><div class="psub" id="revS" style="margin:8px 0 18px"></div>
+  <button class="btn md gold" id="revOk" style="width:220px">Awesome</button>
+</div>
+<div class="toast glass" id="toast"></div>
+<script>
+'use strict';
+/* =====================================================================
+   NEBULA DRIFT — single file, no server.
+   CONFIG below is what every player's device uses. The admin panel can
+   override it locally (for testing) and prints a snippet to paste here.
+   ===================================================================== */
+const CONFIG = {
+  RECEIVE_ADDRESS: '',                 // TON address that receives lootbox payments
+  LOOTBOX_PRICE: 0.1,                  // TON
+  SELL_PRICES: { aurora: 0.04, inferno: 0.07, void: 0.12, crystal: 0.25 }, // TON paid for a sold skin
+  ADMIN_TG: '',                        // Telegram username (no @) that receives sale codes
+  TONCENTER: 'https://toncenter.com/api/v2',
+  TONCENTER_KEY: '',                   // optional, removes the 1 req/sec limit
+  MANIFEST_URL: '',                    // default: tonconnect-manifest.json next to index.html
+  NETWORK: '-239'                      // TON mainnet
 };
 
-/* ============ CONFIG ============ */
-var WORLD_RADIUS = 1200, CX = 1500, CY = 1500;
-var FOOD_COUNT = 500, BOT_COUNT = 18;
-var BASE_START_MASS = 22, PLAYER_BASE_MASS = 100;
-var MASS_PER_LEVEL = 3, MAX_MASS_LEVEL = 15;
-var MASS_UPGRADE_BASE_COST = 300, MASS_UPGRADE_COST_STEP = 150;
-var MIN_SPLIT_MASS = 36, MIN_EJECT_MASS = 34, EJECT_MASS_AMOUNT = 14, EJECT_COST = 18;
-var MAX_CELLS = 16, MERGE_TIME = 20, SPLIT_LAUNCH_SPEED = 1300;
-var EAT_MASS_RATIO = 1.15, EAT_OVERLAP = 0.4, FOOD_MASS = 1;
-var MASS_DECAY_RATE = 0.002, MASS_DECAY_MIN = 40;
-var MAX_SPEED_LEVEL = 50, SPEED_PER_LEVEL = 0.05;
-var SPEED_UPGRADE_BASE_COST = 100, SPEED_UPGRADE_COST_STEP = 50;
-var TOKEN_PER_SECOND = 0.5, TOKEN_PER_200_MASS = 1, TOKEN_PER_KILL = 10;
-var TOKEN_BONUS_2MIN = 30, TOKEN_BONUS_5MIN = 100;
-var CASHOUT_BONUS = 1.5;
-var LOOTBOX_MAX_SERIAL = 999;
-var TON_POLL_MS = 3000;
-var TON_MAX_WAIT_MS = 10 * 60 * 1000;
-var TON_NETWORK = '-239';
-var LOOTBOX_COOLDOWN_MS = 1500;
-var LOOTBOX_ERROR_HIDE_MS = 5000;
+/* ---------- utils ---------- */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtTime = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const fmtSerial = (n) => n ? '#' + String(n).padStart(6, '0') : '';
+const tg = (window.Telegram && window.Telegram.WebApp) || null;
+try { if (tg) { tg.ready(); tg.expand(); if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } } catch (e) {}
+function openLink(url) { try { if (tg && tg.openLink) { tg.openLink(url); return; } } catch (e) {} window.open(url, '_blank'); }
+function openTgLink(url) { try { if (tg && tg.openTelegramLink) { tg.openTelegramLink(url); return; } } catch (e) {} window.open(url, '_blank'); }
+let toastT = null;
+function toast(msg, kind) {
+  const t = $('toast'); t.textContent = msg;
+  t.style.borderColor = kind === 'err' ? 'rgba(255,90,90,.6)' : kind === 'ok' ? 'rgba(74,222,128,.6)' : '';
+  t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600);
+}
+function setSt(id, kind, html) {
+  const el = $(id); if (!html) { el.className = 'st'; el.innerHTML = ''; return; }
+  el.className = 'st on ' + (kind || ''); el.innerHTML = (kind === 'wait' ? '<span class="spin"></span> ' : '') + html;
+}
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg || 'Copied', 'ok'); return; } catch (e) {}
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); toast(okMsg || 'Copied', 'ok'); } catch (e) { toast('Copy failed', 'err'); }
+  ta.remove();
+}
+let confirmCb = null;
+function askConfirm(o, cb) {
+  $('cIcon').textContent = o.icon || '❓'; $('cT').textContent = o.title || 'Are you sure?'; $('cX').textContent = o.text || '';
+  $('cOk').textContent = o.ok || 'Confirm'; $('cOk').className = 'btn md ' + (o.danger ? 'red' : 'green');
+  confirmCb = cb; openModal('mConfirm');
+}
+function openModal(id) { $(id).classList.add('on'); }
+function closeModal(id) { $(id).classList.remove('on'); }
 
-var COLORS = ['#ff4d6b', '#33e066', '#4a9eff', '#ffcc00', '#a55cff', '#ff8800', '#00ffaa', '#ff6bd6'];
-
-var SKINS = [
-  { id: 'default', color: '#4a9eff', emoji: '🪐', name: 'Default', rarity: 'common', img: null },
-  { id: 'mind', color: '#a55cff', emoji: '🧠', name: 'Mind', rarity: 'legendary', img: 'mind-skin.png' },
-  { id: 'knight', color: '#ff3333', emoji: '⚔️', name: 'Knight', rarity: 'legendary', img: 'knight-skin.png' },
-  { id: 'rage', color: '#ff8800', emoji: '😡', name: 'Rage', rarity: 'legendary', img: 'rage-skin.png' }
-];
-
-var REMOVED_SKINS = ['fire'];
-var SKIN_IMAGES = {};
-
-/* ============ SAVE ============ */
-var Save = {
-  userId: null,
-  tokens: 0, speedLevel: 0, massLevel: 0,
-  unlockedSkins: [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }],
-  currentSkin: 'default',
-  currentSerial: null,
-  totalKills: 0, highScore: 0,
-  walletAddress: '',
-  lootboxPrice: 0.01, lootboxRemaining: -1, lootboxTag: '',
-  autopayEnabled: false,
-  serialStatus: { next: 1, soldOut: false },
-  skinPrices: {},
-  tonWalletAddress: '',
-  tonReady: false,
-  connectedAddress: '',
-  config: {},
-  sells: [],
-  dirty: false,
-
-  applyServerData: function(u) {
-    this.userId = u.id;
-    this.tokens = u.tokens || 0;
-    this.speedLevel = u.speedLevel || 0;
-    this.massLevel = u.massLevel || 0;
-    this.unlockedSkins = this.normalizeSkins(u.unlockedSkins);
-    this.currentSkin = u.currentSkin || 'default';
-    this.totalKills = u.totalKills || 0;
-    this.highScore = u.highScore || 0;
-    this.walletAddress = u.walletAddress || '';
-    var match = this.unlockedSkins.find(function(s) { return s.id === Save.currentSkin; });
-    this.currentSerial = match ? match.serial : null;
+/* ---------- store ---------- */
+const KEY = 'nebula_drift_v1';
+const Store = {
+  d: null,
+  def() { return { coins: 0, best: 0, free: ['pulse'], inst: [], equip: { id: 'pulse', serial: null }, orders: [], sold: [], admin: { cfg: {}, reqs: [] } }; },
+  load() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+    const base = this.def();
+    this.d = Object.assign(base, d || {});
+    this.d.admin = Object.assign(base.admin, (d && d.admin) || {});
+    if (!Array.isArray(this.d.free) || !this.d.free.includes('pulse')) this.d.free = ['pulse'].concat(this.d.free || []);
   },
+  save() { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) {} }
+};
+function cfg() { return Object.assign({}, CONFIG, Store.d.admin.cfg || {}, { SELL_PRICES: Object.assign({}, CONFIG.SELL_PRICES, (Store.d.admin.cfg || {}).SELL_PRICES || {}) }); }
 
-  normalizeSkins: function(input) {
-    var arr = input;
-    if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch (e) { arr = []; } }
-    if (!Array.isArray(arr)) arr = [];
-    var out = [];
-    var hasDefault = false;
-    for (var i = 0; i < arr.length; i++) {
-      var s = arr[i];
-      var sid = (typeof s === 'string') ? s : (s && s.id);
-      if (REMOVED_SKINS.indexOf(sid) >= 0) continue;
-      if (typeof s === 'string') {
-        out.push({ id: s, serial: null, source: s === 'default' ? 'starter' : 'legacy', acquiredAt: 0 });
-        if (s === 'default') hasDefault = true;
-      } else if (s && s.id) {
-        out.push({
-          id: String(s.id),
-          serial: (typeof s.serial === 'number') ? s.serial : null,
-          source: s.source || 'unknown',
-          acquiredAt: s.acquiredAt || 0
-        });
-        if (s.id === 'default') hasDefault = true;
+/* ---------- skins ---------- */
+const SKINS = {
+  pulse:   { name: 'Pulse',   rarity: 'common',    cost: 0,   pal: ['#d8fbff', '#3fc4ff', '#0b3d91'] },
+  mint:    { name: 'Mint',    rarity: 'common',    cost: 150, pal: ['#d6ffe9', '#2ee59d', '#06623f'] },
+  coral:   { name: 'Coral',   rarity: 'common',    cost: 300, pal: ['#ffe0d8', '#ff6b6b', '#7a1028'] },
+  aurora:  { name: 'Aurora',  rarity: 'rare',      box: true, pal: ['#b9fff0', '#38e8c6', '#6a3df0'] },
+  inferno: { name: 'Inferno', rarity: 'rare',      box: true, pal: ['#fff2b0', '#ff8a1f', '#8e1204'] },
+  void:    { name: 'Void',    rarity: 'epic',      box: true, pal: ['#e6c9ff', '#8d3df0', '#07000f'] },
+  crystal: { name: 'Crystal', rarity: 'legendary', box: true, pal: ['#ffffff', '#9fe3ff', '#6a8bff'] }
+};
+const BOX_TABLE = [['aurora', 40], ['inferno', 30], ['void', 20], ['crystal', 10]];
+function rollSkin(roll) { let acc = 0; for (const [id, w] of BOX_TABLE) { acc += w; if (roll < acc) return id; } return 'aurora'; }
+
+function b64ToBytes(b64) {
+  b64 = String(b64).replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '=';
+  const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out;
+}
+function bytesToHex(b) { return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join(''); }
+// Deterministic result of a lootbox purchase: anybody (incl. the admin) can recompute it from the tx hash.
+function deriveFromHash(hash) {
+  const b = b64ToBytes(hash);
+  const roll = ((b[0] << 8) | b[1]) % 100;
+  const serial = (((b[2] << 16) | (b[3] << 8) | b[4]) % 900000) + 100000;
+  return { id: rollSkin(roll), serial };
+}
+
+/* ---------- orb rendering (used in game + UI icons) ---------- */
+function hsl(h, s, l, a) { return 'hsla(' + h + ',' + s + '%,' + l + '%,' + (a == null ? 1 : a) + ')'; }
+function drawOrb(c, x, y, r, skin, t, o) {
+  o = o || {};
+  const S = SKINS[skin] || SKINS.pulse;
+  let pal = S.pal;
+  if (o.hue != null) pal = [hsl(o.hue, 90, 88), hsl(o.hue, 85, 58), hsl(o.hue, 80, 22)];
+  // halo
+  const hc = (al) => (pal[1][0] === '#' ? pal[1] + (al ? '66' : '00') : pal[1].replace(/[\d.]+\)$/, (al ? '0.4' : '0') + ')'));
+  const halo = c.createRadialGradient(x, y, r * 0.6, x, y, r * 2); halo.addColorStop(0, hc(1)); halo.addColorStop(1, hc(0));
+  c.fillStyle = halo; c.beginPath(); c.arc(x, y, r * 2, 0, 6.2832); c.fill();
+  c.save(); c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.clip();
+  if (skin === 'aurora') {
+    const a = t * 0.8; const g = c.createLinearGradient(x + Math.cos(a) * r, y + Math.sin(a) * r, x - Math.cos(a) * r, y - Math.sin(a) * r);
+    g.addColorStop(0, '#38ffc8'); g.addColorStop(0.5, '#4a7dff'); g.addColorStop(1, '#c04aff'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+    for (let i = 0; i < 3; i++) { const aa = t * (0.6 + i * 0.3) + i * 2.1; c.strokeStyle = 'rgba(255,255,255,' + (0.22 - i * 0.05) + ')'; c.lineWidth = r * 0.16; c.beginPath(); c.arc(x + Math.cos(aa) * r * 0.25, y + Math.sin(aa) * r * 0.25, r * (0.45 + i * 0.22), aa, aa + 2.2); c.stroke(); }
+  } else if (skin === 'inferno') {
+    const g = c.createRadialGradient(x, y + r * 0.2, r * 0.05, x, y, r); g.addColorStop(0, '#fff6b8'); g.addColorStop(0.35, '#ffb02e'); g.addColorStop(0.75, '#e2400c'); g.addColorStop(1, '#5a0a02');
+    c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+    for (let i = 0; i < 7; i++) { const aa = (i / 7) * 6.2832 + t * 0.9; const fl = 0.55 + 0.3 * Math.sin(t * 5 + i * 1.7); c.fillStyle = 'rgba(255,220,90,.55)'; c.beginPath(); c.ellipse(x + Math.cos(aa) * r * 0.55, y + Math.sin(aa) * r * 0.55, r * 0.16, r * fl * 0.42, aa + 1.57, 0, 6.2832); c.fill(); }
+  } else if (skin === 'void') {
+    const g = c.createRadialGradient(x, y, r * 0.05, x, y, r); g.addColorStop(0, '#000'); g.addColorStop(0.55, '#14052b'); g.addColorStop(1, '#6a2bd6'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+    for (let i = 0; i < 9; i++) { const aa = i * 2.4 + t * 0.4; const rr = r * (0.2 + ((i * 37) % 60) / 100); c.fillStyle = 'rgba(255,255,255,.65)'; c.fillRect(x + Math.cos(aa) * rr, y + Math.sin(aa) * rr, Math.max(1, r * 0.04), Math.max(1, r * 0.04)); }
+    c.strokeStyle = 'rgba(190,140,255,.8)'; c.lineWidth = r * 0.07; c.beginPath(); c.ellipse(x, y, r * 0.8, r * 0.28, t * 0.6, 0, 6.2832); c.stroke();
+  } else if (skin === 'crystal') {
+    const g = c.createLinearGradient(x - r, y - r, x + r, y + r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#a6e4ff'); g.addColorStop(1, '#7a8dff'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+    for (let i = 0; i < 6; i++) { const a1 = (i / 6) * 6.2832 + 0.3, a2 = ((i + 1) / 6) * 6.2832 + 0.3; c.fillStyle = 'rgba(' + (i % 2 ? '255,255,255' : '90,140,255') + ',' + (i % 2 ? 0.28 : 0.22) + ')'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a1) * r * 1.2, y + Math.sin(a1) * r * 1.2); c.lineTo(x + Math.cos(a2) * r * 1.2, y + Math.sin(a2) * r * 1.2); c.closePath(); c.fill(); }
+    const sp = (Math.sin(t * 3) + 1) / 2; c.fillStyle = 'rgba(255,255,255,' + (0.3 + sp * 0.6) + ')'; c.beginPath(); c.arc(x - r * 0.3, y - r * 0.35, r * 0.1, 0, 6.2832); c.fill();
+  } else {
+    const g = c.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.08, x, y, r); g.addColorStop(0, pal[0]); g.addColorStop(0.55, pal[1]); g.addColorStop(1, pal[2]); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // glass sheen
+  const sh = c.createLinearGradient(x, y - r, x, y + r); sh.addColorStop(0, 'rgba(255,255,255,.38)'); sh.addColorStop(0.45, 'rgba(255,255,255,.04)'); sh.addColorStop(1, 'rgba(0,0,0,.28)');
+  c.fillStyle = sh; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.restore();
+  c.lineWidth = Math.max(1.2, r * 0.05); c.strokeStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(x - r * 0.36, y - r * 0.48, r * 0.26, r * 0.13, -0.6, 0, 6.2832); c.fill();
+  if (o.shield) { c.strokeStyle = 'rgba(140,220,255,' + (0.55 + 0.25 * Math.sin(t * 8)) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r * 1.28, 0, 6.2832); c.stroke(); }
+}
+const iconCache = {};
+function skinIcon(id, size) {
+  const c = document.createElement('canvas'); c.width = c.height = size || 156;
+  const g = c.getContext('2d'); drawOrb(g, c.width / 2, c.height / 2, c.width * 0.31, id, 1.3); return c;
+}
+
+/* =====================================================================
+   GAME
+   ===================================================================== */
+const cv = $('cv'); const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() { DPR = Math.min(window.devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; }
+addEventListener('resize', resize); resize();
+
+const WORLD = 1400, START_MASS = 20, GRACE = 22;
+const BOT_NAMES = ['Nova', 'Pixel', 'Orbit', 'Zed', 'Lyra', 'Comet', 'Vega', 'Atlas', 'Echo', 'Rhea', 'Juno', 'Kilo', 'Mira', 'Titan', 'Sol', 'Pulsar'];
+const massR = (m) => 12 + Math.sqrt(Math.max(m, 1)) * 2.4;
+const G = { mode: 'menu', t: 0, ents: [], pellets: [], wells: [], powers: [], parts: [], me: null, zoneR: WORLD, cam: { x: 0, y: 0, z: 0.8 }, kills: 0, peak: 0, killer: '', msgT: 0, powerT: 12 };
+
+function makeEnt(opts) {
+  const a = rnd(0, 6.2832), d = Math.sqrt(Math.random()) * (WORLD - 200);
+  return Object.assign({ x: Math.cos(a) * d, y: Math.sin(a) * d, vx: 0, vy: 0, m: START_MASS, dir: rnd(0, 6.2832), dashT: 0, dashCd: 0, shield: 0, surge: 0, alive: true, bot: true, think: 0, tx: 0, ty: 0, skin: 'pulse', hue: null, name: '', respawn: 0 }, opts || {});
+}
+function spawnBot(e) {
+  const used = new Set(G.ents.filter((x) => x !== e && x.alive !== false).map((x) => x.name));
+  const free = BOT_NAMES.filter((n) => !used.has(n));
+  const b = makeEnt({ name: (free.length ? free : BOT_NAMES)[Math.floor(Math.random() * (free.length || BOT_NAMES.length))], hue: Math.floor(rnd(0, 360)), m: rnd(18, 70) });
+  if (e) Object.assign(e, b); return b;
+}
+function newPellet() {
+  const a = rnd(0, 6.2832), d = Math.sqrt(Math.random()) * Math.min(G.zoneR - 40, WORLD - 40);
+  return { x: Math.cos(a) * d, y: Math.sin(a) * d, h: Math.floor(rnd(160, 320)), v: 1.2 };
+}
+function initWorld(withPlayer) {
+  G.t = 0; G.kills = 0; G.peak = START_MASS; G.zoneR = WORLD; G.ents = []; G.pellets = []; G.powers = []; G.parts = []; G.msgT = 0; G.powerT = 10;
+  for (let i = 0; i < 14; i++) G.ents.push(spawnBot());
+  for (let i = 0; i < 700; i++) G.pellets.push(newPellet());
+  G.wells = [0, 1].map((i) => ({ x: Math.cos(i * 3.1) * 700, y: Math.sin(i * 3.1) * 700, vx: rnd(-22, 22), vy: rnd(-22, 22), r: 62 }));
+  if (withPlayer) {
+    const eq = Store.d.equip;
+    G.me = makeEnt({ bot: false, m: START_MASS, skin: eq.id, name: 'You', x: rnd(-300, 300), y: rnd(-300, 300), shield: 3 });
+    G.ents.push(G.me);
+  } else G.me = null;
+}
+function particles(x, y, hue, n, sp) {
+  for (let i = 0; i < n; i++) { const a = rnd(0, 6.2832), s = rnd(40, sp || 160); G.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, l: rnd(0.35, 0.8), h: hue }); }
+}
+function say(txt) { const m = $('msg'); m.textContent = txt; m.style.opacity = 1; G.msgT = 2.2; }
+
+function entSpeed(e) { let s = 190 + 160 / (1 + e.m / 150); if (e.dashT > 0) s *= 2.5; if (e.surge > 0) s *= 1.35; return s; }
+function doDash(e) {
+  if (e.dashCd > 0 || e.m < 26) return false;
+  e.dashT = 0.3; e.dashCd = 2.2; e.m -= e.m * 0.05; return true;
+}
+
+function botThink(b) {
+  let threat = null, td = 650, prey = null, pd = 700;
+  for (const o of G.ents) {
+    if (o === b || !o.alive) continue;
+    const dx = o.x - b.x, dy = o.y - b.y, d = Math.hypot(dx, dy);
+    if (o.m > b.m * 1.12 && d < td) { td = d; threat = o; }
+    else if (b.m > o.m * 1.18 && d < pd && !(o.shield > 0)) { pd = d; prey = o; }
+  }
+  const dc = Math.hypot(b.x, b.y);
+  if (dc > G.zoneR - 120) { b.tx = -b.x; b.ty = -b.y; return; }
+  for (const w of G.wells) { if (Math.hypot(w.x - b.x, w.y - b.y) < 230) { b.tx = b.x - w.x; b.ty = b.y - w.y; return; } }
+  if (threat) { b.tx = b.x - threat.x; b.ty = b.y - threat.y; if (td < 260 && Math.random() < 0.5) doDash(b); return; }
+  if (prey) { b.tx = prey.x - b.x; b.ty = prey.y - b.y; if (pd < 300 && Math.random() < 0.5) doDash(b); return; }
+  let best = null, bd = 520;
+  for (let i = 0; i < 40; i++) { const p = G.pellets[(Math.random() * G.pellets.length) | 0]; if (!p) continue; const d = Math.hypot(p.x - b.x, p.y - b.y); if (d < bd) { bd = d; best = p; } }
+  for (const p of G.powers) { const d = Math.hypot(p.x - b.x, p.y - b.y); if (d < 600 && d < bd) { bd = d; best = p; } }
+  if (best) { b.tx = best.x - b.x; b.ty = best.y - b.y; }
+  else { b.dir += rnd(-0.8, 0.8); b.tx = Math.cos(b.dir); b.ty = Math.sin(b.dir); }
+}
+
+const input = { x: 0, y: 0, active: false, dash: false };
+function update(dt) {
+  G.t += dt;
+  const play = G.mode === 'play';
+  // zone
+  const tt = Math.max(0, G.t - GRACE); G.zoneR = Math.max(470, WORLD - tt * 7.5);
+  // wells
+  for (const w of G.wells) {
+    w.x += w.vx * dt; w.y += w.vy * dt;
+    if (Math.hypot(w.x, w.y) > G.zoneR - 120) { w.vx -= w.x * 0.004; w.vy -= w.y * 0.004; }
+  }
+  // powerups
+  G.powerT -= dt;
+  if (G.powerT <= 0 && G.powers.length < 3) { G.powerT = rnd(14, 22); const p = newPellet(); p.type = Math.random() < 0.5 ? 'shield' : 'surge'; G.powers.push(p); }
+  // pellets respawn
+  while (G.pellets.length < 700) G.pellets.push(newPellet());
+
+  for (const e of G.ents) {
+    if (!e.alive) { if (e.bot) { e.respawn -= dt; if (e.respawn <= 0) { spawnBot(e); } } continue; }
+    // control
+    let dx, dy;
+    if (!e.bot) { dx = input.x; dy = input.y; if (input.dash) { if (doDash(e)) particles(e.x, e.y, 200, 10); input.dash = false; } }
+    else { e.think -= dt; if (e.think <= 0) { e.think = rnd(0.18, 0.4); botThink(e); } dx = e.tx; dy = e.ty; }
+    const dl = Math.hypot(dx, dy) || 1;
+    const sp = entSpeed(e);
+    const k = Math.min(1, dt * 9);
+    e.vx += ((dx / dl) * sp * (e.bot || input.active ? 1 : 0) - e.vx) * k;
+    e.vy += ((dy / dl) * sp * (e.bot || input.active ? 1 : 0) - e.vy) * k;
+    // wells
+    for (const w of G.wells) {
+      const wx = w.x - e.x, wy = w.y - e.y, wd = Math.hypot(wx, wy);
+      if (wd < 380) { const f = (1 - wd / 380) * 520; e.vx += (wx / wd) * f * dt; e.vy += (wy / wd) * f * dt; }
+      if (wd < w.r) { e.m -= Math.max(e.m * 0.28, 4) * dt; if (!e.bot && Math.random() < 0.1) particles(e.x, e.y, 280, 2, 80); }
+    }
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    const d0 = Math.hypot(e.x, e.y);
+    if (d0 > WORLD) { e.x *= WORLD / d0; e.y *= WORLD / d0; }
+    // zone damage
+    if (d0 > G.zoneR) e.m -= (e.m * 0.06 + 1.2) * dt;
+    if (e.dashT > 0) { e.dashT -= dt; if (!e.bot && Math.random() < 0.6) G.parts.push({ x: e.x, y: e.y, vx: 0, vy: 0, l: 0.4, h: 200 }); }
+    if (e.dashCd > 0) e.dashCd -= dt;
+    if (e.shield > 0) e.shield -= dt;
+    if (e.surge > 0) e.surge -= dt;
+    e.m = Math.max(0, e.m * (1 - 0.0008 * dt));
+    if (e.m < 8) { kill(e, null); continue; }
+    // pellets
+    const r = massR(e.m);
+    for (let i = G.pellets.length - 1; i >= 0; i--) {
+      const p = G.pellets[i]; const ddx = p.x - e.x, ddy = p.y - e.y;
+      if (ddx * ddx + ddy * ddy < (r + 4) * (r + 4)) { e.m += p.v; G.pellets[i] = G.pellets[G.pellets.length - 1]; G.pellets.pop(); }
+    }
+    for (let i = G.powers.length - 1; i >= 0; i--) {
+      const p = G.powers[i]; if (Math.hypot(p.x - e.x, p.y - e.y) < r + 12) {
+        if (p.type === 'shield') e.shield = 7; else e.surge = 6;
+        if (!e.bot) say(p.type === 'shield' ? '🛡 SHIELD' : '⚡ SURGE');
+        particles(p.x, p.y, 190, 16); G.powers.splice(i, 1);
       }
     }
-    if (!hasDefault) out.unshift({ id: 'default', serial: null, source: 'starter', acquiredAt: 0 });
-    return out;
-  },
+  }
+  // eating
+  for (let i = 0; i < G.ents.length; i++) {
+    const a = G.ents[i]; if (!a.alive) continue;
+    for (let j = 0; j < G.ents.length; j++) {
+      if (i === j) continue; const b = G.ents[j]; if (!b.alive) continue;
+      if (a.m > b.m * 1.12 && !(b.shield > 0)) {
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < massR(a.m) - massR(b.m) * 0.35) { a.m += b.m * 0.82; if (a === G.me) { G.kills++; say('+' + Math.round(b.m) + ' ' + b.name); } kill(b, a); }
+      }
+    }
+  }
+  const me = G.me;
+  if (me && me.alive) G.peak = Math.max(G.peak, me.m);
+  // particles
+  for (let i = G.parts.length - 1; i >= 0; i--) { const p = G.parts[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.l -= dt; if (p.l <= 0) G.parts.splice(i, 1); }
+  if (G.msgT > 0) { G.msgT -= dt; if (G.msgT <= 0) $('msg').style.opacity = 0; }
+  if (me && !me.alive && play) endGame();
+}
+function kill(e, by) {
+  e.alive = false; particles(e.x, e.y, e.hue != null ? e.hue : 200, 26, 220);
+  for (let i = 0; i < Math.min(14, e.m / 6); i++) { const p = newPellet(); p.x = e.x + rnd(-40, 40); p.y = e.y + rnd(-40, 40); p.v = Math.max(1.2, e.m / 14); G.pellets.push(p); }
+  if (e === G.me) G.killer = by ? by.name : (Math.hypot(e.x, e.y) > G.zoneR ? 'the storm' : 'a gravity well');
+  else e.respawn = 3;
+}
 
-  applySettings: function(s) {
-    if (!s) return;
-    this.lootboxPrice = parseFloat(s.lootbox_price) || 0.01;
-    this.lootboxRemaining = parseInt(s.lootbox_remaining);
-    if (isNaN(this.lootboxRemaining)) this.lootboxRemaining = -1;
-    this.lootboxTag = s.lootbox_tag || '';
-    this.autopayEnabled = (s.autopay_enabled === '1' || s.autopay_enabled === true || s.autopay_enabled === 1);
-  },
+/* ---------- rendering ---------- */
+const stars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), z: rnd(0.2, 1), s: rnd(0.6, 1.8) }));
+function render(time) {
+  const t = time / 1000;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H));
+  g.addColorStop(0, '#0d1230'); g.addColorStop(1, '#03040a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const cam = G.cam;
+  for (const s of stars) { const px = ((s.x * W - cam.x * s.z * 0.12 * cam.z) % W + W) % W, py = ((s.y * H - cam.y * s.z * 0.12 * cam.z) % H + H) % H; ctx.fillStyle = 'rgba(255,255,255,' + (0.25 + s.z * 0.5) + ')'; ctx.fillRect(px, py, s.s, s.s); }
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+  // arena + zone
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(120,150,255,.25)'; ctx.beginPath(); ctx.arc(0, 0, WORLD, 0, 6.2832); ctx.stroke();
+  const zg = ctx.createRadialGradient(0, 0, G.zoneR * 0.92, 0, 0, G.zoneR);
+  zg.addColorStop(0, 'rgba(255,60,90,0)'); zg.addColorStop(1, 'rgba(255,60,90,.22)');
+  ctx.fillStyle = zg; ctx.beginPath(); ctx.arc(0, 0, G.zoneR, 0, 6.2832); ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,90,120,.75)'; ctx.setLineDash([26, 18]); ctx.beginPath(); ctx.arc(0, 0, G.zoneR, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+  // outside tint
+  ctx.fillStyle = 'rgba(80,0,20,.28)'; ctx.beginPath(); ctx.arc(0, 0, WORLD + 600, 0, 6.2832); ctx.arc(0, 0, G.zoneR, 0, 6.2832, true); ctx.fill('evenodd');
+  const vx0 = cam.x - W / 2 / cam.z - 60, vx1 = cam.x + W / 2 / cam.z + 60, vy0 = cam.y - H / 2 / cam.z - 60, vy1 = cam.y + H / 2 / cam.z + 60;
+  // pellets
+  for (const p of G.pellets) { if (p.x < vx0 || p.x > vx1 || p.y < vy0 || p.y > vy1) continue; ctx.fillStyle = hsl(p.h, 95, 68, 0.95); ctx.beginPath(); ctx.arc(p.x, p.y, 3.4 + Math.sin(t * 3 + p.x) * 0.5 + (p.v > 2 ? 2 : 0), 0, 6.2832); ctx.fill(); }
+  // powerups
+  for (const p of G.powers) { const pr = 13 + Math.sin(t * 4) * 2; ctx.fillStyle = p.type === 'shield' ? 'rgba(120,210,255,.35)' : 'rgba(255,220,90,.35)'; ctx.beginPath(); ctx.arc(p.x, p.y, pr * 1.8, 0, 6.2832); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, pr, 0, 6.2832); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.type === 'shield' ? '🛡' : '⚡', p.x, p.y + 1); }
+  // wells
+  for (const w of G.wells) {
+    const gg = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 380); gg.addColorStop(0, 'rgba(160,60,255,.35)'); gg.addColorStop(1, 'rgba(160,60,255,0)'); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(w.x, w.y, 380, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 6.2832); ctx.fill();
+    for (let i = 0; i < 3; i++) { ctx.strokeStyle = 'rgba(200,150,255,' + (0.7 - i * 0.18) + ')'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(w.x, w.y, w.r + 8 + i * 12, t * (1.2 - i * 0.3) + i, t * (1.2 - i * 0.3) + i + 3.4); ctx.stroke(); }
+  }
+  // trails
+  for (const p of G.parts) { ctx.fillStyle = hsl(p.h, 90, 70, clamp(p.l * 1.6, 0, 1)); ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 6.2832); ctx.fill(); }
+  // entities (small first)
+  const list = G.ents.filter((e) => e.alive && e.x > vx0 - 120 && e.x < vx1 + 120 && e.y > vy0 - 120 && e.y < vy1 + 120).sort((a, b) => a.m - b.m);
+  for (const e of list) {
+    const r = massR(e.m);
+    if (e.dashT > 0) { ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(e.x - e.vx * 0.05, e.y - e.vy * 0.05, r, 0, 6.2832); ctx.fill(); }
+    drawOrb(ctx, e.x, e.y, r, e.bot ? 'pulse' : e.skin, t + e.x * 0.01, { hue: e.bot ? e.hue : null, shield: e.shield > 0 });
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = '700 ' + clamp(r * 0.45, 11, 22) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 4; ctx.fillText(e.name, e.x, e.y); ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
 
-  markDirty: function() { this.dirty = true; },
+/* ---------- loop / camera / hud ---------- */
+let last = 0, hudT = 0;
+function frame(time) {
+  const dt = Math.min(0.05, (time - last) / 1000 || 0.016); last = time;
+  if (G.mode === 'play' || G.mode === 'menu') {
+    update(dt);
+    const me = G.me;
+    if (G.mode === 'play' && me && me.alive) {
+      G.cam.x += (me.x - G.cam.x) * Math.min(1, dt * 8); G.cam.y += (me.y - G.cam.y) * Math.min(1, dt * 8);
+      const tz = clamp(0.95 * Math.pow(32 / massR(me.m), 0.5), 0.34, 1.05); G.cam.z += (tz - G.cam.z) * Math.min(1, dt * 2.2);
+      hudT -= dt; if (hudT <= 0) { hudT = 0.12; updateHud(); }
+      const dsh = $('dash').firstElementChild; dsh.style.height = (me.dashCd > 0 ? clamp(me.dashCd / 2.2, 0, 1) * 100 : 0) + '%';
+    } else if (G.mode === 'menu') {
+      const a = G.t * 0.07; G.cam.x = Math.cos(a) * 500; G.cam.y = Math.sin(a) * 500; G.cam.z = 0.55;
+    }
+  } else if (G.mode === 'over') { update(dt * 0.5); }
+  render(time);
+  requestAnimationFrame(frame);
+}
+function updateHud() {
+  const me = G.me; if (!me) return;
+  $('hMass').textContent = '◉ ' + Math.round(me.m); $('hKills').textContent = '⚔ ' + G.kills; $('hTime').textContent = fmtTime(G.t);
+  const left = Math.max(0, GRACE - G.t); const small = G.zoneR <= 471;
+  $('hZone').textContent = small ? '🌀 Zone final' : left > 0 ? '🌀 Shrinks in ' + Math.ceil(left) + 's' : '🌀 Zone ' + Math.round(G.zoneR);
+  const alive = G.ents.filter((e) => e.alive).sort((a, b) => b.m - a.m);
+  $('hRank').textContent = '#' + (alive.indexOf(me) + 1) + ' / ' + alive.length;
+  $('hLb').innerHTML = alive.slice(0, 5).map((e, i) => '<div class="' + (e === me ? 'me' : '') + '"><span>' + (i + 1) + '. ' + esc(e.name) + '</span><span>' + Math.round(e.m) + '</span></div>').join('');
+  $('zonewarn').style.display = Math.hypot(me.x, me.y) > G.zoneR ? 'inline-flex' : 'none';
+}
+function startGame() {
+  initWorld(true); G.mode = 'play'; G.cam.x = G.me.x; G.cam.y = G.me.y; G.cam.z = 0.95; G.killer = '';
+  $('home').classList.remove('on'); $('over').classList.remove('on'); $('hud').classList.add('on'); hudT = 0; say('DRIFT!');
+}
+function endGame() {
+  G.mode = 'over'; $('hud').classList.remove('on');
+  const secs = G.t, peak = Math.round(G.peak);
+  const coins = Math.floor(peak / 8 + G.kills * 5 + secs / 10);
+  Store.d.coins += coins; Store.d.best = Math.max(Store.d.best, peak); Store.save();
+  $('ovT').textContent = G.killer ? 'DRIFTED OUT' : 'GAME OVER'; $('ovSub').textContent = 'taken by ' + G.killer;
+  $('ovMass').textContent = peak; $('ovTime').textContent = fmtTime(secs); $('ovKills').textContent = G.kills; $('ovCoins').textContent = '+' + coins;
+  setTimeout(() => { if (G.mode === 'over') $('over').classList.add('on'); }, 450);
+  refreshHome();
+}
+function goHome() {
+  G.mode = 'menu'; initWorld(false); $('over').classList.remove('on'); $('hud').classList.remove('on'); $('home').classList.add('on'); refreshHome();
+}
 
-  syncToServer: function() {
-    if (!socket || !this.userId) return;
-    socket.emit('save_progress', {
-      tokens: this.tokens,
-      speedLevel: this.speedLevel,
-      massLevel: this.massLevel,
-      currentSkin: this.currentSkin,
-      totalKills: this.totalKills,
-      highScore: this.highScore
-    });
-    this.dirty = false;
-  },
+/* ---------- input ---------- */
+const joy = $('joy'); let joyId = null, joyO = null;
+cv.addEventListener('pointerdown', (e) => {
+  if (G.mode !== 'play') return;
+  if (e.pointerType === 'mouse') { input.active = true; mouseDir(e); return; }
+  if (joyId !== null) return; joyId = e.pointerId; joyO = { x: e.clientX, y: e.clientY }; input.active = true; input.x = 0; input.y = 0;
+  joy.style.display = 'block'; joy.style.left = (e.clientX - 60) + 'px'; joy.style.top = (e.clientY - 60) + 'px'; joy.firstElementChild.style.transform = 'translate(0,0)';
+});
+cv.addEventListener('pointermove', (e) => {
+  if (G.mode !== 'play') return;
+  if (e.pointerType === 'mouse') { mouseDir(e); return; }
+  if (e.pointerId !== joyId) return;
+  let dx = e.clientX - joyO.x, dy = e.clientY - joyO.y; const d = Math.hypot(dx, dy) || 1; const m = Math.min(d, 50);
+  input.x = dx / d; input.y = dy / d; input.active = d > 8;
+  joy.firstElementChild.style.transform = 'translate(' + (dx / d) * m + 'px,' + (dy / d) * m + 'px)';
+});
+function endJoy(e) { if (e.pointerId === joyId) { joyId = null; input.active = false; joy.style.display = 'none'; } }
+cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
+function mouseDir(e) { input.x = e.clientX - W / 2; input.y = e.clientY - H / 2; input.active = Math.hypot(input.x, input.y) > 12; }
+$('dash').addEventListener('pointerdown', (e) => { e.stopPropagation(); input.dash = true; });
+addEventListener('keydown', (e) => {
+  if (G.mode !== 'play') return;
+  if (e.code === 'Space') { input.dash = true; e.preventDefault(); return; }
+  const k = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] }[e.code];
+  if (k) { keys[e.code] = true; syncKeys(); }
+});
+addEventListener('keyup', (e) => { if (keys[e.code]) { delete keys[e.code]; syncKeys(); } });
+const keys = {};
+function syncKeys() {
+  let x = 0, y = 0;
+  if (keys.ArrowLeft || keys.KeyA) x--; if (keys.ArrowRight || keys.KeyD) x++; if (keys.ArrowUp || keys.KeyW) y--; if (keys.ArrowDown || keys.KeyS) y++;
+  input.x = x; input.y = y; input.active = !!(x || y);
+}
 
-  isUnlocked: function(id) {
-    for (var i = 0; i < this.unlockedSkins.length; i++)
-      if (this.unlockedSkins[i].id === id) return true;
-    return false;
-  },
-  getInstances: function(id) {
-    return this.unlockedSkins.filter(function(s) { return s.id === id; });
-  },
-  setCurrent: function(id, serial) {
-    this.currentSkin = id;
-    this.currentSerial = (typeof serial === 'number') ? serial : null;
-    this.markDirty();
-    this.syncToServer();
-  },
+/* =====================================================================
+   TON  (lootbox purchase + sale verification) — no backend, chain is the source of truth
+   ===================================================================== */
+function crc16(bytes) { let crc = 0; for (const b of bytes) { crc ^= b << 8; for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff; } return crc; }
+// friendly or raw -> "wc:hex" (lowercase). Returns null if invalid.
+function toRaw(addr) {
+  addr = String(addr || '').trim();
+  const m = addr.match(/^(-?\d+):([0-9a-fA-F]{64})$/); if (m) return m[1] + ':' + m[2].toLowerCase();
+  if (!/^[A-Za-z0-9_\-+\/=]{48}$/.test(addr)) return null;
+  let b; try { b = b64ToBytes(addr); } catch (e) { return null; }
+  if (b.length !== 36) return null;
+  const crc = crc16(b.slice(0, 34)); if (((crc >> 8) & 255) !== b[34] || (crc & 255) !== b[35]) return null;
+  const wc = b[1] > 127 ? b[1] - 256 : b[1];
+  return wc + ':' + bytesToHex(b.slice(2, 34));
+}
+function sameAddr(a, b) { const x = toRaw(a), y = toRaw(b); return !!x && !!y && x === y; }
+function toNanoStr(ton) { // exact decimal -> nano string (no float errors)
+  const s = String(ton).trim(); if (!/^\d+(\.\d{1,9})?$/.test(s)) return null;
+  const [i, f = ''] = s.split('.'); return (BigInt(i) * 1000000000n + BigInt((f + '000000000').slice(0, 9))).toString();
+}
+function fromNano(n) { const v = BigInt(n); const i = v / 1000000000n, f = (v % 1000000000n).toString().padStart(9, '0').replace(/0+$/, ''); return i.toString() + (f ? '.' + f : ''); }
+// TON "text comment" cell as a base64 BOC (what TonConnect expects as message.payload)
+function commentBoc(text) {
+  const t = new TextEncoder().encode(text); if (t.length > 120) throw new Error('comment too long');
+  const dataLen = 4 + t.length, cellSize = 2 + dataLen;
+  // magic | flags(ref size 1) | off_bytes | cells | roots | absent | total cells size | root index | cell: d1 d2 data
+  const bytes = [0xb5, 0xee, 0x9c, 0x72, 0x01, 0x01, 0x01, 0x01, 0x00, cellSize, 0x00, 0x00, dataLen * 2, 0, 0, 0, 0].concat(Array.from(t));
+  let s = ''; bytes.forEach((c) => { s += String.fromCharCode(c); }); return btoa(s);
+}
+function readComment(m) {
+  if (!m) return '';
+  if (typeof m.message === 'string' && m.message) return m.message.trim();
+  try { if (m.msg_data && m.msg_data.text) return new TextDecoder().decode(b64ToBytes(m.msg_data.text)).trim(); } catch (e) {}
+  return '';
+}
+function newMemo() {
+  const al = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const a = new Uint8Array(10); crypto.getRandomValues(a);
+  return 'NB' + Array.from(a).map((x) => al[x % al.length]).join('');
+}
 
-  getSpeedCost: function() { return SPEED_UPGRADE_BASE_COST + this.speedLevel * SPEED_UPGRADE_COST_STEP; },
-  upgradeSpeed: function() {
-    if (this.speedLevel >= MAX_SPEED_LEVEL) return false;
-    var cost = this.getSpeedCost();
-    if (this.tokens < cost) return false;
-    this.tokens -= cost; this.speedLevel++;
-    this.markDirty();
-    return true;
-  },
-  getSpeedMultiplier: function() { return 1 + (this.speedLevel * SPEED_PER_LEVEL); },
-  getMassCost: function() { return MASS_UPGRADE_BASE_COST + this.massLevel * MASS_UPGRADE_COST_STEP; },
-  upgradeMass: function() {
-    if (
+/* ---------- toncenter ---------- */
+async function tcGet(method, params) {
+  const c = cfg(); const q = new URLSearchParams(params || {}); if (c.TONCENTER_KEY) q.set('api_key', c.TONCENTER_KEY);
+  let lastErr;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(c.TONCENTER + '/' + method + '?' + q.toString());
+      const j = await r.json();
+      if (j && j.ok) return j.result;
+      lastErr = new Error((j && (j.error || j.message)) || 'toncenter error');
+      if (r.status !== 429) break;
+    } catch (e) { lastErr = e; }
+    await sleep(1100 * (i + 1));
+  }
+  throw lastErr || new Error('toncenter unreachable');
+}
+
+/* ---------- TonConnect ---------- */
+let tc = null, tcStarted = false, tcWait = null;
+const TC_SRC = ['https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js', 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js', 'https://unpkg.com/@tonconnect/ui/dist/tonconnect-ui.min.js'];
+function loadScript(srcs) {
+  return new Promise((resolve, reject) => {
+    let i = 0; (function next() {
+      if (i >= srcs.length) { reject(new Error('script load failed')); return; }
+      const s = document.createElement('script'); s.src = srcs[i++]; s.onload = () => resolve(); s.onerror = () => { s.remove(); next(); }; document.head.appendChild(s);
+    })();
+  });
+}
+async function initTonConnect() {
+  if (tc || tcStarted) return tc; tcStarted = true;
+  try {
+    if (!window.TON_CONNECT_UI) await loadScript(TC_SRC);
+    const c = cfg();
+    const opts = { manifestUrl: c.MANIFEST_URL || new URL('tonconnect-manifest.json', location.href).href, uiPreferences: { theme: 'DARK', borderRadius: 'm' } };
+    tc = new TON_CONNECT_UI.TonConnectUI(opts);
+    tc.onStatusChange(onWallet, () => {});
+    if (tc.connectionRestored) tc.connectionRestored.then(() => onWallet(tc.wallet)).catch(() => {});
+  } catch (e) { tcStarted = false; console.warn('TonConnect unavailable', e); }
+  return tc;
+}
+function connectedAddr() { return tc && tc.wallet && tc.wallet.account ? tc.wallet.account.address : ''; }
+function onWallet(w) {
+  if (w && w.account && w.account.chain && String(w.account.chain) !== cfg().NETWORK) { toast('Switch your wallet to TON mainnet', 'err'); try { tc.disconnect(); } catch (e) {} return; }
+  refreshWalletUi();
+  if (w && tcWait) { const f = tcWait; tcWait = null; setTimeout(f, 300); }
+}
+function ensureConnected(cb) {
+  if (!tc) { initTonConnect().then(() => { if (tc) ensureConnected(cb); else toast('Wallet service unavailable — use “Pay with a link”', 'err'); }); return; }
+  if (tc.wallet) { cb(); return; }
+  tcWait = cb; const p = tc.openModal(); if (p && p.catch) p.catch(() => {});
+}
+
+/* ---------- lootbox purchase ---------- */
+let boxPoll = null, boxPollStart = 0, boxBusy = false;
+function boxSteps(n) { document.querySelectorAll('#boxSteps .step').forEach((el, i) => { el.classList.remove('a', 'd'); if (i + 1 < n) el.classList.add('d'); else if (i + 1 === n) el.classList.add('a'); }); }
+function boxReady() { const c = cfg(); return !!(c.RECEIVE_ADDRESS && toRaw(c.RECEIVE_ADDRESS)); }
+function openBox() {
+  const c = cfg();
+  $('boxPrice').textContent = c.LOOTBOX_PRICE;
+  $('boxOdds').innerHTML = BOX_TABLE.map(([id, w]) => '<div class="odd"><span>' + SKINS[id].name + '</span><span>' + w + '%</span></div>').join('');
+  boxSteps(1); setSt('boxSt', '', '');
+  $('boxPay').disabled = !boxReady() || boxBusy; $('boxPay').textContent = boxReady() ? '💎 Pay ' + c.LOOTBOX_PRICE + ' TON' : 'Lootbox not configured yet';
+  $('manAddr').textContent = c.RECEIVE_ADDRESS || '—'; $('manMemo').textContent = '—';
+  renderPending(); openModal('mBox'); initTonConnect();
+  if (Store.d.orders.length) startBoxPoll();
+}
+function createOrder(viaLink) {
+  const c = cfg(); const nano = toNanoStr(c.LOOTBOX_PRICE); if (!nano) return null;
+  const o = { memo: newMemo(), nano, payer: viaLink ? '' : connectedAddr(), at: Date.now(), to: c.RECEIVE_ADDRESS };
+  Store.d.orders.push(o); Store.save(); return o;
+}
+function payBox() {
+  if (!boxReady()) { toast('Lootbox not configured', 'err'); return; }
+  ensureConnected(sendBox);
+}
+async function sendBox() {
+  if (boxBusy) return; const c = cfg();
+  const o = createOrder(false); if (!o) { toast('Bad price', 'err'); return; }
+  boxBusy = true; $('boxPay').disabled = true; $('boxPay').textContent = '⏳ Confirm in your wallet…'; setSt('boxSt', '', '');
+  try {
+    await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, network: c.NETWORK, messages: [{ address: c.RECEIVE_ADDRESS, amount: o.nano, payload: commentBoc(o.memo) }] });
+    boxSteps(2); setSt('boxSt', 'wait', 'Payment sent — confirming on chain…<br><small>Usually 5–30 seconds</small>'); $('boxPay').textContent = '✔ Payment sent';
+    startBoxPoll();
+  } catch (e) {
+    Store.d.orders = Store.d.orders.filter((x) => x.memo !== o.memo); Store.save();
+    let msg = (e && e.message) ? String(e.message) : 'Payment failed'; if (/reject|cancel|declin|abort/i.test(msg)) msg = 'Payment cancelled';
+    setSt('boxSt', 'err', esc(msg)); $('boxPay').disabled = false; $('boxPay').textContent = '💎 Pay ' + c.LOOTBOX_PRICE + ' TON'; boxBusy = false;
+  }
+}
+function payBoxLink() {
+  if (!boxReady()) { toast('Lootbox not configured', 'err'); return; }
+  const o = createOrder(true); if (!o) return; const c = cfg();
+  $('manMemo').textContent = o.memo;
+  const url = 'https://app.tonkeeper.com/transfer/' + c.RECEIVE_ADDRESS + '?amount=' + o.nano + '&text=' + encodeURIComponent(o.memo);
+  boxSteps(2); setSt('boxSt', 'wait', 'Waiting for your payment…<br><small>Comment: <b>' + esc(o.memo) + '</b></small>'); startBoxPoll(); openLink(url);
+}
+function renderPending() {
+  const el = $('boxPending'); const n = Store.d.orders.length;
+  el.innerHTML = n ? '<div class="note green">' + n + ' payment' + (n > 1 ? 's' : '') + ' being checked — your skin arrives automatically.</div>' : '';
+}
+function startBoxPoll() { if (boxPoll) return; boxPollStart = Date.now(); checkOrders(); boxPoll = setInterval(checkOrders, 4000); }
+function stopBoxPoll() { if (boxPoll) { clearInterval(boxPoll); boxPoll = null; } }
+let checking = false;
+async function checkOrders() {
+  if (checking) return; const orders = Store.d.orders; if (!orders.length) { stopBoxPoll(); boxBusy = false; return; }
+  if (Date.now() - boxPollStart > 20 * 60 * 1000) { stopBoxPoll(); return; }
+  checking = true;
+  try {
+    const to = orders[0].to || cfg().RECEIVE_ADDRESS;
+    const txs = await tcGet('getTransactions', { address: to, limit: 40 });
+    for (const tx of txs) {
+      const m = tx.in_msg; if (!m || !m.source) continue;
+      const memo = readComment(m); if (!memo) continue;
+      const o = orders.find((x) => x.memo === memo); if (!o) continue;
+      if (BigInt(m.value || '0') < BigInt(o.nano)) continue;
+      if (o.payer && !sameAddr(o.payer, m.source)) continue;   // only the wallet that started the order can claim it
+      deliverOrder(o, tx); break;
+    }
+  } catch (e) { console.warn('checkOrders', e.message); }
+  checking = false;
+}
+function deliverOrder(o, tx) {
+  Store.d.orders = Store.d.orders.filter((x) => x.memo !== o.memo);
+  const h = tx.transaction_id.hash, lt = tx.transaction_id.lt;
+  if (Store.d.inst.some((s) => s.tx && s.tx.h === h)) { Store.save(); return; }
+  const r = deriveFromHash(h);
+  const inst = { id: r.id, serial: r.serial, tx: { h, l: lt }, at: Date.now() };
+  Store.d.inst.push(inst); Store.save();
+  boxBusy = false; boxSteps(3); setSt('boxSt', 'ok', '✅ Payment confirmed!'); $('boxPay').disabled = false; $('boxPay').textContent = '💎 Open another';
+  renderPending(); refreshHome();
+  setTimeout(() => { closeModal('mBox'); showReveal(inst); }, 700);
+}
+
+/* ---------- selling: sale codes ---------- */
+function makeSaleCode(inst) {
+  const j = JSON.stringify({ h: inst.tx.h, l: inst.tx.l, s: inst.id, n: inst.serial });
+  return 'NBS1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function parseSaleCode(code) {
+  try {
+    code = String(code).trim(); if (!code.startsWith('NBS1.')) return null;
+    const j = JSON.parse(decodeURIComponent(escape(atob(code.slice(5).replace(/-/g, '+').replace(/_/g, '/')))));
+    if (!j.h || !j.l || !j.s) return null; return j;
+  } catch (e) { return null; }
+}
+function sellInst(inst) {
+  const price = cfg().SELL_PRICES[inst.id];
+  if (!inst.tx || !price) { toast('This skin cannot be sold', 'err'); return; }
+  askConfirm({ icon: '💰', title: 'Sell ' + SKINS[inst.id].name + ' ' + fmtSerial(inst.serial) + '?', text: 'You will get a sale code. After the admin verifies it, ' + price + ' TON is sent back to the wallet that paid for this box.', ok: 'SELL' }, () => {
+    const code = makeSaleCode(inst);
+    Store.d.inst = Store.d.inst.filter((s) => s !== inst);
+    if (Store.d.equip.id === inst.id && Store.d.equip.serial === inst.serial) Store.d.equip = { id: 'pulse', serial: null };
+    Store.d.sold.unshift({ code, id: inst.id, serial: inst.serial, tx: inst.tx, at: Date.now() }); Store.save();
+    closeModal('mDetail'); renderLocker(); refreshHome(); showSaleCode(code);
+  });
+}
+function showSaleCode(code) {
+  $('sellCode').textContent = code; openModal('mSell');
+  $('sellCopy').onclick = () => copyText(code, 'Code copied');
+  const tgUser = cfg().ADMIN_TG; $('sellTg').style.display = tgUser ? '' : 'none';
+  $('sellTg').onclick = () => openTgLink('https://t.me/' + tgUser + '?text=' + encodeURIComponent(code));
+}
+function undoSale(code) {
+  const s = Store.d.sold.find((x) => x.code === code); if (!s) return;
+  Store.d.sold = Store.d.sold.filter((x) => x !== s); Store.d.inst.push({ id: s.id, serial: s.serial, tx: s.tx, at: Date.now() }); Store.save(); renderLocker(); refreshHome(); toast('Skin restored', 'ok');
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+function ownedList() {
+  const l = Store.d.free.map((id) => ({ id, serial: null }));
+  Store.d.inst.forEach((s) => l.push(s)); return l;
+}
+function equippedName() { const e = Store.d.equip; return SKINS[e.id].name + (e.serial ? ' ' + fmtSerial(e.serial) : ''); }
+function refreshWalletUi() {
+  const a = connectedAddr(); const short = a ? a.slice(0, 5) + '…' + a.slice(-4) : '';
+  $('walletPill').textContent = a ? '✅ ' + short : '🔗 Connect';
+  $('wAddr').textContent = a || 'Not connected'; $('wDisc').style.display = a ? '' : 'none'; $('wConnect').textContent = a ? '🔁 Switch wallet' : '🔗 Connect wallet';
+}
+let prevAnim = 0;
+function refreshHome() {
+  $('coinsPill').textContent = '🪙 ' + Store.d.coins;
+  const e = Store.d.equip; $('pname').textContent = equippedName(); $('psub').textContent = SKINS[e.id].rarity + ' · Best ' + Store.d.best;
+  refreshWalletUi();
+}
+function cycleSkin(dir) {
+  const l = ownedList(); let i = l.findIndex((s) => s.id === Store.d.equip.id && s.serial === Store.d.equip.serial); if (i < 0) i = 0;
+  const n = l[(i + dir + l.length) % l.length]; Store.d.equip = { id: n.id, serial: n.serial }; Store.save(); refreshHome();
+}
+function animPreview(time) {
+  const c = $('prev'), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height);
+  drawOrb(g, c.width / 2, c.height / 2, 98, Store.d.equip.id, time / 1000);
+  requestAnimationFrame(animPreview);
+}
+
+/* locker */
+function renderLocker() {
+  const el = $('lockGrid'); el.innerHTML = '';
+  const eq = Store.d.equip;
+  ownedList().forEach((s) => {
+    const d = document.createElement('div'); d.className = 'card' + (s.id === eq.id && s.serial === eq.serial ? ' eq' : '');
+    d.appendChild(skinIcon(s.id, 156));
+    d.insertAdjacentHTML('beforeend', '<div class="n">' + SKINS[s.id].name + '</div><div class="s">' + fmtSerial(s.serial) + '</div><span class="rar ' + SKINS[s.id].rarity + '">' + SKINS[s.id].rarity + '</span>');
+    d.onclick = () => openDetail(s); el.appendChild(d);
+  });
+  Object.keys(SKINS).filter((id) => SKINS[id].cost && !Store.d.free.includes(id)).forEach((id) => {
+    const d = document.createElement('div'); d.className = 'card lock'; d.appendChild(skinIcon(id, 156));
+    d.insertAdjacentHTML('beforeend', '<div class="n">' + SKINS[id].name + '</div><div class="s">🪙 ' + SKINS[id].cost + '</div><span class="rar common">locked</span>');
+    d.onclick = () => {
+      if (Store.d.coins < SKINS[id].cost) { toast('Need ' + SKINS[id].cost + ' coins — play to earn more', 'err'); return; }
+      askConfirm({ icon: '🪙', title: 'Unlock ' + SKINS[id].name + '?', text: 'Costs ' + SKINS[id].cost + ' coins.', ok: 'UNLOCK' }, () => { Store.d.coins -= SKINS[id].cost; Store.d.free.push(id); Store.save(); renderLocker(); refreshHome(); toast('Unlocked!', 'ok'); });
+    };
+    el.appendChild(d);
+  });
+  const h = $('saleHist'); h.innerHTML = '';
+  if (!Store.d.sold.length) h.innerHTML = '<div class="hist"><span style="opacity:.5">No sales yet</span></div>';
+  Store.d.sold.slice(0, 12).forEach((s) => {
+    const d = document.createElement('div'); d.className = 'hist';
+    d.innerHTML = '<div><b>' + SKINS[s.id].name + '</b> ' + fmtSerial(s.serial) + '<br><code>' + esc(s.code.slice(0, 22)) + '…</code></div><div style="display:flex;gap:6px"><button class="btn sm blue" data-a="c">Code</button><button class="btn sm ghost" data-a="u">Undo</button></div>';
+    d.querySelector('[data-a=c]').onclick = () => showSaleCode(s.code); d.querySelector('[data-a=u]').onclick = () => undoSale(s.code); h.appendChild(d);
+  });
+}
+let detInst = null;
+function openDetail(s) {
+  detInst = s; const S = SKINS[s.id]; const c = $('detC'), g = c.getContext('2d'); g.clearRect(0, 0, 360, 360); drawOrb(g, 180, 180, 105, s.id, 1.4);
+  $('detN').textContent = S.name; $('detR').innerHTML = '<span class="rar ' + S.rarity + '">' + S.rarity + '</span>'; $('detS').textContent = s.serial ? 'Serial ' + fmtSerial(s.serial) : 'Starter skin';
+  const eq = Store.d.equip.id === s.id && Store.d.equip.serial === s.serial; $('detEq').disabled = eq; $('detEq').textContent = eq ? 'Equipped' : 'Equip';
+  const price = cfg().SELL_PRICES[s.id]; const can = !!(s.tx && price);
+  $('detSell').style.display = s.tx ? '' : 'none'; $('detSell').disabled = !can; $('detSell').textContent = can ? 'Sell for ' + price + ' TON' : 'Not sellable';
+  $('detNote').style.display = 'none'; openModal('mDetail');
+}
+
+/* reveal */
+let revInst = null, revRaf = 0;
+function showReveal(inst) {
+  revInst = inst; const S = SKINS[inst.id]; $('revN').textContent = S.name; $('revR').innerHTML = '<span class="rar ' + S.rarity + '">' + S.rarity + '</span>'; $('revS').textContent = 'Serial ' + fmtSerial(inst.serial);
+  $('reveal').classList.add('on');
+  const c = $('revC'), g = c.getContext('2d'); const t0 = performance.now();
+  (function loop(now) { if (!$('reveal').classList.contains('on')) return; g.clearRect(0, 0, 480, 480); const k = Math.min(1, (now - t0) / 700); const e = 1 - Math.pow(1 - k, 3); drawOrb(g, 240, 240, 40 + 110 * e, revInst.id, (now - t0) / 1000); revRaf = requestAnimationFrame(loop); })(t0);
+}
+
+/* =====================================================================
+   ADMIN  — 24-word payout wallet encrypted on this device, payouts via TonWeb
+   ===================================================================== */
+const ADM = { key: null, pass: '', words: null, kp: null, version: 'v4R2', addr: '', tonweb: null, busy: false };
+const enc = new TextEncoder(), dec = new TextDecoder();
+const u8b64 = (u) => { let s = ''; u.forEach((c) => { s += String.fromCharCode(c); }); return btoa(s); };
+async function aesKey(pass, salt) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptWords(words, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aesKey(pass, salt), enc.encode(words)));
+  return { s: u8b64(salt), i: u8b64(iv), c: u8b64(ct) };
+}
+async function decryptWords(box, pass) {
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(box.i) }, await aesKey(pass, b64ToBytes(box.s)), b64ToBytes(box.c));
+  return dec.decode(pt);
+}
+// TON mnemonic -> ed25519 seed (same algorithm as @ton/crypto mnemonicToSeed + keyPair.fromSeed)
+async function mnemonicToSeed32(words) {
+  const mnem = words.join(' ');
+  const hk = await crypto.subtle.importKey('raw', enc.encode(mnem), { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+  const entropy = new Uint8Array(await crypto.subtle.sign('HMAC', hk, enc.encode('')));
+  const pk = await crypto.subtle.importKey('raw', entropy, 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode('TON default seed'), iterations: 100000, hash: 'SHA-512' }, pk, 512);
+  return new Uint8Array(bits).slice(0, 32);
+}
+function parseWords(t) { const w = String(t || '').trim().toLowerCase().split(/\s+/).filter(Boolean); return (w.length === 24 && w.every((x) => /^[a-z]+$/.test(x))) ? w : null; }
+const TW_SRC = ['https://cdn.jsdelivr.net/npm/tonweb@0.0.66/dist/tonweb.js', 'https://unpkg.com/tonweb@0.0.66/dist/tonweb.js', 'https://cdn.jsdelivr.net/npm/tonweb/dist/tonweb.js'];
+async function ensureTonWeb() {
+  if (!window.TonWeb) await loadScript(TW_SRC);
+  if (!window.TonWeb) throw new Error('TonWeb failed to load');
+  const c = cfg(); const url = c.TONCENTER + '/jsonRPC';
+  ADM.provider = new TonWeb.HttpProvider(url, c.TONCENTER_KEY ? { apiKey: c.TONCENTER_KEY } : {});
+  ADM.tonweb = new TonWeb(ADM.provider); return ADM.tonweb;
+}
+async function deriveWallet(words, version) {
+  const tw = await ensureTonWeb();
+  const seed = await mnemonicToSeed32(words);
+  const kp = TonWeb.utils.nacl.sign.keyPair.fromSeed(seed);
+  const Cls = tw.wallet.all[version]; if (!Cls) throw new Error('Unsupported wallet version');
+  const wallet = new Cls(ADM.provider, { publicKey: kp.publicKey, wc: 0 });
+  const a = await wallet.getAddress();
+  return { kp, wallet, addr: a.toString(true, true, false) };
+}
+async function admBalance() { return await tcGet('getAddressBalance', { address: ADM.addr }); }
+async function admRefreshWallet() {
+  $('admAddr').textContent = ADM.addr || 'not set';
+  if (!ADM.addr) { $('admBal').textContent = '—'; return; }
+  try { $('admBal').textContent = fromNano(await admBalance()) + ' TON'; } catch (e) { $('admBal').textContent = 'unavailable (' + e.message + ')'; }
+}
+function admSt(id, kind, html) { setSt(id, kind, html); }
+
+async function admUnlock() {
+  const pass = $('admPass').value; if (!pass) return;
+  const box = Store.d.admin.box;
+  try {
+    if (box) {
+      const words = parseWords(await decryptWords(box, pass)); if (!words) throw new Error('bad data');
+      ADM.pass = pass; ADM.words = words; ADM.version = Store.d.admin.ver || 'v4R2';
+    } else {
+      if (pass.length < 6) { admSt('admLockSt', 'err', 'Choose a password with at least 6 characters'); return; }
+      ADM.pass = pass; ADM.words = null; Store.d.admin.pwSet = true; Store.save();
+    }
+    $('admLock').style.display = 'none'; $('admMain').style.display = 'block'; $('admPass').value = '';
+    fillAdminForm();
+    if (ADM.words) { try { const w = await deriveWallet(ADM.words, ADM.version); ADM.kp = w.kp; ADM.wallet = w.wallet; ADM.addr = w.addr; } catch (e) { toast('TonWeb: ' + e.message, 'err'); } }
+    admRefreshWallet(); renderReqs();
+  } catch (e) { admSt('admLockSt', 'err', 'Wrong password'); }
+}
+function openAdmin() {
+  $('admLock').style.display = 'block'; $('admMain').style.display = 'none'; admSt('admLockSt', '', '');
+  $('admLockSub').textContent = Store.d.admin.box ? 'Enter your admin password.' : 'First time: choose an admin password. It encrypts your 24 words on this device.';
+  $('admUnlock').textContent = Store.d.admin.box ? 'Unlock' : 'Set password'; openModal('mAdmin');
+}
+function admLock() { ADM.pass = ''; ADM.words = null; ADM.kp = null; ADM.wallet = null; closeModal('mAdmin'); }
+function fillAdminForm() {
+  const c = cfg(); $('admRecv').value = c.RECEIVE_ADDRESS || ADM.addr || ''; $('admPrice').value = c.LOOTBOX_PRICE; $('admTg').value = c.ADMIN_TG || ''; $('admKey').value = c.TONCENTER_KEY || '';
+  $('admVer').value = ADM.version; const p = $('admPrices'); p.innerHTML = '';
+  BOX_TABLE.forEach(([id]) => { p.insertAdjacentHTML('beforeend', '<input class="in" data-p="' + id + '" inputmode="decimal" placeholder="' + SKINS[id].name + ' sell price" value="' + (c.SELL_PRICES[id] || '') + '">'); });
+}
+async function admSaveWallet() {
+  const words = parseWords($('admWords').value); const ver = $('admVer').value;
+  if (!words) { toast('Enter exactly 24 words (a–z)', 'err'); return; }
+  try {
+    const w = await deriveWallet(words, ver);
+    Store.d.admin.box = await encryptWords(words.join(' '), ADM.pass); Store.d.admin.ver = ver; Store.save();
+    ADM.words = words; ADM.version = ver; ADM.kp = w.kp; ADM.wallet = w.wallet; ADM.addr = w.addr; $('admWords').value = '';
+    if (!$('admRecv').value) $('admRecv').value = w.addr;
+    toast('Wallet saved (encrypted)', 'ok'); admRefreshWallet();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+function admCollectCfg() {
+  const c = { SELL_PRICES: {} };
+  const recv = $('admRecv').value.trim(); if (recv && !toRaw(recv)) { toast('Receive address is not a valid TON address', 'err'); return null; }
+  if (recv) c.RECEIVE_ADDRESS = recv;
+  const pr = $('admPrice').value.trim(); if (pr) { if (!toNanoStr(pr)) { toast('Bad lootbox price', 'err'); return null; } c.LOOTBOX_PRICE = parseFloat(pr); }
+  document.querySelectorAll('#admPrices [data-p]').forEach((i) => { const v = i.value.trim(); if (v) { if (!toNanoStr(v)) { toast('Bad price for ' + i.dataset.p, 'err'); c.bad = 1; } else c.SELL_PRICES[i.dataset.p] = parseFloat(v); } });
+  if (c.bad) return null;
+  c.ADMIN_TG = $('admTg').value.trim().replace(/^@/, ''); c.TONCENTER_KEY = $('admKey').value.trim(); return c;
+}
+function admSaveCfg() { const c = admCollectCfg(); if (!c) return; Store.d.admin.cfg = c; Store.save(); refreshHome(); toast('Settings saved on this device', 'ok'); }
+function admSnippet() {
+  const c = admCollectCfg(); if (!c) return; const m = Object.assign({}, cfg(), c, { SELL_PRICES: Object.assign({}, cfg().SELL_PRICES, c.SELL_PRICES) });
+  const txt = "const CONFIG = {\n  RECEIVE_ADDRESS: '" + (m.RECEIVE_ADDRESS || '') + "',\n  LOOTBOX_PRICE: " + m.LOOTBOX_PRICE + ",\n  SELL_PRICES: " + JSON.stringify(m.SELL_PRICES) + ",\n  ADMIN_TG: '" + (m.ADMIN_TG || '') + "',\n  TONCENTER: '" + m.TONCENTER + "',\n  TONCENTER_KEY: '" + (m.TONCENTER_KEY || '') + "',\n  MANIFEST_URL: '" + (m.MANIFEST_URL || '') + "',\n  NETWORK: '-239'\n};";
+  copyText(txt, 'CONFIG copied — paste it over the old one in index.html');
+}
+
+/* ----- sale requests ----- */
+const tagOf = (h) => 'NB-' + bytesToHex(b64ToBytes(h)).slice(0, 12);
+async function verifySale(code) {
+  const j = parseSaleCode(code); if (!j) return { ok: false, reason: 'Invalid code format' };
+  const c = cfg(); if (!c.RECEIVE_ADDRESS) return { ok: false, reason: 'Receive address not configured', j };
+  let txs; try { txs = await tcGet('getTransactions', { address: c.RECEIVE_ADDRESS, limit: 1, lt: j.l, hash: j.h, to_lt: 0 }); } catch (e) { return { ok: false, reason: 'Chain lookup failed: ' + e.message, j, retry: true }; }
+  const tx = txs && txs[0]; if (!tx || tx.transaction_id.hash !== j.h) return { ok: false, reason: 'Transaction not found', j };
+  const m = tx.in_msg; if (!m || !m.source) return { ok: false, reason: 'Not an incoming payment', j };
+  const memo = readComment(m); if (!/^NB[A-Z2-9]{10}$/.test(memo)) return { ok: false, reason: 'Missing lootbox comment', j };
+  if (BigInt(m.value || '0') < BigInt(toNanoStr(c.LOOTBOX_PRICE) || '0') * 99n / 100n) return { ok: false, reason: 'Paid less than the lootbox price', j };
+  const d = deriveFromHash(j.h); if (d.id !== j.s || d.serial !== j.n) return { ok: false, reason: 'Skin does not match the purchase', j };
+  if (!c.SELL_PRICES[d.id]) return { ok: false, reason: 'No sell price for ' + d.id, j };
+  return { ok: true, j, h: j.h, skin: d.id, serial: d.serial, payTo: m.source, amount: toNanoStr(c.SELL_PRICES[d.id]) };
+}
+async function admAddCodes() {
+  const lines = $('admCodes').value.split(/\s+/).filter((x) => x.startsWith('NBS1.')); if (!lines.length) { toast('No valid codes found', 'err'); return; }
+  for (const code of lines) {
+    const j = parseSaleCode(code); if (!j) { toast('Skipped an invalid code', 'err'); continue; }
+    if (Store.d.admin.reqs.some((r) => r.h === j.h)) continue;
+    const r = { code, h: j.h, skin: j.s, serial: j.n, status: 'verifying', at: Date.now() }; Store.d.admin.reqs.unshift(r); Store.save(); renderReqs();
+    const v = await verifySale(code);
+    if (v.ok) { Object.assign(r, { status: 'ok', payTo: v.payTo, amount: v.amount, err: '' }); } else { r.status = v.retry ? 'verifying' : 'invalid'; r.err = v.reason; }
+    Store.save(); renderReqs();
+  }
+  $('admCodes').value = '';
+}
+function renderReqs() {
+  const el = $('admReqs'); el.innerHTML = ''; const reqs = Store.d.admin.reqs;
+  if (!reqs.length) { el.innerHTML = '<div class="hist"><span style="opacity:.5">No requests</span></div>'; return; }
+  reqs.slice(0, 40).forEach((r) => {
+    const d = document.createElement('div'); d.className = 'hist'; d.style.alignItems = 'flex-start';
+    const btns = (r.status === 'ok' || r.status === 'unconfirmed' || r.status === 'error') ? '<button class="btn sm gold" data-a="p">' + (r.status === 'ok' ? 'Pay' : 'Retry') + '</button>' : '';
+    const re = (r.status === 'verifying' || r.status === 'invalid') ? '<button class="btn sm blue" data-a="v">Re-verify</button>' : '';
+    const mk = (r.status === 'unconfirmed') ? '<button class="btn sm green" data-a="m">Mark paid</button>' : '';
+    d.innerHTML = '<div style="flex:1;min-width:0"><b>' + esc(SKINS[r.skin] ? SKINS[r.skin].name : r.skin) + '</b> ' + fmtSerial(r.serial) + ' <span class="chip ' + r.status + '">' + r.status + '</span>' +
+      (r.amount ? '<br><code>' + fromNano(r.amount) + ' TON → ' + esc((r.payTo || '').slice(0, 10)) + '…</code>' : '') + (r.err ? '<br><code style="color:#ff9a9a">' + esc(r.err) + '</code>' : '') + (r.payTx ? '<br><code>' + esc(r.payTx) + '</code>' : '') + '</div><div style="display:flex;flex-direction:column;gap:6px">' + btns + re + mk + '<button class="btn sm ghost" data-a="x">✕</button></div>';
+    d.querySelectorAll('[data-a]').forEach((b) => { b.onclick = () => admReqAction(r, b.dataset.a); }); el.appendChild(d);
+  });
+}
+async function admReqAction(r, a) {
+  if (a === 'x') { askConfirm({ icon: '✕', title: 'Remove request?', text: r.status === 'paid' ? 'It is already paid — removing loses the double-pay protection from this list (the on-chain tag still protects you).' : 'It will be removed from the list.', ok: 'REMOVE', danger: true }, () => { Store.d.admin.reqs = Store.d.admin.reqs.filter((x) => x !== r); Store.save(); renderReqs(); }); return; }
+  if (a === 'v') { const v = await verifySale(r.code); if (v.ok) Object.assign(r, { status: 'ok', payTo: v.payTo, amount: v.amount, err: '' }); else { r.status = v.retry ? 'verifying' : 'invalid'; r.err = v.reason; } Store.save(); renderReqs(); return; }
+  if (a === 'm') { askConfirm({ icon: '✓', title: 'Mark as paid?', text: 'Only if you saw the payout on chain.', ok: 'MARK PAID' }, () => { r.status = 'paid'; r.err = ''; Store.save(); renderReqs(); }); return; }
+  if (a === 'p') { askConfirm({ icon: '💰', title: 'Send ' + fromNano(r.amount) + ' TON?', text: (r.status === 'ok' ? '' : 'Only retry if you checked on chain that it was NOT paid. ') + 'To ' + r.payTo, ok: 'PAY', danger: r.status !== 'ok' }, () => payRequest(r)); }
+}
+async function alreadyPaidOnChain(h) {
+  try { const txs = await tcGet('getTransactions', { address: ADM.addr, limit: 100 }); const tag = tagOf(h);
+    for (const tx of txs) for (const om of (tx.out_msgs || [])) if (readComment(om).includes(tag)) return true; } catch (e) { throw new Error('cannot check previous payouts: ' + e.message); }
+  return false;
+}
+async function payRequest(r) {
+  if (ADM.busy) { toast('Another payout is running', 'err'); return false; }
+  if (!ADM.kp || !ADM.wallet) { toast('Save the 24-word wallet first', 'err'); return false; }
+  ADM.busy = true;
+  try {
+    const v = await verifySale(r.code); if (!v.ok) { r.status = 'invalid'; r.err = v.reason; Store.save(); renderReqs(); return false; }
+    r.payTo = v.payTo; r.amount = v.amount;
+    if (await alreadyPaidOnChain(r.h)) { r.status = 'paid'; r.err = 'already paid (found on chain)'; Store.save(); renderReqs(); return false; }
+    const bal = BigInt(await admBalance()); if (bal < BigInt(r.amount) + 20000000n) { r.status = 'error'; r.err = 'Not enough balance in payout wallet'; Store.save(); renderReqs(); return false; }
+    r.status = 'pending'; r.err = ''; Store.save(); renderReqs();
+    const seqno = (await ADM.wallet.methods.seqno().call()) || 0;
+    const dest = new TonWeb.utils.Address(v.payTo).toString(true, true, false);
+    let sendErr = null;
+    try { await ADM.wallet.methods.transfer({ secretKey: ADM.kp.secretKey, toAddress: dest, amount: v.amount, seqno, payload: 'Nebula payout ' + tagOf(r.h), sendMode: 3 }).send(); } catch (e) { sendErr = e; }
+    let confirmed = false, polled = false;
+    for (let i = 0; i < 26 && !confirmed; i++) { await sleep(2500); try { const s2 = (await ADM.wallet.methods.seqno().call()) || 0; polled = true; if (s2 > seqno) confirmed = true; } catch (e) {} }
+    if (confirmed) { r.status = 'paid'; r.err = ''; r.payTx = 'seqno ' + seqno; Store.save(); renderReqs(); admRefreshWallet(); toast('Paid ' + fromNano(r.amount) + ' TON', 'ok'); return true; }
+    if (sendErr && polled) { r.status = 'error'; r.err = 'Send failed: ' + sendErr.message; }
+    else { r.status = 'unconfirmed'; r.err = 'Not confirmed yet — check the wallet history before retrying'; }
+    Store.save(); renderReqs(); return false;
+  } catch (e) { r.status = 'error'; r.err = e.message; Store.save(); renderReqs(); return false; }
+  finally { ADM.busy = false; }
+}
+async function admPayAll() {
+  const list = Store.d.admin.reqs.filter((r) => r.status === 'ok'); if (!list.length) { toast('Nothing to pay', 'err'); return; }
+  askConfirm({ icon: '💰', title: 'Pay ' + list.length + ' request(s)?', text: 'Each one is verified on chain again before sending.', ok: 'PAY ALL' }, async () => { for (const r of list) { const ok = await payRequest(r); if (!ok && r.status === 'unconfirmed') break; } });
+}
+
+/* ----- self test ----- */
+async function admSelfTest() {
+  const out = $('admTestOut'); out.innerHTML = '';
+  const line = (ok, txt) => { out.insertAdjacentHTML('beforeend', '<div class="hist"><span>' + (ok === null ? '⚠️' : ok ? '✅' : '❌') + ' ' + esc(txt) + '</span></div>'); };
+  const c = cfg();
+  line(!!(window.crypto && crypto.subtle), 'WebCrypto available');
+  try { const b = commentBoc('NBTEST'); const by = b64ToBytes(b); line(by[0] === 0xb5 && by[1] === 0xee && by.length === 17 + 6, 'Comment payload (BOC) built: ' + b); } catch (e) { line(false, 'BOC: ' + e.message); }
+  const raw = toRaw(c.RECEIVE_ADDRESS); line(!!raw, 'Receive address valid' + (raw ? ' (' + raw.slice(0, 12) + '…)' : ' — set it in section 2'));
+  const nano = toNanoStr(c.LOOTBOX_PRICE); line(!!nano, 'Lootbox price = ' + c.LOOTBOX_PRICE + ' TON');
+  for (const [id] of BOX_TABLE) if (!c.SELL_PRICES[id]) line(false, 'Missing sell price for ' + id);
+  const ev = BOX_TABLE.reduce((s, [id, w]) => s + (c.SELL_PRICES[id] || 0) * w / 100, 0);
+  line(ev < c.LOOTBOX_PRICE, 'Expected sell value ' + ev.toFixed(4) + ' TON vs box price ' + c.LOOTBOX_PRICE + (ev < c.LOOTBOX_PRICE ? ' (you keep a margin)' : ' (you would LOSE money on average!)'));
+  try { const mf = c.MANIFEST_URL || new URL('tonconnect-manifest.json', location.href).href; const r = await fetch(mf); const j = await r.json(); line(!!(j.url && j.name && j.iconUrl), 'TonConnect manifest reachable: ' + mf); } catch (e) { line(false, 'TonConnect manifest not reachable (add tonconnect-manifest.json next to index.html)'); }
+  try { await initTonConnect(); line(!!tc, 'TonConnect library loaded'); } catch (e) { line(false, 'TonConnect library'); }
+  if (raw) { try { const st = await tcGet('getAddressInformation', { address: c.RECEIVE_ADDRESS }); line(true, 'toncenter OK · receive wallet state: ' + st.state + ' · balance ' + fromNano(st.balance || '0') + ' TON'); } catch (e) { line(false, 'toncenter: ' + e.message); } }
+  try { await ensureTonWeb(); line(true, 'TonWeb library loaded'); } catch (e) { line(false, 'TonWeb: ' + e.message); }
+  if (ADM.words) {
+    try { const w = await deriveWallet(ADM.words, ADM.version); line(w.addr === ADM.addr, 'Payout wallet derives: ' + w.addr); const b = BigInt(await admBalance()); line(b >= 30000000n, 'Payout balance ' + fromNano(b) + ' TON' + (b < 30000000n ? ' — top it up so payouts can be sent' : '')); const s = (await w.wallet.methods.seqno().call()); line(true, 'Wallet seqno readable: ' + (s || 0)); } catch (e) { line(false, 'Payout wallet: ' + e.message); }
+  } else line(null, 'No 24-word payout wallet saved yet (needed to pay sellers)');
+  const t = deriveFromHash('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='); line(!!t.id && t.serial >= 100000, 'Skin derivation deterministic: ' + t.id + ' ' + fmtSerial(t.serial));
+  line(null, 'Receive-address test payment: buy one lootbox yourself with a SMALL price, then sell it and pay it from section 3.');
+}
+async function admGift() { const inst = { id: 'aurora', serial: 123456, at: Date.now() }; Store.d.inst.push(inst); Store.save(); refreshHome(); toast('Test skin added (not sellable)', 'ok'); }
+function admBackup() { copyText(JSON.stringify(Store.d.admin.reqs), 'Requests copied'); }
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+function init() {
+  Store.load(); initWorld(false); refreshHome(); renderLocker();
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { const m = b.closest('.modal'); m.classList.remove('on'); if (m.id === 'mBox') stopBoxPoll(); }));
+  $('playBtn').onclick = startGame; $('againBtn').onclick = startGame; $('homeBtn').onclick = goHome;
+  $('prevSkin').onclick = () => cycleSkin(-1); $('nextSkin').onclick = () => cycleSkin(1);
+  $('dLocker').onclick = () => { renderLocker(); openModal('mLocker'); }; $('dBox').onclick = openBox;
+  $('dWallet').onclick = () => { refreshWalletUi(); openModal('mWallet'); initTonConnect(); }; $('walletPill').onclick = $('dWallet').onclick;
+  $('wConnect').onclick = async () => { await initTonConnect(); if (!tc) { toast('Wallet service unavailable', 'err'); return; } closeModal('mWallet'); const go = () => { const p = tc.openModal(); if (p && p.catch) p.catch(() => {}); }; if (tc.wallet) tc.disconnect().then(go).catch(go); else go(); };
+  $('wDisc').onclick = () => { if (tc && tc.wallet) tc.disconnect().catch(() => {}); };
+  $('boxPay').onclick = payBox; $('manLink').onclick = payBoxLink; $('manCopy').onclick = () => { const t = $('manMemo').textContent; if (t && t !== '—') copyText(t, 'Comment copied'); else toast('Tap “Open in Tonkeeper” first', 'err'); };
+  $('detEq').onclick = () => { Store.d.equip = { id: detInst.id, serial: detInst.serial }; Store.save(); closeModal('mDetail'); renderLocker(); refreshHome(); toast('Equipped', 'ok'); };
+  $('detSell').onclick = () => sellInst(detInst);
+  $('cOk').onclick = () => { const f = confirmCb; closeModal('mConfirm'); confirmCb = null; if (f) f(); }; $('cNo').onclick = () => { closeModal('mConfirm'); confirmCb = null; };
+  $('revOk').onclick = () => { $('reveal').classList.remove('on'); cancelAnimationFrame(revRaf); renderLocker(); };
+  // admin: tap the logo 5 times
+  let taps = 0, tapT = 0; $('logo').addEventListener('click', () => { const n = Date.now(); taps = (n - tapT < 1500) ? taps + 1 : 1; tapT = n; if (taps >= 5) { taps = 0; openAdmin(); } });
+  if (location.hash === '#admin') openAdmin();
+  $('admUnlock').onclick = admUnlock; $('admPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') admUnlock(); });
+  $('admSaveW').onclick = admSaveWallet; $('admSaveC').onclick = admSaveCfg; $('admSnip').onclick = admSnippet; $('admAdd').onclick = admAddCodes; $('admPayAll').onclick = admPayAll;
+  $('admTest').onclick = admSelfTest; $('admGift').onclick = admGift; $('admBackup').onclick = admBackup; $('admLockBtn').onclick = admLock;
+  // resume payments that were paid but not yet delivered
+  if (Store.d.orders.length) { boxPollStart = Date.now(); setTimeout(() => { initTonConnect(); startBoxPoll(); }, 800); }
+  document.addEventListener('pointerdown', () => {}, { passive: true });
+  requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); }); requestAnimationFrame(animPreview);
+}
+init();
+</script>
+</body>
+</html>
