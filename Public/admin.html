@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Admin</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:16px 14px 60px;color:#f4f8ff;font-family:-apple-system,Inter,Roboto,sans-serif;background:radial-gradient(circle at 20% 0,#2a3b7a,transparent 50%),radial-gradient(circle at 90% 30%,#5a2a8a,transparent 45%),#070b14;background-attachment:fixed}
+.g{position:relative;overflow:hidden;margin-bottom:12px;padding:16px;border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,.2),rgba(255,255,255,.05));backdrop-filter:blur(22px) saturate(190%);-webkit-backdrop-filter:blur(22px) saturate(190%);border:1px solid rgba(255,255,255,.26);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.6),0 14px 40px rgba(0,0,0,.4)}
+h1{margin:4px 2px 14px;font-size:26px}h3{margin:0 0 10px}label{font-size:12px;opacity:.7;display:block;margin:8px 0 4px}
+input{width:100%;padding:11px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;font-size:15px;outline:0}
+button{border:0;color:#fff;font-weight:700;padding:11px 16px;border-radius:999px;background:linear-gradient(135deg,rgba(110,231,255,.6),rgba(179,136,255,.55));cursor:pointer;margin-top:8px}
+.r{display:flex;gap:8px;align-items:center}.r>*{flex:1;min-width:0}.r button{flex:0 0 auto;margin:0}.m{opacity:.65;font-size:12px}.st{display:flex;gap:10px}.st .g{flex:1;margin:0;text-align:center}.st b{font-size:20px;display:block}
+.w{display:flex;justify-content:space-between;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+</style></head><body>
+<h1>⚙️ Admin</h1><div class="st"><div class="g"><b id="hot">–</b><span class="m">Hot wallet TON</span></div><div class="g"><b id="pl">–</b><span class="m">Players</span></div></div>
+<div class="g" style="margin-top:12px"><h3>Economy (TON)</h3><div id="eco"></div></div>
+<div class="g"><h3>Skins (price in TON)</h3><div id="sk"></div></div>
+<div class="g"><h3>Withdrawals</h3><div id="wd"></div></div>
+<div class="g"><h3>Ban player</h3><input id="bid" type="number" placeholder="Telegram ID"><div class="r"><button onclick="ban(true)">Ban</button><button onclick="ban(false)">Unban</button></div></div>
+<script>
+const TG=Telegram.WebApp;TG.ready();TG.expand();
+const $=i=>document.getElementById(i),f=n=>(Number(n)/1e9);
+async function api(p,b){const r=await fetch(p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','X-Init':TG.initData},body:b?JSON.stringify(b):undefined});const j=await r.json();if(!r.ok)throw new Error(j.error);return j}
+const L={reward_per_kill_nano:['Reward per kill',1],min_withdraw_nano:['Min withdraw',1],withdraw_fee_nano:['Withdraw fee',1],daily_withdraw_cap_nano:['Daily cap per player',1],max_kills_per_minute:['Max kills / minute (anti-cheat)',0]};
+async function load(){
+ try{const d=await api('/api/admin/overview');
+ $('hot').textContent=d.hot?f(d.hot).toFixed(3):'–';$('pl').textContent=d.players;
+ $('eco').innerHTML=Object.keys(L).map(k=>`<label>${L[k][0]}</label><div class="r"><input id="c_${k}" type="number" step="any" value="${L[k][1]?f(d.cfg[k]):d.cfg[k]}"><button onclick="sv('${k}',${L[k][1]})">Save</button></div>`).join('');
+ $('sk').innerHTML=d.skins.map(s=>`<label>${s.name} · ${s.rarity}</label><div class="r"><input id="p_${s.id}" type="number" step="any" value="${f(s.price_nano)}"><input id="a_${s.id}" type="checkbox" ${s.active?'checked':''} style="flex:0 0 26px;height:26px"><button onclick="ss('${s.id}')">Save</button></div>`).join('');
+ $('wd').innerHTML=d.withdrawals.map(w=>`<div class="w"><span>#${w.id} · ${w.telegram_id}<br><span class="m">${w.address.slice(0,10)}…</span></span><span style="text-align:right">${f(w.amount_nano)} TON<br><span class="m">${w.status}${w.error?' · '+w.error:''}</span>${w.status==='failed'?`<br><button style="padding:5px 10px;margin:4px 0 0" onclick="rf(${w.id})">Refund</button>`:''}</span></div>`).join('')||'<div class="m">None</div>';
+ }catch(e){document.body.innerHTML='<h1>'+e.message+'</h1>'}
+}
+async function sv(k,t){try{await api('/api/admin/settings',{key:k,value:t?$('c_'+k).value*1e9:$('c_'+k).value});alert('Saved')}catch(e){alert(e.message)}}
+async function ss(id){try{await api('/api/admin/skin',{id,price_nano:$('p_'+id).value*1e9,active:$('a_'+id).checked});alert('Saved')}catch(e){alert(e.message)}}
+async function rf(id){if(!confirm('Refund #'+id+'? Make sure it was NOT paid on-chain.'))return;try{await api('/api/admin/refund',{id});load()}catch(e){alert(e.message)}}
+async function ban(b){try{await api('/api/admin/ban',{telegram_id:$('bid').value,banned:b});alert('Done')}catch(e){alert(e.message)}}
+load();
+</script></body></html>
