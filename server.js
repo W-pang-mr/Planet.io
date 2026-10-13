@@ -1,7 +1,10 @@
-// server.js - Planet.io Online v3.7.0
+// server.js - Planet.io Online v4.0.0
+// TON Connect lootbox purchases + secure auto-payout for skin sales
 'use strict';
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -13,18 +16,22 @@ const {
   WalletContractV3R2,
   internal,
   SendMode,
-  Address
+  Address,
+  beginCell,
+  toNano
 } = require('@ton/ton');
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
   pingInterval: 10000,
-  pingTimeout: 20000
+  pingTimeout: 20000,
+  maxHttpBufferSize: 1e6
 });
-app.use(express.static('public'));
 
 /* ================= CONFIG ================= */
 const PORT = process.env.PORT || 3000;
@@ -32,9 +39,26 @@ const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const TON_API_KEY = process.env.TON_API_KEY || '';
 const TON_ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC';
-const TON_HTTP_API = process.env.TON_HTTP_API || 'https://toncenter.com/api/v2';
+const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
+const ICON_URL = process.env.ICON_URL || '';
+const TWA_RETURN_URL = process.env.TWA_RETURN_URL || '';
+const ENV_MNEMONIC = process.env.TON_MNEMONIC || '';
+const ENV_WALLET_VERSION = process.env.TON_WALLET_VERSION || '';
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '262626');
 const LOOTBOX_MAX_SERIAL = 999;
+
+const ORDER_UI_TTL_MS = 30 * 60 * 1000;         // how long the UI treats an order as fresh
+const ORDER_MATCH_WINDOW_MS = 24 * 60 * 60 * 1000; // late payments are still delivered for 24h
+const TX_VALID_FOR_SEC = 5 * 60;                // TonConnect validUntil
+const SCAN_INTERVAL_MS = 4000;
+const PAYOUT_WORKER_INTERVAL_MS = 7000;
+const PAYOUT_RETRY_BACKOFF_MS = 30000;
+const PAYOUT_MAX_ATTEMPTS = 3;
+const SEQNO_WAIT_MS = 65000;
+const FEE_RESERVE_NANO = toNano('0.02');
+const MIN_LOOTBOX_PRICE = 0.001;
+const MAX_PENDING_ORDERS_PER_USER = 5;
+const PUBLIC_SETTING_KEYS = ['lootbox_price', 'lootbox_remaining', 'lootbox_tag', 'autopay_enabled'];
 
 const WORLD_RADIUS = 1200;
 const CX = 1500, CY = 1500;
@@ -54,7 +78,28 @@ const SPLIT_LAUNCH_SPEED = 1300;
 const MASS_DECAY_RATE = 0.002;
 const MASS_DECAY_MIN = 40;
 
-/* ================= ENCRYPTION ================= */
+process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e && e.message ? e.message : e));
+process.on('uncaughtException', (e) => console.error('uncaughtException:', e && e.stack ? e.stack : e));
+
+/* ================= SECURITY HELPERS ================= */
+function safeEqual(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+const rateBuckets = new Map();
+function rateLimited(key, ms) {
+  const now = Date.now();
+  const last = rateBuckets.get(key) || 0;
+  if (now - last < ms) return true;
+  rateBuckets.set(key, now);
+  if (rateBuckets.size > 5000) {
+    for (const [k, t] of rateBuckets) if (now - t > 60000) rateBuckets.delete(k);
+  }
+  return false;
+}
+
 function deriveKey(password) {
   return crypto.scryptSync(String(password), 'planetio_salt_v1', 32);
 }
@@ -82,12 +127,38 @@ function decryptMnemonic(payload, password) {
   } catch (e) { return null; }
 }
 
-/* ================= WALLET HELPERS ================= */
+/* ================= TON ADDRESS / WALLET HELPERS ================= */
+// Accepts friendly (EQ/UQ) or raw (0:hex) mainnet addresses. Returns a non-bounceable friendly string.
+function normalizeUserAddress(input) {
+  const s = String(input || '').trim();
+  if (!s || s.length > 100) return null;
+  try {
+    let addr;
+    if (Address.isFriendly(s)) {
+      const parsed = Address.parseFriendly(s);
+      if (parsed.isTestOnly) return null;
+      addr = parsed.address;
+    } else {
+      addr = Address.parse(s);
+    }
+    return addr.toString({ bounceable: false, testOnly: false, urlSafe: true });
+  } catch (e) { return null; }
+}
+
 function createWallet(versionId, publicKey) {
   try {
     switch (versionId) {
-      case 'v5r1': return WalletContractV5R1.create({ workchain: 0, publicKey });
-      case 'v5r1-1': return WalletContractV5R1.create({ workchain: 0, publicKey, walletId: { context: { walletVersion: 'v5r1', subwalletNumber: 1 }, subwalletNumber: 1 } });
+      case 'v5r1':
+        return WalletContractV5R1.create({ workchain: 0, publicKey });
+      case 'v5r1-1':
+        return WalletContractV5R1.create({
+          workchain: 0,
+          publicKey,
+          walletId: {
+            networkGlobalId: -239,
+            context: { walletVersion: 'v5r1', workchain: 0, subwalletNumber: 1 }
+          }
+        });
       case 'v4r2': return WalletContractV4.create({ workchain: 0, publicKey });
       case 'v3r2': return WalletContractV3R2.create({ workchain: 0, publicKey });
       case 'v3r1': return WalletContractV3R1.create({ workchain: 0, publicKey });
@@ -97,6 +168,10 @@ function createWallet(versionId, publicKey) {
     console.error('createWallet ' + versionId + ':', e.message);
     return null;
   }
+}
+
+function walletAddressString(w) {
+  return w.address.toString({ bounceable: false, testOnly: false, urlSafe: true });
 }
 
 function deriveAllWallets(publicKey) {
@@ -112,17 +187,44 @@ function deriveAllWallets(publicKey) {
     const w = createWallet(v.id, publicKey);
     if (!w) continue;
     try {
-      out.push({
-        id: v.id,
-        name: v.name,
-        address: w.address.toString(),
-        addressNonBounce: w.address.toString({ bounceable: false, testOnly: false })
-      });
+      out.push({ id: v.id, name: v.name, address: walletAddressString(w) });
     } catch (e) {
       console.error('derive ' + v.id + ':', e.message);
     }
   }
   return out;
+}
+
+function parseMnemonicWords(text) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length !== 12 && words.length !== 24) return null;
+  return words;
+}
+
+function randomMemo() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(12);
+  let out = 'PIO';
+  for (let i = 0; i < 12; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
+function commentPayloadBase64(text) {
+  return beginCell().storeUint(0, 32).storeStringTail(text).endCell().toBoc().toString('base64');
+}
+
+function parseCommentFromBody(body) {
+  try {
+    if (!body) return null;
+    const s = body.beginParse();
+    if (s.remainingBits < 32) return null;
+    if (s.loadUint(32) !== 0) return null;
+    return s.loadStringTail().trim();
+  } catch (e) { return null; }
+}
+
+function txHashHex(tx) {
+  try { return tx.hash().toString('hex'); } catch (e) { return null; }
 }
 
 /* ================= DATABASE ================= */
@@ -134,14 +236,17 @@ if (DATABASE_URL) {
   db = new Pool({
     connectionString: DATABASE_URL,
     ssl: isInternal ? false : { rejectUnauthorized: false },
-    max: 5
+    max: 10
   });
-  initDatabase();
+  db.on('error', (e) => console.error('pg pool error:', e.message));
 } else {
-  console.warn('⚠️ DATABASE_URL not set — memory only');
+  console.warn('⚠️ DATABASE_URL not set — payments and progress are disabled');
 }
 
+const DEFAULT_SKINS_JSON = '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]';
+
 async function initDatabase() {
+  if (!db) return;
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -151,7 +256,7 @@ async function initDatabase() {
         tokens INTEGER DEFAULT 0,
         speed_level INTEGER DEFAULT 0,
         mass_level INTEGER DEFAULT 0,
-        unlocked_skins TEXT DEFAULT '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
+        unlocked_skins TEXT DEFAULT '${DEFAULT_SKINS_JSON}',
         current_skin TEXT DEFAULT 'default',
         total_kills INTEGER DEFAULT 0,
         high_score INTEGER DEFAULT 0,
@@ -162,16 +267,11 @@ async function initDatabase() {
     `);
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT DEFAULT '';`);
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS admin_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_price', '0.01') ON CONFLICT (key) DO NOTHING;`);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_remaining', '-1') ON CONFLICT (key) DO NOTHING;`);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('lootbox_tag', '') ON CONFLICT (key) DO NOTHING;`);
-    await db.query(`INSERT INTO admin_settings (key, value) VALUES ('autopay_enabled', '0') ON CONFLICT (key) DO NOTHING;`);
+    await db.query(`CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT);`);
+    const defaults = [['lootbox_price', '0.01'], ['lootbox_remaining', '-1'], ['lootbox_tag', ''], ['autopay_enabled', '0']];
+    for (const [k, v] of defaults) {
+      await db.query(`INSERT INTO admin_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING;`, [k, v]);
+    }
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS sell_requests (
@@ -187,6 +287,11 @@ async function initDatabase() {
         paid_at BIGINT
       );
     `);
+    await db.query(`ALTER TABLE sell_requests ADD COLUMN IF NOT EXISTS error TEXT;`);
+    await db.query(`ALTER TABLE sell_requests ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;`);
+    await db.query(`ALTER TABLE sell_requests ADD COLUMN IF NOT EXISTS updated_at BIGINT;`);
+    await db.query(`CREATE INDEX IF NOT EXISTS sell_requests_status_idx ON sell_requests (status);`);
+    await db.query(`CREATE INDEX IF NOT EXISTS sell_requests_user_idx ON sell_requests (user_id);`);
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS skin_prices (
@@ -195,8 +300,7 @@ async function initDatabase() {
         is_sellable BOOLEAN DEFAULT FALSE
       );
     `);
-    const seedSkins = ['mind', 'knight', 'rage'];
-    for (const s of seedSkins) {
+    for (const s of ['mind', 'knight', 'rage']) {
       await db.query(
         `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, 0, FALSE) ON CONFLICT (skin_id) DO NOTHING;`,
         [s]
@@ -204,15 +308,34 @@ async function initDatabase() {
     }
     await db.query(`DELETE FROM skin_prices WHERE skin_id = 'fire';`);
 
+    // legacy table (old client-chosen memos) — kept so old data is not lost
+    await db.query(`CREATE TABLE IF NOT EXISTS claimed_memos (memo TEXT PRIMARY KEY, user_id TEXT, claimed_at BIGINT);`);
+
     await db.query(`
-      CREATE TABLE IF NOT EXISTS claimed_memos (
-        memo TEXT PRIMARY KEY,
-        user_id TEXT,
-        claimed_at BIGINT
+      CREATE TABLE IF NOT EXISTS lootbox_orders (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        memo TEXT UNIQUE NOT NULL,
+        amount_nano BIGINT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        tx_hash TEXT UNIQUE,
+        payer TEXT,
+        skin_id TEXT,
+        serial INTEGER,
+        seen BOOLEAN DEFAULT FALSE,
+        error TEXT,
+        created_at BIGINT,
+        paid_at BIGINT
       );
     `);
+    await db.query(`CREATE INDEX IF NOT EXISTS lootbox_orders_status_idx ON lootbox_orders (status);`);
+    await db.query(`CREATE INDEX IF NOT EXISTS lootbox_orders_user_idx ON lootbox_orders (user_id);`);
 
     await db.query(`CREATE SEQUENCE IF NOT EXISTS lootbox_serial_seq START 1 MAXVALUE ${LOOTBOX_MAX_SERIAL};`);
+
+    // crash recovery: anything that was mid-flight when the process died is ambiguous → needs a human look
+    await db.query(`UPDATE sell_requests SET status = 'check_needed', error = 'Server restarted during payout — verify on chain' WHERE status = 'processing';`);
+    await db.query(`UPDATE lootbox_orders SET status = 'refund_failed', error = 'Server restarted during refund — verify on chain' WHERE status = 'refunding';`);
 
     dbReady = true;
     console.log('✅ Database ready');
@@ -254,7 +377,7 @@ async function getOrCreateUser(id, username, firstName) {
   if (!dbReady) return {
     telegram_id: id, username, first_name: firstName,
     tokens: 0, speed_level: 0, mass_level: 0,
-    unlocked_skins: '[{"id":"default","serial":null,"source":"starter","acquiredAt":0}]',
+    unlocked_skins: DEFAULT_SKINS_JSON,
     current_skin: 'default', total_kills: 0, high_score: 0, wallet_address: ''
   };
   try {
@@ -262,14 +385,13 @@ async function getOrCreateUser(id, username, firstName) {
     if (r.rows.length === 0) {
       await db.query(
         `INSERT INTO users (telegram_id, username, first_name, created_at, last_seen)
-         VALUES ($1, $2, $3, $4, $5)`,
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (telegram_id) DO NOTHING`,
         [id, username, firstName, Date.now(), Date.now()]
       );
       const r2 = await db.query('SELECT * FROM users WHERE telegram_id = $1', [id]);
       return r2.rows[0];
     }
-    await db.query('UPDATE users SET last_seen = $1, username = $2 WHERE telegram_id = $3',
-      [Date.now(), username, id]);
+    await db.query('UPDATE users SET last_seen = $1, username = $2 WHERE telegram_id = $3', [Date.now(), username, id]);
     return r.rows[0];
   } catch (e) {
     console.error('getOrCreateUser:', e.message);
@@ -277,24 +399,35 @@ async function getOrCreateUser(id, username, firstName) {
   }
 }
 
+const INT_MAX = 2000000000;
+function clampInt(v, min, max) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
+
+// NOTE: unlocked_skins is server-authoritative. The client can never write it (it used to be possible,
+// which let a modified client give itself any skin and sell it for TON).
 async function saveProgress(id, data) {
-  if (!dbReady) return false;
+  if (!dbReady || !data) return false;
   try {
-    const normalized = normalizeSkins(data.unlockedSkins);
+    const cur = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [id]);
+    if (cur.rows.length === 0) return false;
+    const owned = normalizeSkins(cur.rows[0].unlocked_skins);
+    let currentSkin = String(data.currentSkin || 'default');
+    if (!owned.some(s => s.id === currentSkin)) currentSkin = 'default';
     await db.query(
       `UPDATE users SET
         tokens = $1, speed_level = $2, mass_level = $3,
-        unlocked_skins = $4, current_skin = $5,
-        total_kills = $6, high_score = $7, last_seen = $8
-       WHERE telegram_id = $9`,
+        current_skin = $4, total_kills = $5, high_score = $6, last_seen = $7
+       WHERE telegram_id = $8`,
       [
-        Math.max(0, parseInt(data.tokens) || 0),
-        Math.min(50, Math.max(0, parseInt(data.speedLevel) || 0)),
-        Math.min(15, Math.max(0, parseInt(data.massLevel) || 0)),
-        JSON.stringify(normalized),
-        data.currentSkin || 'default',
-        Math.max(0, parseInt(data.totalKills) || 0),
-        Math.max(0, parseInt(data.highScore) || 0),
+        clampInt(data.tokens, 0, INT_MAX),
+        clampInt(data.speedLevel, 0, 50),
+        clampInt(data.massLevel, 0, 15),
+        currentSkin,
+        clampInt(data.totalKills, 0, INT_MAX),
+        clampInt(data.highScore, 0, INT_MAX),
         Date.now(),
         id
       ]
@@ -306,16 +439,17 @@ async function saveProgress(id, data) {
   }
 }
 
-async function getAdminSettings() {
-  if (!dbReady) return { lootbox_price: '0.01', lootbox_remaining: '-1', lootbox_tag: '', autopay_enabled: '0' };
+const SETTING_FALLBACK = { lootbox_price: '0.01', lootbox_remaining: '-1', lootbox_tag: '', autopay_enabled: '0' };
+
+// Only whitelisted keys ever leave the server (the encrypted mnemonic used to be broadcast to every client!).
+async function getPublicSettings() {
+  if (!dbReady) return Object.assign({}, SETTING_FALLBACK);
   try {
-    const r = await db.query('SELECT key, value FROM admin_settings');
-    const out = {};
+    const r = await db.query('SELECT key, value FROM admin_settings WHERE key = ANY($1)', [PUBLIC_SETTING_KEYS]);
+    const out = Object.assign({}, SETTING_FALLBACK);
     for (const row of r.rows) out[row.key] = row.value;
     return out;
-  } catch (e) {
-    return { lootbox_price: '0.01', lootbox_remaining: '-1', lootbox_tag: '', autopay_enabled: '0' };
-  }
+  } catch (e) { return Object.assign({}, SETTING_FALLBACK); }
 }
 
 async function setAdminSetting(key, value) {
@@ -337,143 +471,11 @@ async function getAdminSetting(key) {
   } catch (e) { return null; }
 }
 
-/* ================= TON WALLET ================= */
-let hotWallet = null;
-let hotWalletKeyPair = null;
-let tonClient = null;
-let hotWalletVersion = null;
-
-async function initTonWallet() {
-  if (!dbReady) return;
-  try {
-    const encMnemonic = await getAdminSetting('ton_mnemonic_enc');
-    if (!encMnemonic) {
-      console.warn('⚠️ No mnemonic saved. Set via admin panel.');
-      return;
-    }
-    const mnemonic = decryptMnemonic(encMnemonic, ADMIN_PASSWORD);
-    if (!mnemonic) {
-      console.warn('⚠️ Cannot decrypt mnemonic — password changed?');
-      return;
-    }
-    const versionId = (await getAdminSetting('ton_wallet_version')) || 'v5r1';
-    const words = mnemonic.trim().split(/\s+/);
-    if (words.length !== 12 && words.length !== 24) {
-      console.error('❌ Bad mnemonic word count');
-      return;
-    }
-    const kp = await mnemonicToPrivateKey(words);
-    const wallet = createWallet(versionId, kp.publicKey);
-    if (!wallet) { console.error('❌ createWallet failed'); return; }
-    hotWalletKeyPair = kp;
-    hotWallet = wallet;
-    hotWalletVersion = versionId;
-    if (!tonClient) tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
-    console.log('✅ TON wallet ready (' + versionId + '): ' + wallet.address.toString());
-  } catch (e) {
-    console.error('❌ initTonWallet:', e.message);
-  }
+function getLootboxPrice(settings) {
+  const p = parseFloat(settings.lootbox_price);
+  if (!Number.isFinite(p) || p < MIN_LOOTBOX_PRICE) return MIN_LOOTBOX_PRICE;
+  return Math.min(p, 100000);
 }
-
-async function getHotWalletBalance() {
-  if (!tonClient || !hotWallet) return null;
-  try {
-    const bal = await tonClient.getBalance(hotWallet.address);
-    return Number(bal) / 1e9;
-  } catch (e) { return null; }
-}
-
-async function sendTonToUser(toAddress, amountTon) {
-  if (!hotWallet || !hotWalletKeyPair || !tonClient) throw new Error('TON wallet not initialized');
-  const contract = tonClient.open(hotWallet);
-  const seqno = await contract.getSeqno();
-  const amountNano = BigInt(Math.round(amountTon * 1e9));
-  await contract.sendTransfer({
-    seqno,
-    secretKey: hotWalletKeyPair.secretKey,
-    sendMode: SendMode.PAY_GAS_SEPARATELY,
-    messages: [internal({ to: Address.parse(toAddress), value: amountNano, bounce: false, body: 'Planet.io payout' })]
-  });
-  return { ok: true, to: toAddress, amount: amountTon };
-}
-
-async function verifyTonPayment(memo, expectedAmount) {
-  if (!hotWallet) return null;
-  const walletAddr = hotWallet.address.toString();
-  const url = TON_HTTP_API + '/getTransactions?address=' + encodeURIComponent(walletAddr) + '&limit=30';
-  const headers = TON_API_KEY ? { 'X-API-Key': TON_API_KEY } : {};
-  try {
-    const r = await fetch(url, { headers });
-    const data = await r.json();
-    if (!data.ok || !Array.isArray(data.result)) return null;
-    for (const tx of data.result) {
-      const msg = tx.in_msg;
-      if (!msg) continue;
-      const amount = parseInt(msg.value) / 1e9;
-      const comment = (msg.message || '').trim();
-      if (comment === memo && Math.abs(amount - expectedAmount) < 0.001) {
-        return tx.transaction_id ? tx.transaction_id.hash : 'unknown';
-      }
-    }
-    return null;
-  } catch (e) { return null; }
-}
-
-/* ================= AUTO-PAY ================= */
-async function processSellRequest(requestId) {
-  if (!dbReady) return { ok: false, message: 'DB error' };
-  let req;
-  try {
-    const lock = await db.query(
-      `UPDATE sell_requests SET status = 'processing' WHERE id = $1 AND status = 'pending' RETURNING *`,
-      [requestId]
-    );
-    if (lock.rows.length === 0) return { ok: false, message: 'Already processed' };
-    req = lock.rows[0];
-  } catch (e) { return { ok: false, message: 'DB error' }; }
-
-  const amount = parseFloat(req.price_ton);
-  const recipient = req.user_wallet;
-  try {
-    const balance = await getHotWalletBalance();
-    if (balance === null || balance < amount + 0.01) {
-      await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [requestId]);
-      return { ok: false, message: 'Insufficient hot wallet balance' };
-    }
-    await sendTonToUser(recipient, amount);
-    const txHash = 'sent_' + Date.now();
-    await db.query(
-      `UPDATE sell_requests SET status = 'paid', tx_hash = $1, paid_at = $2 WHERE id = $3`,
-      [txHash, Date.now(), requestId]
-    );
-    return { ok: true, txHash, to: recipient, amount };
-  } catch (e) {
-    await db.query(`UPDATE sell_requests SET status = 'pending' WHERE id = $1`, [requestId]);
-    return { ok: false, message: e.message };
-  }
-}
-
-/* ================= TELEGRAM ================= */
-function validateTelegramInitData(initData) {
-  if (!initData || !BOT_TOKEN) return null;
-  try {
-    const params = new URLSearchParams(initData);
-    const hash = params.get('hash');
-    if (!hash) return null;
-    params.delete('hash');
-    const pairs = [];
-    for (const [k, v] of params.entries()) pairs.push(`${k}=${v}`);
-    pairs.sort();
-    const dataCheckString = pairs.join('\n');
-    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-    const validationHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (validationHash !== hash) return null;
-    const userJson = params.get('user');
-    if (!userJson) return null;
-    return JSON.parse(userJson);
-  } catch (e) { return null; }
-}
-
 /* ================= GAME ================= */
 const players = new Map();
 const botPlayers = new Map();
@@ -711,6 +713,7 @@ function initBots() {
 }
 initBots();
 
+/* ================= SKINS / SERIALS ================= */
 const ALL_SKINS = ['default', 'mind', 'knight', 'rage'];
 
 async function getSkinPrices() {
@@ -725,22 +728,577 @@ async function getSkinPrices() {
     return out;
   } catch (e) { return {}; }
 }
-async function getNextSerial() {
-  if (!dbReady) return null;
-  try {
-    const r = await db.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
-    return parseInt(r.rows[0].serial);
-  } catch (e) { return null; }
-}
+
 async function getSerialStatus() {
   if (!dbReady) return { next: null, soldOut: false };
   try {
     const r = await db.query(`SELECT last_value, is_called FROM lootbox_serial_seq`);
-    const last = parseInt(r.rows[0].last_value);
-    const called = r.rows[0].is_called;
-    const current = called ? last : 0;
+    const last = parseInt(r.rows[0].last_value, 10);
+    const current = r.rows[0].is_called ? last : 0;
     return { next: current + 1, soldOut: current >= LOOTBOX_MAX_SERIAL };
   } catch (e) { return { next: 1, soldOut: false }; }
+}
+
+/* ================= TON ENGINE ================= */
+let hotWallet = null;
+let hotWalletKeyPair = null;
+let hotWalletVersion = null;
+let hotWalletFromEnv = false;
+let tonClient = null;
+
+const userSockets = new Map(); // userId -> Set<socket>
+
+function notifyUser(userId, event, payload) {
+  const set = userSockets.get(userId);
+  if (!set) return;
+  for (const s of set) s.emit(event, payload);
+}
+function notifyAdmins(event, payload) { io.to('admins').emit(event, payload); }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function getTonClient() {
+  if (!tonClient) tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
+  return tonClient;
+}
+function tonReady() { return !!(hotWallet && hotWalletKeyPair && dbReady); }
+
+async function activateWallet(words, versionId) {
+  const kp = await mnemonicToPrivateKey(words);
+  const wallet = createWallet(versionId, kp.publicKey);
+  if (!wallet) throw new Error('createWallet failed');
+  hotWalletKeyPair = kp;
+  hotWallet = wallet;
+  hotWalletVersion = versionId;
+  getTonClient();
+  return wallet;
+}
+
+async function initTonWallet() {
+  try {
+    if (ENV_MNEMONIC) {
+      const words = parseMnemonicWords(ENV_MNEMONIC);
+      if (!words) { console.error('❌ TON_MNEMONIC must have 12 or 24 words'); return; }
+      const wallet = await activateWallet(words, ENV_WALLET_VERSION || 'v5r1');
+      hotWalletFromEnv = true;
+      console.log('✅ TON wallet from env (' + hotWalletVersion + '): ' + walletAddressString(wallet));
+      return;
+    }
+    if (!dbReady) return;
+    const enc = await getAdminSetting('ton_mnemonic_enc');
+    if (!enc) { console.warn('⚠️ No mnemonic saved. Set TON_MNEMONIC env or use the admin panel.'); return; }
+    const mnemonic = decryptMnemonic(enc, ADMIN_PASSWORD);
+    if (!mnemonic) { console.warn('⚠️ Cannot decrypt mnemonic — admin password changed?'); return; }
+    const words = parseMnemonicWords(mnemonic);
+    if (!words) { console.error('❌ Bad mnemonic word count'); return; }
+    const versionId = (await getAdminSetting('ton_wallet_version')) || 'v5r1';
+    const wallet = await activateWallet(words, versionId);
+    console.log('✅ TON wallet ready (' + versionId + '): ' + walletAddressString(wallet));
+  } catch (e) {
+    console.error('❌ initTonWallet:', e.message);
+  }
+}
+
+async function getHotWalletBalanceNano() {
+  if (!hotWallet) return null;
+  try { return await getTonClient().getBalance(hotWallet.address); } catch (e) { return null; }
+}
+async function getHotWalletBalance() {
+  const n = await getHotWalletBalanceNano();
+  return n === null ? null : Number(n) / 1e9;
+}
+
+/* ---------- payout queue (one transfer at a time, seqno-confirmed) ---------- */
+let payoutChain = Promise.resolve();
+function withPayoutLock(fn) {
+  const run = payoutChain.then(() => fn());
+  payoutChain = run.catch(() => {});
+  return run;
+}
+
+async function waitSeqnoAdvance(contract, before, maxMs) {
+  const deadline = Date.now() + maxMs;
+  let polledOk = false;
+  while (Date.now() < deadline) {
+    await sleep(2500);
+    try {
+      const now = await contract.getSeqno();
+      polledOk = true;
+      if (now > before) return { confirmed: true, polledOk };
+    } catch (e) { /* node hiccup — keep polling */ }
+  }
+  return { confirmed: false, polledOk };
+}
+
+async function findOutgoingTxHash(toAddr, nano) {
+  for (let i = 0; i < 3; i++) {
+    try {
+      const txs = await getTonClient().getTransactions(hotWallet.address, { limit: 8 });
+      for (const tx of txs) {
+        for (const m of tx.outMessages.values()) {
+          if (m.info.type === 'internal' && m.info.dest.equals(toAddr) && m.info.value.coins === nano) {
+            const h = txHashHex(tx);
+            if (h) return h;
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    await sleep(2000);
+  }
+  return null;
+}
+
+/*
+ * Returns one of:
+ *  { state: 'sent',    txHash }                       – seqno advanced, transfer is on chain
+ *  { state: 'failed',  message, countAttempt }        – definitely NOT sent, safe to retry
+ *  { state: 'unknown', message }                      – may or may not have been sent, needs a human check
+ */
+function sendTonOnce(toAddressStr, nano, text) {
+  return withPayoutLock(async () => {
+    if (!tonReady()) return { state: 'failed', message: 'TON wallet not configured', countAttempt: false };
+    const client = getTonClient();
+    let to;
+    try { to = Address.parse(toAddressStr); } catch (e) {
+      return { state: 'failed', message: 'Invalid destination address', countAttempt: true };
+    }
+    const contract = client.open(hotWallet);
+    let seqnoBefore, balance;
+    try {
+      seqnoBefore = await contract.getSeqno();
+      balance = await client.getBalance(hotWallet.address);
+    } catch (e) {
+      return { state: 'failed', message: 'TON node unavailable: ' + e.message, countAttempt: false };
+    }
+    if (balance < nano + FEE_RESERVE_NANO) {
+      return { state: 'failed', message: 'Insufficient hot wallet balance', countAttempt: false };
+    }
+    let sendError = null;
+    try {
+      await contract.sendTransfer({
+        seqno: seqnoBefore,
+        secretKey: hotWalletKeyPair.secretKey,
+        sendMode: SendMode.PAY_GAS_SEPARATELY, // no IGNORE_ERRORS: a failing message must not look like a success
+        messages: [internal({ to, value: nano, bounce: false, body: text })]
+      });
+    } catch (e) { sendError = e; }
+
+    const wait = await waitSeqnoAdvance(contract, seqnoBefore, SEQNO_WAIT_MS);
+    if (wait.confirmed) {
+      const h = await findOutgoingTxHash(to, nano);
+      return { state: 'sent', txHash: h || ('seqno:' + seqnoBefore) };
+    }
+    if (sendError && wait.polledOk) {
+      return { state: 'failed', message: 'Broadcast failed: ' + sendError.message, countAttempt: true };
+    }
+    return {
+      state: 'unknown',
+      message: sendError
+        ? 'Broadcast error and chain state unreadable: ' + sendError.message
+        : 'Transfer broadcast but not confirmed on chain yet'
+    };
+  });
+}
+
+async function dbRetry(fn, tries) {
+  let lastErr;
+  for (let i = 0; i < (tries || 3); i++) {
+    try { return await fn(); } catch (e) { lastErr = e; await sleep(400 * (i + 1)); }
+  }
+  throw lastErr;
+}
+
+/* ---------- sell requests → auto-pay ---------- */
+async function processSellRequest(requestId, opts) {
+  if (!dbReady) return { ok: false, message: 'DB error' };
+  const force = !!(opts && opts.force);
+  const allowed = force ? ['pending', 'failed', 'check_needed'] : ['pending'];
+  let req;
+  try {
+    const lock = await db.query(
+      `UPDATE sell_requests SET status = 'processing', updated_at = $2
+       WHERE id = $1 AND status = ANY($3) RETURNING *`,
+      [requestId, Date.now(), allowed]
+    );
+    if (lock.rows.length === 0) return { ok: false, message: 'Already processed' };
+    req = lock.rows[0];
+  } catch (e) { return { ok: false, message: 'DB error' }; }
+
+  const amount = parseFloat(req.price_ton);
+  const base = { requestId: req.id, skinId: req.skin_id, serial: req.skin_serial, price: amount };
+  notifyUser(req.user_id, 'sell_update', Object.assign({ status: 'processing' }, base));
+
+  let nano;
+  try { nano = toNano(String(req.price_ton)); } catch (e) {
+    await db.query(`UPDATE sell_requests SET status = 'failed', error = $2, updated_at = $3 WHERE id = $1`,
+      [req.id, 'Bad price value', Date.now()]);
+    return { ok: false, message: 'Bad price value' };
+  }
+
+  const result = await sendTonOnce(req.user_wallet, nano, 'Planet.io skin payout #' + req.id);
+
+  try {
+    if (result.state === 'sent') {
+      await dbRetry(() => db.query(
+        `UPDATE sell_requests SET status = 'paid', tx_hash = $2, paid_at = $3, error = NULL, updated_at = $3 WHERE id = $1`,
+        [req.id, result.txHash, Date.now()]
+      ));
+      notifyUser(req.user_id, 'sell_update', Object.assign({ status: 'paid', txHash: result.txHash }, base));
+      return { ok: true, txHash: result.txHash, to: req.user_wallet, amount, requestId: req.id };
+    }
+    if (result.state === 'failed') {
+      const attempts = (req.attempts || 0) + (result.countAttempt ? 1 : 0);
+      const next = attempts >= PAYOUT_MAX_ATTEMPTS ? 'failed' : 'pending';
+      await db.query(
+        `UPDATE sell_requests SET status = $2, error = $3, attempts = $4, updated_at = $5 WHERE id = $1`,
+        [req.id, next, result.message, attempts, Date.now()]
+      );
+      notifyUser(req.user_id, 'sell_update', Object.assign({ status: next, error: result.message }, base));
+      return { ok: false, message: result.message, requestId: req.id };
+    }
+    // unknown
+    await db.query(
+      `UPDATE sell_requests SET status = 'check_needed', error = $2, updated_at = $3 WHERE id = $1`,
+      [req.id, result.message, Date.now()]
+    );
+    notifyUser(req.user_id, 'sell_update', Object.assign({ status: 'check_needed', error: result.message }, base));
+    return { ok: false, message: result.message, requestId: req.id };
+  } catch (e) {
+    console.error('processSellRequest finalize:', e.message);
+    return { ok: false, message: 'DB error while finalizing — check request #' + req.id };
+  }
+}
+
+let payoutWorkerBusy = false;
+async function runPayoutWorker() {
+  if (payoutWorkerBusy || !tonReady()) return;
+  payoutWorkerBusy = true;
+  try {
+    const auto = await getAdminSetting('autopay_enabled');
+    if (auto !== '1') return;
+    const r = await db.query(
+      `SELECT id FROM sell_requests
+       WHERE status = 'pending' AND (updated_at IS NULL OR updated_at < $1)
+       ORDER BY id ASC LIMIT 5`,
+      [Date.now() - PAYOUT_RETRY_BACKOFF_MS]
+    );
+    for (const row of r.rows) {
+      const res = await processSellRequest(row.id);
+      notifyAdmins('admin_pay_result', Object.assign({ requestId: row.id, auto: true }, res));
+    }
+  } catch (e) {
+    console.error('payoutWorker:', e.message);
+  } finally {
+    payoutWorkerBusy = false;
+  }
+}
+function kickPayoutWorker() { setTimeout(() => { runPayoutWorker().catch(() => {}); }, 400); }
+
+/* ---------- lootbox orders (server-bound memo, no client-chosen memo anymore) ---------- */
+function orderPayload(row) {
+  const address = walletAddressString(hotWallet);
+  const nano = String(row.amount_nano);
+  return {
+    orderId: row.id,
+    memo: row.memo,
+    amountNano: nano,
+    amountTon: Number(nano) / 1e9,
+    address,
+    payload: commentPayloadBase64(row.memo),
+    validUntil: Math.floor(Date.now() / 1000) + TX_VALID_FOR_SEC,
+    expiresAt: Number(row.created_at) + ORDER_UI_TTL_MS,
+    deeplink: 'ton://transfer/' + address + '?amount=' + nano + '&text=' + encodeURIComponent(row.memo)
+  };
+}
+
+async function createLootboxOrder(userId) {
+  if (!dbReady) return { ok: false, message: 'Database offline' };
+  if (!tonReady()) return { ok: false, message: 'Payments are offline right now' };
+  const serialStatus = await getSerialStatus();
+  if (serialStatus.soldOut) return { ok: false, message: 'All 999 serials have been sold' };
+  const settings = await getPublicSettings();
+  if (parseInt(settings.lootbox_remaining, 10) === 0) return { ok: false, message: 'Lootbox is sold out' };
+
+  const user = await getOrCreateUser(userId, '', '');
+  if (!user) return { ok: false, message: 'User error' };
+  const owned = new Set(normalizeSkins(user.unlocked_skins).map((s) => s.id));
+  if (ALL_SKINS.filter((id) => id !== 'default' && !owned.has(id)).length === 0) {
+    return { ok: false, message: 'You already own all skins' };
+  }
+
+  const amountNano = toNano(getLootboxPrice(settings).toFixed(9));
+  const now = Date.now();
+  try {
+    const open = await db.query(
+      `SELECT * FROM lootbox_orders WHERE user_id = $1 AND status = 'pending' AND created_at > $2 ORDER BY id DESC`,
+      [userId, now - ORDER_MATCH_WINDOW_MS]
+    );
+    const fresh = open.rows.find((o) => BigInt(o.amount_nano) === amountNano && now - Number(o.created_at) < ORDER_UI_TTL_MS);
+    if (fresh) return { ok: true, order: orderPayload(fresh) };
+    if (open.rows.length >= MAX_PENDING_ORDERS_PER_USER) {
+      return { ok: false, message: 'You have unpaid orders open. Finish or wait for them first.' };
+    }
+    for (let i = 0; i < 4; i++) {
+      try {
+        const ins = await db.query(
+          `INSERT INTO lootbox_orders (user_id, memo, amount_nano, status, created_at)
+           VALUES ($1, $2, $3, 'pending', $4) RETURNING *`,
+          [userId, randomMemo(), amountNano.toString(), now]
+        );
+        return { ok: true, order: orderPayload(ins.rows[0]) };
+      } catch (e) {
+        if (e.code !== '23505') throw e; // memo collision → retry
+      }
+    }
+    return { ok: false, message: 'Could not create order' };
+  } catch (e) {
+    console.error('createLootboxOrder:', e.message);
+    return { ok: false, message: 'Could not create order' };
+  }
+}
+
+async function broadcastLootboxState() {
+  io.emit('settings_update', await getPublicSettings());
+  io.emit('serial_status', await getSerialStatus());
+}
+
+async function fulfillLootboxOrder(orderId, txHash, payer) {
+  const c = await db.connect();
+  let delivered = null;
+  let refundReason = '';
+  let ownerId = null;
+  try {
+    await c.query('BEGIN');
+    const ro = await c.query('SELECT * FROM lootbox_orders WHERE id = $1 FOR UPDATE', [orderId]);
+    const order = ro.rows[0];
+    if (!order || order.status !== 'pending') { await c.query('ROLLBACK'); return null; }
+    ownerId = order.user_id;
+
+    const ru = await c.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1 FOR UPDATE', [order.user_id]);
+    const skins = ru.rows.length ? normalizeSkins(ru.rows[0].unlocked_skins) : null;
+    const owned = new Set((skins || []).map((s) => s.id));
+    const locked = ALL_SKINS.filter((id) => id !== 'default' && !owned.has(id));
+    const rs = await c.query(`SELECT value FROM admin_settings WHERE key = 'lootbox_remaining' FOR UPDATE`);
+    const remaining = rs.rows.length ? parseInt(rs.rows[0].value, 10) : -1;
+
+    let serial = null;
+    if (!skins) refundReason = 'Account not found';
+    else if (locked.length === 0) refundReason = 'All skins already owned';
+    else if (remaining === 0) refundReason = 'Lootbox sold out';
+    else {
+      await c.query('SAVEPOINT serial_sp');
+      try {
+        const sr = await c.query(`SELECT nextval('lootbox_serial_seq') AS serial`);
+        serial = parseInt(sr.rows[0].serial, 10);
+      } catch (e) {
+        await c.query('ROLLBACK TO SAVEPOINT serial_sp');
+        refundReason = 'All 999 serials sold out';
+      }
+    }
+
+    if (refundReason) {
+      await c.query(
+        `UPDATE lootbox_orders SET status = 'refund_pending', tx_hash = $2, payer = $3, paid_at = $4, error = $5 WHERE id = $1`,
+        [orderId, txHash, payer, Date.now(), refundReason]
+      );
+      await c.query('COMMIT');
+    } else {
+      const pickedId = locked[crypto.randomInt(locked.length)];
+      skins.push({ id: pickedId, serial, source: 'lootbox', acquiredAt: Date.now() });
+      await c.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2', [JSON.stringify(skins), order.user_id]);
+      let newRemaining = remaining;
+      if (remaining > 0) {
+        const up = await c.query(
+          `UPDATE admin_settings SET value = (CAST(value AS INTEGER) - 1)::TEXT
+           WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0 RETURNING value`
+        );
+        if (up.rows.length) newRemaining = parseInt(up.rows[0].value, 10);
+      }
+      await c.query(
+        `UPDATE lootbox_orders SET status = 'completed', tx_hash = $2, payer = $3, skin_id = $4, serial = $5,
+         paid_at = $6, error = NULL WHERE id = $1`,
+        [orderId, txHash, payer, pickedId, serial, Date.now()]
+      );
+      await c.query('COMMIT');
+      delivered = { orderId, skinId: pickedId, serial, unlockedSkins: skins, lootboxRemaining: newRemaining };
+    }
+  } catch (e) {
+    try { await c.query('ROLLBACK'); } catch (e2) { /* ignore */ }
+    console.error('fulfillLootboxOrder #' + orderId + ':', e.message);
+    return null; // order stays pending → the next scan retries it
+  } finally {
+    c.release();
+  }
+
+  if (delivered) {
+    console.log('🎁 order #' + orderId + ' → ' + delivered.skinId + ' #' + delivered.serial + ' (' + ownerId + ')');
+    notifyUser(ownerId, 'lootbox_result', Object.assign({ ok: true }, delivered));
+    broadcastLootboxState().catch(() => {});
+    return delivered;
+  }
+  console.warn('💸 order #' + orderId + ' paid but cannot be delivered: ' + refundReason + ' → refunding');
+  refundOrder(orderId).catch((e) => console.error('refundOrder:', e.message));
+  return null;
+}
+
+async function refundOrder(orderId, manual) {
+  if (!dbReady) return { ok: false, message: 'DB error' };
+  const allowed = manual ? ['refund_pending', 'refund_failed'] : ['refund_pending'];
+  let order;
+  try {
+    const lock = await db.query(
+      `UPDATE lootbox_orders SET status = 'refunding' WHERE id = $1 AND status = ANY($2) RETURNING *`,
+      [orderId, allowed]
+    );
+    if (lock.rows.length === 0) return { ok: false, message: 'Not refundable' };
+    order = lock.rows[0];
+  } catch (e) { return { ok: false, message: 'DB error' }; }
+
+  if (!order.payer) {
+    await db.query(`UPDATE lootbox_orders SET status = 'refund_failed', error = 'No payer address recorded' WHERE id = $1`, [orderId]);
+    return { ok: false, message: 'No payer address recorded' };
+  }
+  const result = await sendTonOnce(order.payer, BigInt(order.amount_nano), 'Planet.io refund #' + order.id);
+  try {
+    if (result.state === 'sent') {
+      await dbRetry(() => db.query(
+        `UPDATE lootbox_orders SET status = 'refunded', error = $2 WHERE id = $1`,
+        [orderId, 'refund tx ' + result.txHash]
+      ));
+      notifyUser(order.user_id, 'lootbox_refund', { orderId, status: 'refunded' });
+      return { ok: true, txHash: result.txHash };
+    }
+    await db.query(
+      `UPDATE lootbox_orders SET status = 'refund_failed', error = $2 WHERE id = $1`,
+      [orderId, (result.state === 'unknown' ? 'UNCONFIRMED: ' : '') + result.message]
+    );
+    return { ok: false, message: result.message };
+  } catch (e) {
+    console.error('refundOrder finalize:', e.message);
+    return { ok: false, message: 'DB error while finalizing refund' };
+  }
+}
+
+/* ---------- incoming payment watcher ---------- */
+let scanBusy = false;
+async function scanIncomingPayments() {
+  if (scanBusy || !tonReady()) return;
+  scanBusy = true;
+  try {
+    const pend = await db.query(
+      `SELECT * FROM lootbox_orders WHERE status = 'pending' AND created_at > $1 ORDER BY id ASC`,
+      [Date.now() - ORDER_MATCH_WINDOW_MS]
+    );
+    if (pend.rows.length === 0) return;
+    const byMemo = new Map(pend.rows.map((o) => [o.memo, o]));
+    const txs = await getTonClient().getTransactions(hotWallet.address, { limit: 50 });
+    for (const tx of txs) {
+      const m = tx.inMessage;
+      if (!m || m.info.type !== 'internal' || m.info.bounced) continue;
+      const memo = parseCommentFromBody(m.body);
+      if (!memo) continue;
+      const order = byMemo.get(memo);
+      if (!order) continue;
+      if (m.info.value.coins < BigInt(order.amount_nano)) continue; // underpaid → ignored
+      byMemo.delete(memo);
+      const hash = txHashHex(tx) || ('lt:' + tx.lt.toString());
+      let payer = null;
+      try { payer = m.info.src.toString({ bounceable: false, testOnly: false, urlSafe: true }); } catch (e) { /* ignore */ }
+      await fulfillLootboxOrder(order.id, hash, payer);
+    }
+  } catch (e) {
+    console.error('scanIncomingPayments:', e.message);
+  } finally {
+    scanBusy = false;
+  }
+}
+
+async function expireOldOrders() {
+  if (!dbReady) return;
+  try {
+    await db.query(`UPDATE lootbox_orders SET status = 'expired' WHERE status = 'pending' AND created_at < $1`,
+      [Date.now() - ORDER_MATCH_WINDOW_MS]);
+  } catch (e) { /* ignore */ }
+}
+
+async function sendOrderStatus(socket, userId, orderId) {
+  try {
+    const r = await db.query('SELECT * FROM lootbox_orders WHERE id = $1 AND user_id = $2', [orderId, userId]);
+    if (r.rows.length === 0) { socket.emit('lootbox_order_status', { orderId, status: 'missing' }); return; }
+    const o = r.rows[0];
+    socket.emit('lootbox_order_status', { orderId, status: o.status, error: o.error || '' });
+    if (o.status === 'completed' && !o.seen) {
+      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [userId]);
+      const settings = await getPublicSettings();
+      socket.emit('lootbox_result', {
+        ok: true, orderId, skinId: o.skin_id, serial: o.serial,
+        unlockedSkins: normalizeSkins(u.rows[0] && u.rows[0].unlocked_skins),
+        lootboxRemaining: parseInt(settings.lootbox_remaining, 10)
+      });
+    }
+  } catch (e) { /* ignore */ }
+}
+/* ================= HTTP ROUTES ================= */
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const TC_UI_FILE = path.join(__dirname, 'node_modules', '@tonconnect', 'ui', 'dist', 'tonconnect-ui.min.js');
+
+function baseUrl(req) {
+  if (APP_URL) return APP_URL;
+  const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  return proto + '://' + req.get('host');
+}
+
+app.get('/tonconnect-manifest.json', (req, res) => {
+  const base = baseUrl(req);
+  let icon = ICON_URL;
+  if (!icon) {
+    icon = fs.existsSync(path.join(PUBLIC_DIR, 'icon.png'))
+      ? base + '/icon.png'
+      : 'https://ton.org/download/ton_symbol.png';
+  }
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ url: base, name: 'Planet.io', iconUrl: icon });
+});
+
+// self-hosted TonConnect UI bundle (pinned by package.json, no third-party CDN needed)
+app.get('/vendor/tonconnect-ui.min.js', (req, res) => {
+  if (!fs.existsSync(TC_UI_FILE)) { res.status(404).end(); return; }
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('application/javascript');
+  res.sendFile(TC_UI_FILE);
+});
+
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, db: dbReady, ton: tonReady(), version: '4.0.0' });
+});
+
+app.use(express.static(PUBLIC_DIR));
+
+/* ================= TELEGRAM AUTH ================= */
+const INIT_DATA_MAX_AGE_SEC = 7 * 24 * 3600;
+
+function validateTelegramInitData(initData) {
+  if (!initData || !BOT_TOKEN) return { error: 'invalid' };
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return { error: 'invalid' };
+    params.delete('hash');
+    const pairs = [];
+    for (const [k, v] of params.entries()) pairs.push(`${k}=${v}`);
+    pairs.sort();
+    const dataCheckString = pairs.join('\n');
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+    const validationHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    const a = Buffer.from(validationHash, 'hex');
+    const b = Buffer.from(hash, 'hex');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { error: 'invalid' };
+    const authDate = parseInt(params.get('auth_date') || '0', 10);
+    if (!authDate || (Date.now() / 1000 - authDate) > INIT_DATA_MAX_AGE_SEC) return { error: 'expired' };
+    const userJson = params.get('user');
+    if (!userJson) return { error: 'invalid' };
+    return { user: JSON.parse(userJson) };
+  } catch (e) { return { error: 'invalid' }; }
 }
 
 /* ================= SOCKET.IO ================= */
@@ -749,23 +1307,60 @@ io.on('connection', (socket) => {
   let currentUserId = null;
   let isAdminAuthed = false;
 
-  function checkAdmin(pw) { return String(pw) === ADMIN_PASSWORD; }
+  function adminOk(data) {
+    return isAdminAuthed && safeEqual(data && data.password, ADMIN_PASSWORD);
+  }
+  function registerSocket(userId) {
+    if (currentUserId && currentUserId !== userId) unregisterSocket();
+    currentUserId = userId;
+    if (!userSockets.has(userId)) userSockets.set(userId, new Set());
+    userSockets.get(userId).add(socket);
+  }
+  function unregisterSocket() {
+    if (!currentUserId) return;
+    const set = userSockets.get(currentUserId);
+    if (set) { set.delete(socket); if (set.size === 0) userSockets.delete(currentUserId); }
+  }
 
+  /* ---------- auth ---------- */
   socket.on('auth', async (data) => {
+    data = data || {};
     let userData = null;
     if (data.initData && BOT_TOKEN) {
-      const tgUser = validateTelegramInitData(data.initData);
-      if (tgUser) userData = { id: 'tg_' + tgUser.id, username: tgUser.username || '', firstName: tgUser.first_name || 'Player' };
+      const v = validateTelegramInitData(String(data.initData));
+      if (v.error) {
+        socket.emit('auth_error', {
+          message: v.error === 'expired' ? 'Session expired — please reopen the app from Telegram' : 'Telegram authentication failed',
+          fatal: true
+        });
+        return;
+      }
+      userData = { id: 'tg_' + v.user.id, username: v.user.username || '', firstName: v.user.first_name || 'Player' };
     }
-    if (!userData && data.deviceId) userData = { id: 'dev_' + data.deviceId, username: '', firstName: 'Guest' };
-    if (!userData) { socket.emit('auth_error', { message: 'Auth failed' }); return; }
-    currentUserId = userData.id;
+    if (!userData && data.deviceId) {
+      const dev = String(data.deviceId).slice(0, 64);
+      if (/^[\w-]+$/.test(dev)) userData = { id: 'dev_' + dev, username: '', firstName: 'Guest' };
+    }
+    if (!userData) { socket.emit('auth_error', { message: 'Auth failed', fatal: false }); return; }
+
     const user = await getOrCreateUser(userData.id, userData.username, userData.firstName);
-    if (!user) { socket.emit('auth_error', { message: 'DB error' }); return; }
-    const settings = await getAdminSettings();
-    const prices = await getSkinPrices();
-    const serialStatus = await getSerialStatus();
-    const walletAddr = hotWallet ? hotWallet.address.toString() : '';
+    if (!user) { socket.emit('auth_error', { message: 'DB error', fatal: false }); return; }
+    registerSocket(userData.id);
+
+    const [settings, prices, serialStatus] = await Promise.all([getPublicSettings(), getSkinPrices(), getSerialStatus()]);
+    const skins = normalizeSkins(user.unlocked_skins);
+    const currentSkin = skins.some((s) => s.id === user.current_skin) ? user.current_skin : 'default';
+
+    let unseenLootbox = null;
+    if (dbReady) {
+      try {
+        const r = await db.query(
+          `SELECT id, skin_id, serial FROM lootbox_orders WHERE user_id = $1 AND status = 'completed' AND seen = FALSE ORDER BY id ASC LIMIT 1`,
+          [userData.id]
+        );
+        if (r.rows.length) unseenLootbox = { orderId: r.rows[0].id, skinId: r.rows[0].skin_id, serial: r.rows[0].serial };
+      } catch (e) { /* ignore */ }
+    }
 
     socket.emit('auth_ok', {
       user: {
@@ -774,111 +1369,179 @@ io.on('connection', (socket) => {
         tokens: user.tokens || 0,
         speedLevel: user.speed_level || 0,
         massLevel: user.mass_level || 0,
-        unlockedSkins: normalizeSkins(user.unlocked_skins),
-        currentSkin: user.current_skin || 'default',
+        unlockedSkins: skins,
+        currentSkin,
         totalKills: user.total_kills || 0,
         highScore: user.high_score || 0,
         walletAddress: user.wallet_address || ''
       },
-      settings: settings,
+      settings,
       skinPrices: prices,
-      serialStatus: serialStatus,
-      tonWalletAddress: walletAddr
+      serialStatus,
+      tonReady: tonReady(),
+      tonWalletAddress: hotWallet ? walletAddressString(hotWallet) : '',
+      config: { twaReturnUrl: TWA_RETURN_URL },
+      unseenLootbox
     });
   });
 
   socket.on('save_progress', async (data) => {
-    if (!currentUserId) return;
+    if (!currentUserId || rateLimited('sp:' + currentUserId, 400)) return;
     await saveProgress(currentUserId, data);
   });
 
   socket.on('save_wallet', async (data) => {
     if (!currentUserId || !data || !data.wallet) return;
-    try { Address.parse(data.wallet); } catch (e) {
-      socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address' }); return;
-    }
-    if (!dbReady) { socket.emit('wallet_saved', { ok: false }); return; }
+    const normalized = normalizeUserAddress(data.wallet);
+    if (!normalized) { socket.emit('wallet_saved', { ok: false, message: 'Invalid TON address (mainnet only)' }); return; }
+    if (!dbReady) { socket.emit('wallet_saved', { ok: false, message: 'Database offline' }); return; }
     try {
-      await db.query('UPDATE users SET wallet_address = $1 WHERE telegram_id = $2', [data.wallet, currentUserId]);
-      socket.emit('wallet_saved', { ok: true, wallet: data.wallet });
-    } catch (e) { socket.emit('wallet_saved', { ok: false }); }
+      await db.query('UPDATE users SET wallet_address = $1 WHERE telegram_id = $2', [normalized, currentUserId]);
+      socket.emit('wallet_saved', { ok: true, wallet: normalized, silent: !!data.silent });
+    } catch (e) { socket.emit('wallet_saved', { ok: false, message: 'Save failed' }); }
   });
 
-  /* ============ ADMIN ============ */
+  /* ---------- lootbox purchase (TON Connect) ---------- */
+  socket.on('lootbox_create_order', async () => {
+    if (!currentUserId) return;
+    if (rateLimited('lo:' + currentUserId, 1500)) {
+      socket.emit('lootbox_order', { ok: false, message: 'Please wait a moment' }); return;
+    }
+    const res = await createLootboxOrder(currentUserId);
+    socket.emit('lootbox_order', res);
+  });
+
+  socket.on('lootbox_check_order', async (data) => {
+    if (!currentUserId || !data) return;
+    const orderId = parseInt(data.orderId, 10);
+    if (!orderId || rateLimited('lc:' + currentUserId, 1500)) return;
+    await scanIncomingPayments();
+    await sendOrderStatus(socket, currentUserId, orderId);
+  });
+
+  socket.on('lootbox_seen', async (data) => {
+    if (!currentUserId || !dbReady || !data) return;
+    const orderId = parseInt(data.orderId, 10);
+    if (!orderId) return;
+    try { await db.query('UPDATE lootbox_orders SET seen = TRUE WHERE id = $1 AND user_id = $2', [orderId, currentUserId]); } catch (e) { /* ignore */ }
+  });
+
+  /* ---------- selling skins (auto-pay) ---------- */
+  socket.on('sell_skin', async (data) => {
+    if (!currentUserId || !data) return;
+    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'Database offline' }); return; }
+    if (rateLimited('sell:' + currentUserId, 1500)) { socket.emit('sell_result', { ok: false, message: 'Please wait a moment' }); return; }
+    const skinId = String(data.skinId || '');
+    const skinSerial = (typeof data.skinSerial === 'number') ? data.skinSerial : null;
+    if (!skinId || skinId === 'default' || skinId === 'fire' || !ALL_SKINS.includes(skinId)) {
+      socket.emit('sell_result', { ok: false, message: 'This skin cannot be sold' }); return;
+    }
+    const wallet = normalizeUserAddress(data.walletAddress);
+    if (!wallet) { socket.emit('sell_result', { ok: false, message: 'Invalid wallet address (mainnet only)' }); return; }
+
+    const c = await db.connect();
+    let created = null;
+    try {
+      await c.query('BEGIN');
+      const pr = await c.query('SELECT sell_price, is_sellable FROM skin_prices WHERE skin_id = $1', [skinId]);
+      const price = pr.rows.length ? parseFloat(pr.rows[0].sell_price) : 0;
+      if (!pr.rows.length || !pr.rows[0].is_sellable || !(price > 0) || price > 100000) {
+        await c.query('ROLLBACK'); socket.emit('sell_result', { ok: false, message: 'Not sellable right now' }); return;
+      }
+      const ur = await c.query('SELECT unlocked_skins, current_skin FROM users WHERE telegram_id = $1 FOR UPDATE', [currentUserId]);
+      if (ur.rows.length === 0) { await c.query('ROLLBACK'); socket.emit('sell_result', { ok: false, message: 'User not found' }); return; }
+      const skins = normalizeSkins(ur.rows[0].unlocked_skins);
+      const idx = skins.findIndex((s) => s.id === skinId && s.serial === skinSerial);
+      if (idx < 0) { await c.query('ROLLBACK'); socket.emit('sell_result', { ok: false, message: 'Skin not found' }); return; }
+      skins.splice(idx, 1);
+      let currentSkin = ur.rows[0].current_skin || 'default';
+      if (!skins.some((s) => s.id === currentSkin)) currentSkin = 'default';
+      const ins = await c.query(
+        `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at, updated_at, attempts)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, NULL, 0) RETURNING id`,
+        [currentUserId, wallet, skinId, skinSerial, price.toFixed(6), Date.now()]
+      );
+      await c.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2, current_skin = $3 WHERE telegram_id = $4',
+        [JSON.stringify(skins), wallet, currentSkin, currentUserId]);
+      await c.query('COMMIT');
+      created = { requestId: ins.rows[0].id, skins, currentSkin, price, wallet };
+    } catch (e) {
+      try { await c.query('ROLLBACK'); } catch (e2) { /* ignore */ }
+      console.error('sell_skin:', e.message);
+      socket.emit('sell_result', { ok: false, message: 'Could not create sell request' });
+      return;
+    } finally {
+      c.release();
+    }
+    socket.emit('sell_result', {
+      ok: true, requestId: created.requestId, skinId, skinSerial,
+      price: created.price, unlockedSkins: created.skins, currentSkin: created.currentSkin, wallet: created.wallet
+    });
+    notifyAdmins('admin_new_request', { requestId: created.requestId });
+    kickPayoutWorker();
+  });
+
+  socket.on('get_my_sells', async () => {
+    if (!currentUserId || !dbReady) return;
+    try {
+      const r = await db.query(
+        `SELECT id, skin_id, skin_serial, price_ton, status, tx_hash, error, created_at, paid_at
+         FROM sell_requests WHERE user_id = $1 ORDER BY id DESC LIMIT 15`,
+        [currentUserId]
+      );
+      socket.emit('my_sells', r.rows.map((x) => ({
+        id: x.id, skinId: x.skin_id, serial: x.skin_serial, price: parseFloat(x.price_ton),
+        status: x.status, txHash: x.tx_hash, createdAt: Number(x.created_at), paidAt: x.paid_at ? Number(x.paid_at) : null
+      })));
+    } catch (e) { /* ignore */ }
+  });
+
+  /* ---------- ADMIN ---------- */
   socket.on('admin_login', (data) => {
-    const ok = checkAdmin(data && data.password);
+    if (rateLimited('adm:' + socket.handshake.address, 1000)) { socket.emit('admin_login_result', { ok: false }); return; }
+    const ok = safeEqual(data && data.password, ADMIN_PASSWORD);
     isAdminAuthed = ok;
+    if (ok) socket.join('admins'); else socket.leave('admins');
     console.log('🔐 admin_login ' + socket.id + ' — ' + (ok ? 'OK' : 'FAIL'));
     socket.emit('admin_login_result', { ok });
   });
 
   socket.on('admin_get_wallet_info', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_wallet_info', { ok: false });
-      return;
-    }
-    const address = hotWallet ? hotWallet.address.toString() : null;
+    if (!adminOk(data)) { socket.emit('admin_wallet_info', { ok: false }); return; }
     const balance = await getHotWalletBalance();
-    socket.emit('admin_wallet_info', { ok: true, address, balance, version: hotWalletVersion });
+    socket.emit('admin_wallet_info', {
+      ok: true,
+      address: hotWallet ? walletAddressString(hotWallet) : null,
+      balance, version: hotWalletVersion, fromEnv: hotWalletFromEnv
+    });
   });
 
-  /* Preview: derive versions (stateless) */
   socket.on('admin_preview_mnemonic', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Auth failed' });
-      return;
-    }
-    const mnemonic = String(data.mnemonic || '').trim();
-    if (!mnemonic) {
-      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Empty' });
-      return;
-    }
-    const words = mnemonic.split(/\s+/);
-    if (words.length !== 12 && words.length !== 24) {
-      socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Need 12 or 24 words, got ' + words.length });
-      return;
-    }
+    if (!adminOk(data)) { socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Auth failed' }); return; }
+    if (hotWalletFromEnv) { socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Wallet is managed by the TON_MNEMONIC env var' }); return; }
+    const words = parseMnemonicWords(data.mnemonic);
+    if (!words) { socket.emit('admin_preview_mnemonic_result', { ok: false, message: 'Need 12 or 24 words' }); return; }
     try {
       const kp = await mnemonicToPrivateKey(words);
-      const versions = deriveAllWallets(kp.publicKey);
-      socket.emit('admin_preview_mnemonic_result', { ok: true, versions });
+      socket.emit('admin_preview_mnemonic_result', { ok: true, versions: deriveAllWallets(kp.publicKey) });
     } catch (e) {
       socket.emit('admin_preview_mnemonic_result', { ok: false, message: e.message });
     }
   });
 
-  /* Commit: save mnemonic + version (stateless - client sends mnemonic again) */
   socket.on('admin_commit_mnemonic', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Auth failed' });
-      return;
-    }
-    const mnemonic = String(data.mnemonic || '').trim();
+    if (!adminOk(data)) { socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Auth failed' }); return; }
+    if (hotWalletFromEnv) { socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Wallet is managed by the TON_MNEMONIC env var' }); return; }
+    const words = parseMnemonicWords(data.mnemonic);
     const versionId = String(data.versionId || 'v5r1');
-    if (!mnemonic) {
-      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'No mnemonic' });
-      return;
-    }
-    const words = mnemonic.split(/\s+/);
-    if (words.length !== 12 && words.length !== 24) {
-      socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Bad word count' });
-      return;
-    }
+    if (!words) { socket.emit('admin_commit_mnemonic_result', { ok: false, message: 'Need 12 or 24 words' }); return; }
     try {
-      const kp = await mnemonicToPrivateKey(words);
-      const wallet = createWallet(versionId, kp.publicKey);
-      if (!wallet) throw new Error('createWallet failed');
-      hotWallet = wallet;
-      hotWalletKeyPair = kp;
-      hotWalletVersion = versionId;
-      if (!tonClient) tonClient = new TonClient({ endpoint: TON_ENDPOINT, apiKey: TON_API_KEY || undefined });
-
+      const wallet = await activateWallet(words, versionId);
       if (dbReady) {
-        const enc = encryptMnemonic(mnemonic, ADMIN_PASSWORD);
         await db.query(
           `INSERT INTO admin_settings (key, value) VALUES ('ton_mnemonic_enc', $1)
            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-          [enc]
+          [encryptMnemonic(words.join(' '), ADMIN_PASSWORD)]
         );
         await db.query(
           `INSERT INTO admin_settings (key, value) VALUES ('ton_wallet_version', $1)
@@ -887,13 +1550,9 @@ io.on('connection', (socket) => {
         );
       }
       const balance = await getHotWalletBalance();
-      console.log('✅ Wallet committed: ' + versionId + ' @ ' + wallet.address.toString());
-      socket.emit('admin_commit_mnemonic_result', {
-        ok: true,
-        address: wallet.address.toString(),
-        balance,
-        version: versionId
-      });
+      console.log('✅ Wallet committed: ' + versionId + ' @ ' + walletAddressString(wallet));
+      socket.emit('admin_commit_mnemonic_result', { ok: true, address: walletAddressString(wallet), balance, version: versionId });
+      broadcastLootboxState().catch(() => {});
     } catch (e) {
       console.error('commit:', e.message);
       socket.emit('admin_commit_mnemonic_result', { ok: false, message: e.message });
@@ -901,55 +1560,53 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_clear_mnemonic', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
+    if (!adminOk(data)) return;
+    if (hotWalletFromEnv) { socket.emit('admin_clear_mnemonic_result', { ok: false, message: 'Wallet is managed by the TON_MNEMONIC env var' }); return; }
     if (dbReady) {
       try {
-        await db.query(`DELETE FROM admin_settings WHERE key = 'ton_mnemonic_enc'`);
-        await db.query(`DELETE FROM admin_settings WHERE key = 'ton_wallet_version'`);
-      } catch (e) {}
+        await db.query(`DELETE FROM admin_settings WHERE key IN ('ton_mnemonic_enc', 'ton_wallet_version')`);
+      } catch (e) { /* ignore */ }
     }
-    hotWallet = null;
-    hotWalletKeyPair = null;
-    hotWalletVersion = null;
+    hotWallet = null; hotWalletKeyPair = null; hotWalletVersion = null;
     socket.emit('admin_clear_mnemonic_result', { ok: true });
   });
 
   socket.on('admin_add_tokens', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
+    if (!adminOk(data) || !currentUserId || !dbReady) return;
     try {
-      await db.query('UPDATE users SET tokens = tokens + 1000 WHERE telegram_id = $1', [currentUserId]);
-      const r = await db.query('SELECT tokens FROM users WHERE telegram_id = $1', [currentUserId]);
-      socket.emit('admin_add_tokens_result', { ok: true, tokens: r.rows.length > 0 ? r.rows[0].tokens : 0 });
+      const r = await db.query('UPDATE users SET tokens = LEAST(tokens + 1000, $2) WHERE telegram_id = $1 RETURNING tokens', [currentUserId, INT_MAX]);
+      socket.emit('admin_add_tokens_result', { ok: true, tokens: r.rows.length ? r.rows[0].tokens : 0 });
     } catch (e) { socket.emit('admin_add_tokens_result', { ok: false }); }
   });
 
   socket.on('admin_unlock_all', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
+    if (!adminOk(data) || !currentUserId || !dbReady) return;
+    const c = await db.connect();
     try {
-      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [currentUserId]);
-      if (u.rows.length === 0) { socket.emit('admin_unlock_all_result', { ok: false }); return; }
+      await c.query('BEGIN');
+      const u = await c.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1 FOR UPDATE', [currentUserId]);
+      if (u.rows.length === 0) { await c.query('ROLLBACK'); socket.emit('admin_unlock_all_result', { ok: false }); return; }
       const skins = normalizeSkins(u.rows[0].unlocked_skins);
-      const ownedIds = new Set(skins.map(s => s.id));
+      const owned = new Set(skins.map((s) => s.id));
       for (const sid of ALL_SKINS) {
-        if (!ownedIds.has(sid)) skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
+        if (!owned.has(sid)) skins.push({ id: sid, serial: null, source: 'admin', acquiredAt: Date.now() });
       }
-      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-        [JSON.stringify(skins), currentUserId]);
+      await c.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2', [JSON.stringify(skins), currentUserId]);
+      await c.query('COMMIT');
       socket.emit('admin_unlock_all_result', { ok: true, unlockedSkins: skins });
-    } catch (e) { socket.emit('admin_unlock_all_result', { ok: false }); }
+    } catch (e) {
+      try { await c.query('ROLLBACK'); } catch (e2) { /* ignore */ }
+      socket.emit('admin_unlock_all_result', { ok: false });
+    } finally { c.release(); }
   });
 
   socket.on('admin_wipe_all', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!currentUserId || !dbReady) return;
+    if (!adminOk(data) || !currentUserId || !dbReady) return;
     try {
       const fresh = [{ id: 'default', serial: null, source: 'starter', acquiredAt: 0 }];
       await db.query(
         `UPDATE users SET tokens = 0, speed_level = 0, mass_level = 0,
-         unlocked_skins = $1, current_skin = 'default',
-         total_kills = 0, high_score = 0 WHERE telegram_id = $2`,
+         unlocked_skins = $1, current_skin = 'default', total_kills = 0, high_score = 0 WHERE telegram_id = $2`,
         [JSON.stringify(fresh), currentUserId]
       );
       socket.emit('admin_wipe_all_result', { ok: true, unlockedSkins: fresh });
@@ -957,202 +1614,147 @@ io.on('connection', (socket) => {
   });
 
   socket.on('admin_set', async (data) => {
-    if (!isAdminAuthed || !data || !data.key || !checkAdmin(data.password)) return;
-    if (data.key === 'ton_mnemonic_enc' || data.key === 'ton_wallet_version') return;
-    const ok = await setAdminSetting(data.key, data.value);
-    if (ok) io.emit('settings_update', await getAdminSettings());
-    socket.emit('admin_set_result', { ok, key: data.key });
+    if (!adminOk(data) || !data.key) return;
+    const key = String(data.key);
+    if (!PUBLIC_SETTING_KEYS.includes(key)) { socket.emit('admin_set_result', { ok: false, key }); return; }
+    let value = data.value;
+    if (key === 'lootbox_price') {
+      const p = parseFloat(value);
+      if (!Number.isFinite(p) || p < MIN_LOOTBOX_PRICE || p > 100000) { socket.emit('admin_set_result', { ok: false, key }); return; }
+      value = p;
+    } else if (key === 'lootbox_remaining') {
+      const n = parseInt(value, 10);
+      if (!Number.isFinite(n) || n < -1) { socket.emit('admin_set_result', { ok: false, key }); return; }
+      value = n;
+    } else if (key === 'lootbox_tag') {
+      value = String(value || '');
+      if (!['', 'new', 'hot', 'sale'].includes(value)) { socket.emit('admin_set_result', { ok: false, key }); return; }
+    } else if (key === 'autopay_enabled') {
+      value = (String(value) === '1' || value === true) ? '1' : '0';
+    }
+    const ok = await setAdminSetting(key, value);
+    if (ok) {
+      io.emit('settings_update', await getPublicSettings());
+      if (key === 'autopay_enabled' && value === '1') kickPayoutWorker();
+    }
+    socket.emit('admin_set_result', { ok, key });
   });
 
   socket.on('admin_get_requests', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_requests', []); return;
-    }
-    if (!dbReady) { socket.emit('admin_requests', []); return; }
+    if (!adminOk(data) || !dbReady) { socket.emit('admin_requests', []); return; }
     try {
       const r = await db.query(
-        `SELECT id, user_id, user_wallet, skin_id, skin_serial, price_ton, status, tx_hash, created_at, paid_at
-         FROM sell_requests ORDER BY created_at DESC LIMIT 100`
+        `SELECT id, user_id, user_wallet, skin_id, skin_serial, price_ton, status, tx_hash, error, attempts, created_at, paid_at
+         FROM sell_requests ORDER BY id DESC LIMIT 100`
       );
       socket.emit('admin_requests', r.rows);
     } catch (e) { socket.emit('admin_requests', []); }
   });
 
   socket.on('admin_pay_request', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    const reqId = parseInt(data.requestId);
+    if (!adminOk(data)) return;
+    const reqId = parseInt(data.requestId, 10);
     if (!reqId) return;
-    const result = await processSellRequest(reqId);
+    const result = await processSellRequest(reqId, { force: !!data.force });
     socket.emit('admin_pay_result', Object.assign({ requestId: reqId }, result));
   });
 
-  socket.on('admin_reject_request', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!dbReady) return;
-    const reqId = parseInt(data.requestId);
+  socket.on('admin_mark_paid', async (data) => {
+    if (!adminOk(data) || !dbReady) return;
+    const reqId = parseInt(data.requestId, 10);
     if (!reqId) return;
     try {
-      const lock = await db.query(
-        `UPDATE sell_requests SET status = 'rejected' WHERE id = $1 AND status = 'pending' RETURNING *`,
-        [reqId]
+      const r = await db.query(
+        `UPDATE sell_requests SET status = 'paid', tx_hash = COALESCE(NULLIF($2, ''), 'manual'), paid_at = $3, error = NULL, updated_at = $3
+         WHERE id = $1 AND status IN ('check_needed', 'failed', 'pending') RETURNING *`,
+        [reqId, String(data.txHash || '').slice(0, 128), Date.now()]
       );
-      if (lock.rows.length === 0) { socket.emit('admin_reject_result', { ok: false, requestId: reqId }); return; }
+      if (r.rows.length === 0) { socket.emit('admin_mark_paid_result', { ok: false, requestId: reqId }); return; }
+      const q = r.rows[0];
+      notifyUser(q.user_id, 'sell_update', { requestId: q.id, status: 'paid', txHash: q.tx_hash, skinId: q.skin_id, serial: q.skin_serial, price: parseFloat(q.price_ton) });
+      socket.emit('admin_mark_paid_result', { ok: true, requestId: reqId });
+    } catch (e) { socket.emit('admin_mark_paid_result', { ok: false, requestId: reqId }); }
+  });
+
+  socket.on('admin_reject_request', async (data) => {
+    if (!adminOk(data) || !dbReady) return;
+    const reqId = parseInt(data.requestId, 10);
+    if (!reqId) return;
+    const c = await db.connect();
+    try {
+      await c.query('BEGIN');
+      const lock = await c.query(
+        `UPDATE sell_requests SET status = 'rejected', updated_at = $2
+         WHERE id = $1 AND status IN ('pending', 'failed', 'check_needed') RETURNING *`,
+        [reqId, Date.now()]
+      );
+      if (lock.rows.length === 0) { await c.query('ROLLBACK'); socket.emit('admin_reject_result', { ok: false, requestId: reqId }); return; }
       const req = lock.rows[0];
-      const u = await db.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1', [req.user_id]);
+      const u = await c.query('SELECT unlocked_skins FROM users WHERE telegram_id = $1 FOR UPDATE', [req.user_id]);
       if (u.rows.length > 0) {
         const skins = normalizeSkins(u.rows[0].unlocked_skins);
         skins.push({ id: req.skin_id, serial: req.skin_serial, source: 'refund', acquiredAt: Date.now() });
-        await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-          [JSON.stringify(skins), req.user_id]);
+        await c.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2', [JSON.stringify(skins), req.user_id]);
+        notifyUser(req.user_id, 'sell_update', { requestId: req.id, status: 'rejected', skinId: req.skin_id, serial: req.skin_serial, price: parseFloat(req.price_ton), unlockedSkins: skins });
       }
+      await c.query('COMMIT');
       socket.emit('admin_reject_result', { ok: true, requestId: reqId });
-    } catch (e) { socket.emit('admin_reject_result', { ok: false, requestId: reqId }); }
+    } catch (e) {
+      try { await c.query('ROLLBACK'); } catch (e2) { /* ignore */ }
+      socket.emit('admin_reject_result', { ok: false, requestId: reqId });
+    } finally { c.release(); }
   });
 
   socket.on('admin_set_skin_price', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) return;
-    if (!dbReady || !data.skinId) return;
-    if (data.skinId === 'fire') { socket.emit('admin_skin_price_result', { ok: false }); return; }
+    if (!adminOk(data) || !dbReady || !data.skinId) return;
+    const skinId = String(data.skinId);
+    if (!ALL_SKINS.includes(skinId) || skinId === 'default') { socket.emit('admin_skin_price_result', { ok: false }); return; }
+    const price = parseFloat(data.price);
+    if (!Number.isFinite(price) || price < 0 || price > 100000) { socket.emit('admin_skin_price_result', { ok: false }); return; }
     try {
       await db.query(
         `INSERT INTO skin_prices (skin_id, sell_price, is_sellable) VALUES ($1, $2, $3)
          ON CONFLICT (skin_id) DO UPDATE SET sell_price = EXCLUDED.sell_price, is_sellable = EXCLUDED.is_sellable`,
-        [data.skinId, parseFloat(data.price) || 0, !!data.sellable]
+        [skinId, price.toFixed(6), !!data.sellable]
       );
-      const prices = await getSkinPrices();
-      io.emit('skin_prices_update', prices);
+      io.emit('skin_prices_update', await getSkinPrices());
       socket.emit('admin_skin_price_result', { ok: true });
     } catch (e) { socket.emit('admin_skin_price_result', { ok: false }); }
   });
 
   socket.on('admin_get_wallet_balance', async (data) => {
-    if (!isAdminAuthed || !checkAdmin(data && data.password)) {
-      socket.emit('admin_wallet_balance', { ok: false, balance: null, address: null });
-      return;
-    }
+    if (!adminOk(data)) { socket.emit('admin_wallet_balance', { ok: false, balance: null, address: null }); return; }
     const balance = await getHotWalletBalance();
-    const addr = hotWallet ? hotWallet.address.toString() : null;
-    socket.emit('admin_wallet_balance', { ok: balance !== null, balance, address: addr });
+    socket.emit('admin_wallet_balance', { ok: balance !== null, balance, address: hotWallet ? walletAddressString(hotWallet) : null });
   });
 
-  /* ============ LOOTBOX ============ */
-  socket.on('claim_lootbox', async (data) => {
-    if (!currentUserId || !data || !data.memo) return;
-    if (!dbReady) { socket.emit('lootbox_claim_result', { ok: false, message: 'DB error' }); return; }
-    if (!hotWallet) { socket.emit('lootbox_claim_result', { ok: false, message: 'Wallet not set' }); return; }
-
-    const existing = await db.query('SELECT memo FROM claimed_memos WHERE memo = $1', [data.memo]);
-    if (existing.rows.length > 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Already claimed' }); return;
-    }
-    const settings = await getAdminSettings();
-    const price = parseFloat(settings.lootbox_price) || 0.01;
-    const remaining = parseInt(settings.lootbox_remaining);
-    if (remaining === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Lootbox sold out' }); return;
-    }
-    const txHash = await verifyTonPayment(data.memo, price);
-    if (!txHash) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Payment not found on chain yet' }); return;
-    }
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('lootbox_claim_result', { ok: false }); return; }
-    const currentSkins = normalizeSkins(user.unlocked_skins);
-    const ownedIds = new Set(currentSkins.map(s => s.id));
-    const locked = ALL_SKINS.filter(id => id !== 'default' && !ownedIds.has(id));
-    if (locked.length === 0) {
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All skins already owned' }); return;
-    }
-    let newRemaining = remaining;
-    if (remaining > 0) {
-      const upd = await db.query(
-        `UPDATE admin_settings SET value = (CAST(value AS INTEGER) - 1)::TEXT
-         WHERE key = 'lootbox_remaining' AND CAST(value AS INTEGER) > 0 RETURNING value`
+  socket.on('admin_get_orders', async (data) => {
+    if (!adminOk(data) || !dbReady) { socket.emit('admin_orders', []); return; }
+    try {
+      const r = await db.query(
+        `SELECT id, user_id, amount_nano, status, tx_hash, payer, skin_id, serial, error, created_at, paid_at
+         FROM lootbox_orders WHERE status <> 'expired' ORDER BY id DESC LIMIT 40`
       );
-      if (upd.rows.length === 0) {
-        socket.emit('lootbox_claim_result', { ok: false, message: 'Just sold out' }); return;
-      }
-      newRemaining = parseInt(upd.rows[0].value);
-    }
-    const serial = await getNextSerial();
-    if (serial === null) {
-      if (remaining > 0) {
-        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'All 999 serials sold out' }); return;
-    }
-    const picked = locked[Math.floor(Math.random() * locked.length)];
-    currentSkins.push({ id: picked, serial, source: 'lootbox', acquiredAt: Date.now() });
-    try {
-      await db.query('UPDATE users SET unlocked_skins = $1 WHERE telegram_id = $2',
-        [JSON.stringify(currentSkins), currentUserId]);
-      await db.query('INSERT INTO claimed_memos (memo, user_id, claimed_at) VALUES ($1, $2, $3)',
-        [data.memo, currentUserId, Date.now()]);
-    } catch (e) {
-      if (remaining > 0) {
-        await db.query(`UPDATE admin_settings SET value = (CAST(value AS INTEGER) + 1)::TEXT WHERE key = 'lootbox_remaining'`);
-      }
-      socket.emit('lootbox_claim_result', { ok: false, message: 'Save failed' }); return;
-    }
-    if (remaining > 0) io.emit('settings_update', await getAdminSettings());
-    socket.emit('lootbox_claim_result', {
-      ok: true, skinId: picked, serial, unlockedSkins: currentSkins, lootboxRemaining: newRemaining
-    });
+      socket.emit('admin_orders', r.rows);
+    } catch (e) { socket.emit('admin_orders', []); }
   });
 
-  /* ============ SELL ============ */
-  socket.on('sell_skin', async (data) => {
-    if (!currentUserId || !data) return;
-    if (!dbReady) { socket.emit('sell_result', { ok: false, message: 'DB error' }); return; }
-    const { skinId, skinSerial, walletAddress } = data;
-    if (!skinId || skinId === 'default') { socket.emit('sell_result', { ok: false, message: 'Cannot sell default' }); return; }
-    if (skinId === 'fire') { socket.emit('sell_result', { ok: false, message: 'Not available' }); return; }
-    try { Address.parse(walletAddress); } catch (e) {
-      socket.emit('sell_result', { ok: false, message: 'Invalid wallet' }); return;
-    }
-    const prices = await getSkinPrices();
-    const priceInfo = prices[skinId];
-    if (!priceInfo || !priceInfo.isSellable || priceInfo.sellPrice <= 0) {
-      socket.emit('sell_result', { ok: false, message: 'Not sellable' }); return;
-    }
-    const user = await getOrCreateUser(currentUserId, '', '');
-    if (!user) { socket.emit('sell_result', { ok: false }); return; }
-    const skins = normalizeSkins(user.unlocked_skins);
-    const idx = skins.findIndex(s => s.id === skinId && s.serial === skinSerial);
-    if (idx < 0) { socket.emit('sell_result', { ok: false, message: 'Skin not found' }); return; }
-    const pending = await db.query(
-      `SELECT id FROM sell_requests WHERE user_id = $1 AND skin_id = $2 AND skin_serial = $3 AND status = 'pending'`,
-      [currentUserId, skinId, skinSerial]
-    );
-    if (pending.rows.length > 0) { socket.emit('sell_result', { ok: false, message: 'Already pending' }); return; }
-    skins.splice(idx, 1);
-    const ins = await db.query(
-      `INSERT INTO sell_requests (user_id, user_wallet, skin_id, skin_serial, price_ton, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6) RETURNING id`,
-      [currentUserId, walletAddress, skinId, skinSerial, priceInfo.sellPrice, Date.now()]
-    );
-    await db.query('UPDATE users SET unlocked_skins = $1, wallet_address = $2 WHERE telegram_id = $3',
-      [JSON.stringify(skins), walletAddress, currentUserId]);
-    socket.emit('sell_result', {
-      ok: true, requestId: ins.rows[0].id, skinId, skinSerial,
-      price: priceInfo.sellPrice, unlockedSkins: skins, wallet: walletAddress
-    });
-    io.emit('admin_new_request', { requestId: ins.rows[0].id });
-    try {
-      const autopaySettings = await getAdminSettings();
-      if (autopaySettings.autopay_enabled === '1') {
-        setTimeout(async () => {
-          const result = await processSellRequest(ins.rows[0].id);
-          io.emit('admin_pay_result', Object.assign({ requestId: ins.rows[0].id, auto: true }, result));
-        }, 500);
-      }
-    } catch (e) {}
+  socket.on('admin_refund_order', async (data) => {
+    if (!adminOk(data)) return;
+    const orderId = parseInt(data.orderId, 10);
+    if (!orderId) return;
+    const res = await refundOrder(orderId, true);
+    socket.emit('admin_order_result', Object.assign({ orderId }, res));
   });
 
-  /* ============ GAME ============ */
+  /* ---------- GAME ---------- */
   socket.on('join', (data) => {
+    data = data || {};
     players.delete(socket.id);
-    const p = createPlayer(socket.id, data.name, data.color, data.startMass, false);
+    const name = String(data.name || 'Player').slice(0, 20);
+    const color = /^#[0-9a-fA-F]{6}$/.test(String(data.color)) ? String(data.color) : '#4a9eff';
+    const startMass = clamp(Number(data.startMass) || START_MASS, START_MASS, 150);
+    const p = createPlayer(socket.id, name, color, startMass, false);
     players.set(socket.id, p);
     socket.emit('init', {
       worldRadius: WORLD_RADIUS, centerX: CX, centerY: CY,
@@ -1161,14 +1763,18 @@ io.on('connection', (socket) => {
   });
   socket.on('input', (data) => {
     const p = players.get(socket.id);
-    if (!p || !p.alive) return;
-    p.targetX = data.targetX; p.targetY = data.targetY;
+    if (!p || !p.alive || !data) return;
+    const tx = Number(data.targetX), ty = Number(data.targetY);
+    if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
+    p.targetX = clamp(tx, CX - WORLD_RADIUS * 2, CX + WORLD_RADIUS * 2);
+    p.targetY = clamp(ty, CY - WORLD_RADIUS * 2, CY + WORLD_RADIUS * 2);
   });
   socket.on('split', () => { const p = players.get(socket.id); if (p && p.alive) doSplit(p); });
   socket.on('eject', () => { const p = players.get(socket.id); if (p && p.alive) doEject(p); });
   socket.on('disconnect_player', () => { players.delete(socket.id); });
   socket.on('disconnect', () => {
     players.delete(socket.id);
+    unregisterSocket();
     console.log('🔴 ' + socket.id + ' left');
   });
 });
@@ -1210,12 +1816,17 @@ setInterval(() => {
 
 /* ================= START ================= */
 (async () => {
+  await initDatabase();   // must finish BEFORE the wallet loads (the old code raced these two)
   await initTonWallet();
   server.listen(PORT, () => {
-    console.log('🪐 Planet.io v3.7.0 on ' + PORT);
+    console.log('🪐 Planet.io v4.0.0 on ' + PORT);
     console.log('   BOT_TOKEN: ' + (BOT_TOKEN ? '✓' : '✗'));
-    console.log('   DATABASE: ' + (DATABASE_URL ? '✓' : '✗'));
-    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + hotWallet.address.toString() : '✗'));
-    console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626)'));
+    console.log('   DATABASE: ' + (dbReady ? '✓' : '✗'));
+    console.log('   TON_WALLET: ' + (hotWallet ? '✓ ' + walletAddressString(hotWallet) : '✗'));
+    console.log('   TON_API_KEY: ' + (TON_API_KEY ? '✓' : '✗ (toncenter free tier: 1 req/sec)'));
+    console.log('   ADMIN_PASSWORD: ' + (process.env.ADMIN_PASSWORD ? 'from env' : 'DEFAULT (262626) — CHANGE IT'));
   });
+  setInterval(() => { scanIncomingPayments().catch(() => {}); }, SCAN_INTERVAL_MS);
+  setInterval(() => { runPayoutWorker().catch(() => {}); }, PAYOUT_WORKER_INTERVAL_MS);
+  setInterval(() => { expireOldOrders().catch(() => {}); }, 10 * 60 * 1000);
 })();
