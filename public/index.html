@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#05060f">
+<meta name="theme-color" content="#02030a">
 <title>Nebula Drift</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 :root{
-  --fill:rgba(255,255,255,.07);--fill2:rgba(255,255,255,.12);--line:rgba(255,255,255,.17);--line2:rgba(255,255,255,.09);
-  --hl:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.05);
-  --blur:blur(22px) saturate(175%);--blur2:blur(14px) saturate(160%);
+  --fill:rgba(255,255,255,.055);--fill2:rgba(255,255,255,.10);--line:rgba(255,255,255,.15);--line2:rgba(255,255,255,.08);
+  --hl:inset 0 1px 0 rgba(255,255,255,.26),inset 0 -1px 0 rgba(255,255,255,.04);
+  --blur:blur(26px) saturate(180%);--blur2:blur(16px) saturate(165%);
   --blue:90,170,255;--gold:255,200,60;--green:74,222,128;--red:255,90,90;--violet:170,110,255;
   --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
 }
-html,body{width:100%;height:100%;overflow:hidden;background:#04050d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;touch-action:none;overscroll-behavior:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#02030a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;touch-action:none;overscroll-behavior:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block}
-.aurora{position:fixed;inset:0;pointer-events:none;z-index:1;mix-blend-mode:screen;opacity:.85;
-  background:radial-gradient(46% 32% at 12% 6%,rgba(88,120,255,.34),transparent 70%),radial-gradient(40% 28% at 94% 22%,rgba(190,80,255,.26),transparent 70%),
-  radial-gradient(50% 34% at 70% 98%,rgba(0,205,185,.22),transparent 70%),radial-gradient(36% 24% at 4% 80%,rgba(255,120,170,.16),transparent 70%)}
+.aurora{position:fixed;inset:0;pointer-events:none;z-index:1;mix-blend-mode:screen;opacity:.6;
+  background:radial-gradient(46% 32% at 12% 6%,rgba(88,120,255,.3),transparent 70%),radial-gradient(40% 28% at 94% 22%,rgba(190,80,255,.22),transparent 70%),
+  radial-gradient(50% 34% at 70% 98%,rgba(0,205,185,.18),transparent 70%),radial-gradient(36% 24% at 4% 80%,rgba(255,120,170,.12),transparent 70%)}
 .screen{position:fixed;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;padding:calc(18px + var(--sat)) 18px calc(18px + var(--sab))}
 .screen.on{display:flex}
-.glass{background:linear-gradient(155deg,rgba(255,255,255,.14),rgba(255,255,255,.045) 55%,rgba(255,255,255,.08));border:1px solid var(--line);
-  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 12px 38px rgba(0,0,0,.45),var(--hl)}
+.glass{background:linear-gradient(155deg,rgba(255,255,255,.12),rgba(255,255,255,.035) 55%,rgba(255,255,255,.07));border:1px solid var(--line);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 12px 38px rgba(0,0,0,.55),var(--hl)}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.3px;
   background:var(--fill);border:1px solid var(--line2);-webkit-backdrop-filter:var(--blur2);backdrop-filter:var(--blur2);box-shadow:var(--hl)}
 .pill.gold{background:linear-gradient(135deg,rgba(var(--gold),.24),rgba(var(--gold),.07));border-color:rgba(var(--gold),.42);color:#ffe9a8}
@@ -50,17 +50,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#04050d;color:#fff;f
 .btn:disabled{background:rgba(255,255,255,.05)!important;color:rgba(255,255,255,.34)!important;border-color:rgba(255,255,255,.08)!important;box-shadow:none;text-shadow:none;cursor:default}
 .btn.sm{padding:9px 14px;font-size:11px;border-radius:14px}
 .btn.md{padding:14px;font-size:13px;border-radius:18px;width:100%}
-.dock{width:100%;max-width:380px;display:flex;gap:8px;padding:8px;border-radius:26px;margin-top:14px}
-.dock button{flex:1;padding:10px 4px;border:0;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dock{width:100%;max-width:380px;display:flex;gap:6px;padding:8px;border-radius:26px;margin-top:14px}
+.dock button{flex:1;position:relative;padding:10px 2px;border:0;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
 .dock button b{font-size:21px;font-weight:400}
 .dock button:active{background:rgba(255,255,255,.14)}
-.dock .badge{position:absolute;top:-4px;right:6px;font-size:8px;padding:2px 6px;border-radius:999px;background:rgba(var(--gold),.9);color:#2a1800}
+.dock .badge{position:absolute;top:-4px;right:2px;font-size:8px;padding:2px 6px;border-radius:999px;background:rgba(var(--gold),.9);color:#2a1800}
 /* modal */
-.modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(4,6,16,.55);-webkit-backdrop-filter:blur(14px) saturate(130%);backdrop-filter:blur(14px) saturate(130%)}
+.modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,3,10,.62);-webkit-backdrop-filter:blur(16px) saturate(130%);backdrop-filter:blur(16px) saturate(130%)}
 .modal.on{display:flex}
-.sheet{width:100%;max-width:400px;max-height:88vh;overflow-y:auto;border-radius:28px;padding:22px 20px;position:relative;
-  background:linear-gradient(155deg,rgba(40,46,86,.58),rgba(10,12,26,.66) 60%,rgba(30,34,70,.52));border:1px solid var(--line);
-  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 18px 60px rgba(0,0,0,.6),var(--hl);-webkit-overflow-scrolling:touch}
+.sheet{width:100%;max-width:400px;max-height:88vh;overflow-y:auto;border-radius:28px;padding:22px 20px;position:relative;touch-action:pan-y;
+  background:linear-gradient(155deg,rgba(30,36,72,.5),rgba(5,7,16,.74) 60%,rgba(22,26,56,.5));border:1px solid var(--line);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:0 18px 60px rgba(0,0,0,.7),var(--hl);-webkit-overflow-scrolling:touch}
 .sheet h2{font-size:21px;font-weight:900;margin-bottom:4px;letter-spacing:.5px}
 .sheet .sub{font-size:12.5px;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:14px}
 .x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--fill2);color:#fff;font-size:14px;cursor:pointer;box-shadow:var(--hl)}
@@ -71,6 +71,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#04050d;color:#fff;f
 input.in,textarea.in,select.in{width:100%;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:#fff;font-family:'Courier New',monospace;font-size:12px;outline:none;margin-bottom:9px;user-select:text;-webkit-user-select:text;touch-action:auto}
 textarea.in{min-height:84px;resize:vertical}
 select.in{font-family:inherit}
+select.in option{color:#000}
 input.in:focus,textarea.in:focus{border-color:rgba(170,210,255,.7);box-shadow:0 0 0 3px rgba(var(--blue),.2)}
 .note{font-size:11px;line-height:1.5;padding:10px 12px;border-radius:12px;margin:8px 0;background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.28);color:#ffd08a}
 .note.red{background:rgba(255,70,70,.1);border-color:rgba(255,70,70,.3);color:#ffb0b0}
@@ -92,7 +93,7 @@ details.man summary::-webkit-details-marker{display:none}
 .odd{padding:8px 10px;border-radius:12px;font-size:11px;font-weight:800;display:flex;justify-content:space-between;background:var(--fill);border:1px solid var(--line2)}
 /* locker */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
-.card{border-radius:20px;padding:12px 8px 10px;text-align:center;cursor:pointer;position:relative;background:linear-gradient(155deg,rgba(255,255,255,.12),rgba(255,255,255,.04));border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.3),var(--hl)}
+.card{border-radius:20px;padding:12px 8px 10px;text-align:center;cursor:pointer;position:relative;background:linear-gradient(155deg,rgba(255,255,255,.1),rgba(255,255,255,.035));border:1px solid var(--line);box-shadow:0 6px 22px rgba(0,0,0,.35),var(--hl)}
 .card canvas{width:78px;height:78px}
 .card .n{font-size:13px;font-weight:900;margin-top:2px}
 .card .s{font-size:10px;font-family:'Courier New',monospace;color:#ffe9a8;margin-top:2px;min-height:13px}
@@ -109,6 +110,7 @@ details.man summary::-webkit-details-marker{display:none}
 .chip.error,.chip.rejected,.chip.invalid{background:rgba(var(--red),.2);color:#ff8a8a}.chip.unconfirmed,.chip.ok{background:rgba(var(--blue),.2);color:#8cc2ff}
 .hr{height:1px;background:var(--line2);margin:14px 0}
 .h3{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.45);margin:14px 0 8px}
+.shopi canvas{width:48px;height:48px;flex:none}
 /* hud */
 #hud{position:fixed;inset:0;z-index:4;display:none;pointer-events:none}
 #hud.on{display:block}
@@ -162,7 +164,8 @@ details.man summary::-webkit-details-marker{display:none}
   <button class="btn play" id="playBtn">▶ Play</button>
   <div class="dock glass">
     <button id="dLocker"><b>🎒</b>Locker</button>
-    <button id="dBox" style="position:relative"><b>🎁</b>Lootbox<span class="badge">TON</span></button>
+    <button id="dShop"><b>🛒</b>Shop</button>
+    <button id="dBox"><b>🎁</b>Lootbox<span class="badge">TON</span></button>
     <button id="dWallet"><b>💼</b>Wallet</button>
   </div>
 </div>
@@ -196,10 +199,20 @@ details.man summary::-webkit-details-marker{display:none}
 <!-- LOCKER -->
 <div class="modal" id="mLocker"><div class="sheet">
   <button class="x" data-close>✕</button>
-  <h2>🎒 Locker</h2><div class="sub">Tap a skin to equip it. Lootbox skins can be sold for TON.</div>
+  <h2>🎒 Locker</h2><div class="sub">Tap a skin to equip it. To sell lootbox skins, open the Shop.</div>
   <div class="grid" id="lockGrid"></div>
-  <div class="h3">Sale history</div>
-  <div id="saleHist"></div>
+  <div class="row"><button class="btn md ghost" id="lockRestore">🔄 Restore my purchases</button></div>
+  <div class="note">Missing a skin you paid for (for example after clearing your data)? Connect the wallet you paid with and tap Restore.</div>
+</div></div>
+
+<!-- SHOP -->
+<div class="modal" id="mShop"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h2>🛒 Shop</h2><div class="sub">Sell your lootbox skins. The TON goes to the wallet that paid for the box.</div>
+  <div class="field"><label>Your skins are worth</label><div class="v" id="shopTotal">0 TON</div></div>
+  <div id="shopList"></div>
+  <div class="h3">Sales</div>
+  <div id="shopHist"></div>
 </div></div>
 
 <!-- SKIN DETAIL -->
@@ -209,7 +222,6 @@ details.man summary::-webkit-details-marker{display:none}
   <h2 id="detN">Skin</h2><div id="detR"></div><div class="psub" id="detS" style="margin:6px 0 14px"></div>
   <button class="btn md green" id="detEq">Equip</button>
   <div class="row"><button class="btn md gold" id="detSell">Sell for TON</button></div>
-  <div class="note" id="detNote" style="display:none"></div>
 </div></div>
 
 <!-- LOOTBOX -->
@@ -236,7 +248,7 @@ details.man summary::-webkit-details-marker{display:none}
   <div id="boxPending"></div>
 </div></div>
 
-<!-- SELL -->
+<!-- SALE CODE (manual mode, used only when SELL_API is empty) -->
 <div class="modal" id="mSell"><div class="sheet">
   <button class="x" data-close>✕</button>
   <h2>💰 Sale code</h2>
@@ -244,7 +256,7 @@ details.man summary::-webkit-details-marker{display:none}
   <div class="field"><label>Your sale code</label><div class="v" id="sellCode" style="user-select:all;-webkit-user-select:all">—</div></div>
   <button class="btn md green" id="sellCopy">Copy code</button>
   <div class="row"><button class="btn md blue" id="sellTg">Send to admin on Telegram</button></div>
-  <div class="note">Keep this code until you are paid. The skin has been removed from your locker; you can undo the sale from “Sale history”.</div>
+  <div class="note">Keep this code until you are paid. You can open it again from the Shop sales list.</div>
 </div></div>
 
 <!-- WALLET -->
@@ -314,15 +326,16 @@ details.man summary::-webkit-details-marker{display:none}
 <script>
 'use strict';
 /* =====================================================================
-   NEBULA DRIFT — single file, no server.
-   CONFIG below is what every player's device uses. The admin panel can
-   override it locally (for testing) and prints a snippet to paste here.
+   NEBULA DRIFT
+   SELL_API = address of the payout server (Cloudflare Worker).
+   Leave it empty ('') and selling works in manual mode (sale code).
    ===================================================================== */
 const CONFIG = {
   RECEIVE_ADDRESS: '',                 // TON address that receives lootbox payments
   LOOTBOX_PRICE: 0.1,                  // TON
   SELL_PRICES: { aurora: 0.04, inferno: 0.07, void: 0.12, crystal: 0.25 }, // TON paid for a sold skin
-  ADMIN_TG: '',                        // Telegram username (no @) that receives sale codes
+  ADMIN_TG: '',                        // Telegram username (no @) that receives sale codes (manual mode)
+  SELL_API: '',                        // payout server URL, e.g. https://xxx.workers.dev
   TONCENTER: 'https://toncenter.com/api/v2',
   TONCENTER_KEY: '',                   // optional, removes the 1 req/sec limit
   MANIFEST_URL: '',                    // default: tonconnect-manifest.json next to index.html
@@ -379,6 +392,8 @@ const Store = {
     this.d = Object.assign(base, d || {});
     this.d.admin = Object.assign(base.admin, (d && d.admin) || {});
     if (!Array.isArray(this.d.free) || !this.d.free.includes('pulse')) this.d.free = ['pulse'].concat(this.d.free || []);
+    ['inst', 'orders', 'sold'].forEach((k) => { if (!Array.isArray(this.d[k])) this.d[k] = []; });
+    if (!this.d.equip || !SKINS[this.d.equip.id]) this.d.equip = { id: 'pulse', serial: null };
   },
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) {} }
 };
@@ -402,7 +417,7 @@ function b64ToBytes(b64) {
   const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out;
 }
 function bytesToHex(b) { return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join(''); }
-// Deterministic result of a lootbox purchase: anybody (incl. the admin) can recompute it from the tx hash.
+// Deterministic result of a lootbox purchase: anybody (incl. the admin / server) can recompute it from the tx hash.
 function deriveFromHash(hash) {
   const b = b64ToBytes(hash);
   const roll = ((b[0] << 8) | b[1]) % 100;
@@ -449,7 +464,6 @@ function drawOrb(c, x, y, r, skin, t, o) {
   c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(x - r * 0.36, y - r * 0.48, r * 0.26, r * 0.13, -0.6, 0, 6.2832); c.fill();
   if (o.shield) { c.strokeStyle = 'rgba(140,220,255,' + (0.55 + 0.25 * Math.sin(t * 8)) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r * 1.28, 0, 6.2832); c.stroke(); }
 }
-const iconCache = {};
 function skinIcon(id, size) {
   const c = document.createElement('canvas'); c.width = c.height = size || 156;
   const g = c.getContext('2d'); drawOrb(g, c.width / 2, c.height / 2, c.width * 0.31, id, 1.3); return c;
@@ -554,7 +568,7 @@ function update(dt) {
     e.vy += ((dy / dl) * sp * (e.bot || input.active ? 1 : 0) - e.vy) * k;
     // wells
     for (const w of G.wells) {
-      const wx = w.x - e.x, wy = w.y - e.y, wd = Math.hypot(wx, wy);
+      const wx = w.x - e.x, wy = w.y - e.y, wd = Math.hypot(wx, wy) || 1;
       if (wd < 380) { const f = (1 - wd / 380) * 520; e.vx += (wx / wd) * f * dt; e.vy += (wy / wd) * f * dt; }
       if (wd < w.r) { e.m -= Math.max(e.m * 0.28, 4) * dt; if (!e.bot && Math.random() < 0.1) particles(e.x, e.y, 280, 2, 80); }
     }
@@ -614,7 +628,7 @@ function render(time) {
   const t = time / 1000;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H));
-  g.addColorStop(0, '#0d1230'); g.addColorStop(1, '#03040a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  g.addColorStop(0, '#0a0e26'); g.addColorStop(1, '#02030a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const cam = G.cam;
   for (const s of stars) { const px = ((s.x * W - cam.x * s.z * 0.12 * cam.z) % W + W) % W, py = ((s.y * H - cam.y * s.z * 0.12 * cam.z) % H + H) % H; ctx.fillStyle = 'rgba(255,255,255,' + (0.25 + s.z * 0.5) + ')'; ctx.fillRect(px, py, s.s, s.s); }
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
@@ -680,30 +694,33 @@ function updateHud() {
   $('hLb').innerHTML = alive.slice(0, 5).map((e, i) => '<div class="' + (e === me ? 'me' : '') + '"><span>' + (i + 1) + '. ' + esc(e.name) + '</span><span>' + Math.round(e.m) + '</span></div>').join('');
   $('zonewarn').style.display = Math.hypot(me.x, me.y) > G.zoneR ? 'inline-flex' : 'none';
 }
+function resetInput() { joyId = null; input.active = false; input.x = 0; input.y = 0; input.dash = false; $('joy').style.display = 'none'; for (const k in keys) delete keys[k]; }
 function startGame() {
-  initWorld(true); G.mode = 'play'; G.cam.x = G.me.x; G.cam.y = G.me.y; G.cam.z = 0.95; G.killer = '';
+  resetInput(); initWorld(true); G.mode = 'play'; G.cam.x = G.me.x; G.cam.y = G.me.y; G.cam.z = 0.95; G.killer = '';
   $('home').classList.remove('on'); $('over').classList.remove('on'); $('hud').classList.add('on'); hudT = 0; say('DRIFT!');
 }
 function endGame() {
-  G.mode = 'over'; $('hud').classList.remove('on');
+  G.mode = 'over'; $('hud').classList.remove('on'); resetInput();
   const secs = G.t, peak = Math.round(G.peak);
   const coins = Math.floor(peak / 8 + G.kills * 5 + secs / 10);
   Store.d.coins += coins; Store.d.best = Math.max(Store.d.best, peak); Store.save();
-  $('ovT').textContent = G.killer ? 'DRIFTED OUT' : 'GAME OVER'; $('ovSub').textContent = 'taken by ' + G.killer;
+  $('ovT').textContent = 'DRIFTED OUT'; $('ovSub').textContent = G.killer ? 'taken by ' + G.killer : '';
   $('ovMass').textContent = peak; $('ovTime').textContent = fmtTime(secs); $('ovKills').textContent = G.kills; $('ovCoins').textContent = '+' + coins;
   setTimeout(() => { if (G.mode === 'over') $('over').classList.add('on'); }, 450);
   refreshHome();
 }
 function goHome() {
-  G.mode = 'menu'; initWorld(false); $('over').classList.remove('on'); $('hud').classList.remove('on'); $('home').classList.add('on'); refreshHome();
+  G.mode = 'menu'; resetInput(); initWorld(false); $('over').classList.remove('on'); $('hud').classList.remove('on'); $('home').classList.add('on'); refreshHome();
 }
 
 /* ---------- input ---------- */
+const keys = {};
 const joy = $('joy'); let joyId = null, joyO = null;
 cv.addEventListener('pointerdown', (e) => {
   if (G.mode !== 'play') return;
   if (e.pointerType === 'mouse') { input.active = true; mouseDir(e); return; }
   if (joyId !== null) return; joyId = e.pointerId; joyO = { x: e.clientX, y: e.clientY }; input.active = true; input.x = 0; input.y = 0;
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
   joy.style.display = 'block'; joy.style.left = (e.clientX - 60) + 'px'; joy.style.top = (e.clientY - 60) + 'px'; joy.firstElementChild.style.transform = 'translate(0,0)';
 });
 cv.addEventListener('pointermove', (e) => {
@@ -715,7 +732,9 @@ cv.addEventListener('pointermove', (e) => {
   joy.firstElementChild.style.transform = 'translate(' + (dx / d) * m + 'px,' + (dy / d) * m + 'px)';
 });
 function endJoy(e) { if (e.pointerId === joyId) { joyId = null; input.active = false; joy.style.display = 'none'; } }
-cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
+cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy); cv.addEventListener('lostpointercapture', endJoy);
+addEventListener('blur', () => { if (G.mode === 'play') resetInput(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'play') resetInput(); });
 function mouseDir(e) { input.x = e.clientX - W / 2; input.y = e.clientY - H / 2; input.active = Math.hypot(input.x, input.y) > 12; }
 $('dash').addEventListener('pointerdown', (e) => { e.stopPropagation(); input.dash = true; });
 addEventListener('keydown', (e) => {
@@ -725,7 +744,6 @@ addEventListener('keydown', (e) => {
   if (k) { keys[e.code] = true; syncKeys(); }
 });
 addEventListener('keyup', (e) => { if (keys[e.code]) { delete keys[e.code]; syncKeys(); } });
-const keys = {};
 function syncKeys() {
   let x = 0, y = 0;
   if (keys.ArrowLeft || keys.KeyA) x--; if (keys.ArrowRight || keys.KeyD) x++; if (keys.ArrowUp || keys.KeyW) y--; if (keys.ArrowDown || keys.KeyS) y++;
@@ -733,7 +751,7 @@ function syncKeys() {
 }
 
 /* =====================================================================
-   TON  (lootbox purchase + sale verification) — no backend, chain is the source of truth
+   TON  (lootbox purchase + sale verification) — chain is the source of truth
    ===================================================================== */
 function crc16(bytes) { let crc = 0; for (const b of bytes) { crc ^= b << 8; for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff; } return crc; }
 // friendly or raw -> "wc:hex" (lowercase). Returns null if invalid.
@@ -757,7 +775,6 @@ function fromNano(n) { const v = BigInt(n); const i = v / 1000000000n, f = (v % 
 function commentBoc(text) {
   const t = new TextEncoder().encode(text); if (t.length > 120) throw new Error('comment too long');
   const dataLen = 4 + t.length, cellSize = 2 + dataLen;
-  // magic | flags(ref size 1) | off_bytes | cells | roots | absent | total cells size | root index | cell: d1 d2 data
   const bytes = [0xb5, 0xee, 0x9c, 0x72, 0x01, 0x01, 0x01, 0x01, 0x00, cellSize, 0x00, 0x00, dataLen * 2, 0, 0, 0, 0].concat(Array.from(t));
   let s = ''; bytes.forEach((c) => { s += String.fromCharCode(c); }); return btoa(s);
 }
@@ -828,6 +845,7 @@ function ensureConnected(cb) {
 let boxPoll = null, boxPollStart = 0, boxBusy = false;
 function boxSteps(n) { document.querySelectorAll('#boxSteps .step').forEach((el, i) => { el.classList.remove('a', 'd'); if (i + 1 < n) el.classList.add('d'); else if (i + 1 === n) el.classList.add('a'); }); }
 function boxReady() { const c = cfg(); return !!(c.RECEIVE_ADDRESS && toRaw(c.RECEIVE_ADDRESS)); }
+function hasTx(h) { return Store.d.inst.some((s) => s.tx && s.tx.h === h) || Store.d.sold.some((s) => s.tx && s.tx.h === h); }
 function openBox() {
   const c = cfg();
   $('boxPrice').textContent = c.LOOTBOX_PRICE;
@@ -859,6 +877,7 @@ async function sendBox() {
     Store.d.orders = Store.d.orders.filter((x) => x.memo !== o.memo); Store.save();
     let msg = (e && e.message) ? String(e.message) : 'Payment failed'; if (/reject|cancel|declin|abort/i.test(msg)) msg = 'Payment cancelled';
     setSt('boxSt', 'err', esc(msg)); $('boxPay').disabled = false; $('boxPay').textContent = '💎 Pay ' + c.LOOTBOX_PRICE + ' TON'; boxBusy = false;
+    renderPending();
   }
 }
 function payBoxLink() {
@@ -881,7 +900,7 @@ async function checkOrders() {
   checking = true;
   try {
     const to = orders[0].to || cfg().RECEIVE_ADDRESS;
-    const txs = await tcGet('getTransactions', { address: to, limit: 40 });
+    const txs = await tcGet('getTransactions', { address: to, limit: 100 });
     for (const tx of txs) {
       const m = tx.in_msg; if (!m || !m.source) continue;
       const memo = readComment(m); if (!memo) continue;
@@ -896,7 +915,7 @@ async function checkOrders() {
 function deliverOrder(o, tx) {
   Store.d.orders = Store.d.orders.filter((x) => x.memo !== o.memo);
   const h = tx.transaction_id.hash, lt = tx.transaction_id.lt;
-  if (Store.d.inst.some((s) => s.tx && s.tx.h === h)) { Store.save(); return; }
+  if (hasTx(h)) { Store.save(); renderPending(); return; }
   const r = deriveFromHash(h);
   const inst = { id: r.id, serial: r.serial, tx: { h, l: lt }, at: Date.now() };
   Store.d.inst.push(inst); Store.save();
@@ -904,8 +923,30 @@ function deliverOrder(o, tx) {
   renderPending(); refreshHome();
   setTimeout(() => { closeModal('mBox'); showReveal(inst); }, 700);
 }
+// Bring back skins that were paid for but are missing (cleared data, new phone…)
+async function restorePurchases() {
+  const a = connectedAddr();
+  if (!a) { ensureConnected(restorePurchases); return; }
+  const c = cfg(); if (!boxReady()) { toast('Lootbox not configured', 'err'); return; }
+  toast('Checking your payments…');
+  try {
+    const txs = await tcGet('getTransactions', { address: c.RECEIVE_ADDRESS, limit: 100 });
+    const need = BigInt(toNanoStr(c.LOOTBOX_PRICE) || '0') * 99n / 100n; let n = 0;
+    for (const tx of txs) {
+      const m = tx.in_msg; if (!m || !m.source) continue;
+      if (!/^NB[A-Z2-9]{10}$/.test(readComment(m))) continue;
+      if (BigInt(m.value || '0') < need) continue;
+      if (!sameAddr(m.source, a)) continue;
+      const h = tx.transaction_id.hash; if (hasTx(h)) continue;
+      const r = deriveFromHash(h);
+      Store.d.inst.push({ id: r.id, serial: r.serial, tx: { h, l: tx.transaction_id.lt }, at: Date.now() }); n++;
+    }
+    Store.save(); renderLocker(); renderShop(); refreshHome();
+    toast(n ? n + ' skin' + (n > 1 ? 's' : '') + ' restored' : 'Nothing missing', n ? 'ok' : '');
+  } catch (e) { toast('Check failed: ' + e.message, 'err'); }
+}
 
-/* ---------- selling: sale codes ---------- */
+/* ---------- selling ---------- */
 function makeSaleCode(inst) {
   const j = JSON.stringify({ h: inst.tx.h, l: inst.tx.l, s: inst.id, n: inst.serial });
   return 'NBS1.' + btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -918,25 +959,42 @@ function parseSaleCode(code) {
   } catch (e) { return null; }
 }
 function sellInst(inst) {
-  const price = cfg().SELL_PRICES[inst.id];
+  const c = cfg(); const price = c.SELL_PRICES[inst.id];
   if (!inst.tx || !price) { toast('This skin cannot be sold', 'err'); return; }
-  askConfirm({ icon: '💰', title: 'Sell ' + SKINS[inst.id].name + ' ' + fmtSerial(inst.serial) + '?', text: 'You will get a sale code. After the admin verifies it, ' + price + ' TON is sent back to the wallet that paid for this box.', ok: 'SELL' }, () => {
+  askConfirm({ icon: '💰', title: 'Sell ' + SKINS[inst.id].name + ' ' + fmtSerial(inst.serial) + '?', text: price + ' TON will be sent to the wallet that paid for this box' + (c.SELL_API ? ' automatically.' : ' after the admin checks your sale code.'), ok: 'SELL' }, () => {
     const code = makeSaleCode(inst);
     Store.d.inst = Store.d.inst.filter((s) => s !== inst);
     if (Store.d.equip.id === inst.id && Store.d.equip.serial === inst.serial) Store.d.equip = { id: 'pulse', serial: null };
-    Store.d.sold.unshift({ code, id: inst.id, serial: inst.serial, tx: inst.tx, at: Date.now() }); Store.save();
-    closeModal('mDetail'); renderLocker(); refreshHome(); showSaleCode(code);
+    const rec = { code, id: inst.id, serial: inst.serial, tx: inst.tx, price, at: Date.now(), status: c.SELL_API ? 'sending' : 'code', msg: '' };
+    Store.d.sold.unshift(rec); Store.save();
+    closeModal('mDetail'); renderLocker(); renderShop(); refreshHome();
+    if (c.SELL_API) sendSale(rec); else showSaleCode(code);
   });
+}
+// Auto mode: the payout server checks the purchase on chain and pays the wallet that bought the box.
+// Server answer: { status: 'paid' | 'pending' | 'invalid' | 'error', msg: '...' }   (safe to repeat: it never pays twice)
+async function sendSale(rec) {
+  const c = cfg(); if (!c.SELL_API) { showSaleCode(rec.code); return; }
+  rec.status = 'sending'; rec.msg = ''; Store.save(); renderShop();
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 45000);
+    const r = await fetch(c.SELL_API.replace(/\/+$/, '') + '/sell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: rec.code }), signal: ctl.signal });
+    clearTimeout(tm);
+    const j = await r.json();
+    const st = j && j.status;
+    rec.status = (st === 'paid' || st === 'pending' || st === 'invalid') ? st : 'error'; rec.msg = (j && j.msg) || '';
+  } catch (e) { rec.status = 'error'; rec.msg = e.name === 'AbortError' ? 'Server is slow — tap Retry' : 'No connection — tap Retry'; }
+  Store.save(); renderShop();
+  if (rec.status === 'paid') toast('✅ ' + rec.price + ' TON sent to your wallet', 'ok');
+  else if (rec.status === 'pending') toast('Payment is on its way', 'ok');
+  else if (rec.status === 'invalid') toast('Sale rejected: ' + (rec.msg || 'invalid'), 'err');
+  else toast(rec.msg || 'Failed — tap Retry', 'err');
 }
 function showSaleCode(code) {
   $('sellCode').textContent = code; openModal('mSell');
   $('sellCopy').onclick = () => copyText(code, 'Code copied');
   const tgUser = cfg().ADMIN_TG; $('sellTg').style.display = tgUser ? '' : 'none';
   $('sellTg').onclick = () => openTgLink('https://t.me/' + tgUser + '?text=' + encodeURIComponent(code));
-}
-function undoSale(code) {
-  const s = Store.d.sold.find((x) => x.code === code); if (!s) return;
-  Store.d.sold = Store.d.sold.filter((x) => x !== s); Store.d.inst.push({ id: s.id, serial: s.serial, tx: s.tx, at: Date.now() }); Store.save(); renderLocker(); refreshHome(); toast('Skin restored', 'ok');
 }
 
 /* =====================================================================
@@ -952,7 +1010,6 @@ function refreshWalletUi() {
   $('walletPill').textContent = a ? '✅ ' + short : '🔗 Connect';
   $('wAddr').textContent = a || 'Not connected'; $('wDisc').style.display = a ? '' : 'none'; $('wConnect').textContent = a ? '🔁 Switch wallet' : '🔗 Connect wallet';
 }
-let prevAnim = 0;
 function refreshHome() {
   $('coinsPill').textContent = '🪙 ' + Store.d.coins;
   const e = Store.d.equip; $('pname').textContent = equippedName(); $('psub').textContent = SKINS[e.id].rarity + ' · Best ' + Store.d.best;
@@ -983,16 +1040,9 @@ function renderLocker() {
     d.insertAdjacentHTML('beforeend', '<div class="n">' + SKINS[id].name + '</div><div class="s">🪙 ' + SKINS[id].cost + '</div><span class="rar common">locked</span>');
     d.onclick = () => {
       if (Store.d.coins < SKINS[id].cost) { toast('Need ' + SKINS[id].cost + ' coins — play to earn more', 'err'); return; }
-      askConfirm({ icon: '🪙', title: 'Unlock ' + SKINS[id].name + '?', text: 'Costs ' + SKINS[id].cost + ' coins.', ok: 'UNLOCK' }, () => { Store.d.coins -= SKINS[id].cost; Store.d.free.push(id); Store.save(); renderLocker(); refreshHome(); toast('Unlocked!', 'ok'); });
+      askConfirm({ icon: '🪙', title: 'Unlock ' + SKINS[id].name + '?', text: 'Costs ' + SKINS[id].cost + ' coins.', ok: 'UNLOCK' }, () => { if (Store.d.coins < SKINS[id].cost || Store.d.free.includes(id)) return; Store.d.coins -= SKINS[id].cost; Store.d.free.push(id); Store.save(); renderLocker(); refreshHome(); toast('Unlocked!', 'ok'); });
     };
     el.appendChild(d);
-  });
-  const h = $('saleHist'); h.innerHTML = '';
-  if (!Store.d.sold.length) h.innerHTML = '<div class="hist"><span style="opacity:.5">No sales yet</span></div>';
-  Store.d.sold.slice(0, 12).forEach((s) => {
-    const d = document.createElement('div'); d.className = 'hist';
-    d.innerHTML = '<div><b>' + SKINS[s.id].name + '</b> ' + fmtSerial(s.serial) + '<br><code>' + esc(s.code.slice(0, 22)) + '…</code></div><div style="display:flex;gap:6px"><button class="btn sm blue" data-a="c">Code</button><button class="btn sm ghost" data-a="u">Undo</button></div>';
-    d.querySelector('[data-a=c]').onclick = () => showSaleCode(s.code); d.querySelector('[data-a=u]').onclick = () => undoSale(s.code); h.appendChild(d);
   });
 }
 let detInst = null;
@@ -1002,7 +1052,36 @@ function openDetail(s) {
   const eq = Store.d.equip.id === s.id && Store.d.equip.serial === s.serial; $('detEq').disabled = eq; $('detEq').textContent = eq ? 'Equipped' : 'Equip';
   const price = cfg().SELL_PRICES[s.id]; const can = !!(s.tx && price);
   $('detSell').style.display = s.tx ? '' : 'none'; $('detSell').disabled = !can; $('detSell').textContent = can ? 'Sell for ' + price + ' TON' : 'Not sellable';
-  $('detNote').style.display = 'none'; openModal('mDetail');
+  openModal('mDetail');
+}
+
+/* shop */
+function openShop() { renderShop(); openModal('mShop'); initTonConnect(); }
+function renderShop() {
+  const c = cfg(); const list = $('shopList'); list.innerHTML = ''; let total = 0;
+  const items = Store.d.inst.filter((s) => s.tx && c.SELL_PRICES[s.id]);
+  items.forEach((s) => {
+    const price = c.SELL_PRICES[s.id]; total += price;
+    const d = document.createElement('div'); d.className = 'hist shopi';
+    const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0';
+    mid.innerHTML = '<b>' + esc(SKINS[s.id].name) + '</b> <code>' + fmtSerial(s.serial) + '</code><br><span class="rar ' + SKINS[s.id].rarity + '">' + SKINS[s.id].rarity + '</span>';
+    const b = document.createElement('button'); b.className = 'btn sm gold'; b.textContent = 'Sell ' + price; b.onclick = () => sellInst(s);
+    d.appendChild(skinIcon(s.id, 96)); d.appendChild(mid); d.appendChild(b); list.appendChild(d);
+  });
+  if (!items.length) list.innerHTML = '<div class="hist"><span style="opacity:.55">No skins to sell yet — open a lootbox first.</span></div>';
+  $('shopTotal').textContent = (Math.round(total * 1e9) / 1e9) + ' TON';
+  const h = $('shopHist'); h.innerHTML = '';
+  if (!Store.d.sold.length) h.innerHTML = '<div class="hist"><span style="opacity:.5">No sales yet</span></div>';
+  Store.d.sold.slice(0, 12).forEach((s) => {
+    const st = s.status || 'code'; const cls = st === 'sending' ? 'pending' : st === 'code' ? 'ok' : st;
+    const d = document.createElement('div'); d.className = 'hist';
+    d.innerHTML = '<div style="flex:1;min-width:0"><b>' + esc(SKINS[s.id] ? SKINS[s.id].name : s.id) + '</b> ' + fmtSerial(s.serial) + ' <span class="chip ' + cls + '">' + (st === 'code' ? 'manual' : st === 'sending' ? 'sending' : st) + '</span>' +
+      (s.msg ? '<br><code>' + esc(s.msg) + '</code>' : '') + '</div><div style="display:flex;flex-direction:column;gap:6px"></div>';
+    const box = d.lastChild;
+    if (st === 'error' || st === 'pending') { const r = document.createElement('button'); r.className = 'btn sm blue'; r.textContent = 'Retry'; r.onclick = () => sendSale(s); box.appendChild(r); }
+    if (st === 'code' || st === 'error') { const k = document.createElement('button'); k.className = 'btn sm ghost'; k.textContent = 'Code'; k.onclick = () => showSaleCode(s.code); box.appendChild(k); }
+    h.appendChild(d);
+  });
 }
 
 /* reveal */
@@ -1015,7 +1094,8 @@ function showReveal(inst) {
 }
 
 /* =====================================================================
-   ADMIN  — 24-word payout wallet encrypted on this device, payouts via TonWeb
+   ADMIN  — 24-word payout wallet encrypted on this device, manual payouts via TonWeb
+   (not needed once SELL_API is set)
    ===================================================================== */
 const ADM = { key: null, pass: '', words: null, kp: null, version: 'v4R2', addr: '', tonweb: null, busy: false };
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -1119,11 +1199,11 @@ function admCollectCfg() {
 function admSaveCfg() { const c = admCollectCfg(); if (!c) return; Store.d.admin.cfg = c; Store.save(); refreshHome(); toast('Settings saved on this device', 'ok'); }
 function admSnippet() {
   const c = admCollectCfg(); if (!c) return; const m = Object.assign({}, cfg(), c, { SELL_PRICES: Object.assign({}, cfg().SELL_PRICES, c.SELL_PRICES) });
-  const txt = "const CONFIG = {\n  RECEIVE_ADDRESS: '" + (m.RECEIVE_ADDRESS || '') + "',\n  LOOTBOX_PRICE: " + m.LOOTBOX_PRICE + ",\n  SELL_PRICES: " + JSON.stringify(m.SELL_PRICES) + ",\n  ADMIN_TG: '" + (m.ADMIN_TG || '') + "',\n  TONCENTER: '" + m.TONCENTER + "',\n  TONCENTER_KEY: '" + (m.TONCENTER_KEY || '') + "',\n  MANIFEST_URL: '" + (m.MANIFEST_URL || '') + "',\n  NETWORK: '-239'\n};";
+  const txt = "const CONFIG = {\n  RECEIVE_ADDRESS: '" + (m.RECEIVE_ADDRESS || '') + "',\n  LOOTBOX_PRICE: " + m.LOOTBOX_PRICE + ",\n  SELL_PRICES: " + JSON.stringify(m.SELL_PRICES) + ",\n  ADMIN_TG: '" + (m.ADMIN_TG || '') + "',\n  SELL_API: '" + (m.SELL_API || '') + "',\n  TONCENTER: '" + m.TONCENTER + "',\n  TONCENTER_KEY: '" + (m.TONCENTER_KEY || '') + "',\n  MANIFEST_URL: '" + (m.MANIFEST_URL || '') + "',\n  NETWORK: '-239'\n};";
   copyText(txt, 'CONFIG copied — paste it over the old one in index.html');
 }
 
-/* ----- sale requests ----- */
+/* ----- sale requests (manual mode) ----- */
 const tagOf = (h) => 'NB-' + bytesToHex(b64ToBytes(h)).slice(0, 12);
 async function verifySale(code) {
   const j = parseSaleCode(code); if (!j) return { ok: false, reason: 'Invalid code format' };
@@ -1213,17 +1293,18 @@ async function admSelfTest() {
   for (const [id] of BOX_TABLE) if (!c.SELL_PRICES[id]) line(false, 'Missing sell price for ' + id);
   const ev = BOX_TABLE.reduce((s, [id, w]) => s + (c.SELL_PRICES[id] || 0) * w / 100, 0);
   line(ev < c.LOOTBOX_PRICE, 'Expected sell value ' + ev.toFixed(4) + ' TON vs box price ' + c.LOOTBOX_PRICE + (ev < c.LOOTBOX_PRICE ? ' (you keep a margin)' : ' (you would LOSE money on average!)'));
+  line(c.SELL_API ? true : null, c.SELL_API ? 'Auto payout server: ' + c.SELL_API : 'SELL_API is empty — selling works in manual mode (sale codes)');
   try { const mf = c.MANIFEST_URL || new URL('tonconnect-manifest.json', location.href).href; const r = await fetch(mf); const j = await r.json(); line(!!(j.url && j.name && j.iconUrl), 'TonConnect manifest reachable: ' + mf); } catch (e) { line(false, 'TonConnect manifest not reachable (add tonconnect-manifest.json next to index.html)'); }
   try { await initTonConnect(); line(!!tc, 'TonConnect library loaded'); } catch (e) { line(false, 'TonConnect library'); }
   if (raw) { try { const st = await tcGet('getAddressInformation', { address: c.RECEIVE_ADDRESS }); line(true, 'toncenter OK · receive wallet state: ' + st.state + ' · balance ' + fromNano(st.balance || '0') + ' TON'); } catch (e) { line(false, 'toncenter: ' + e.message); } }
   try { await ensureTonWeb(); line(true, 'TonWeb library loaded'); } catch (e) { line(false, 'TonWeb: ' + e.message); }
   if (ADM.words) {
     try { const w = await deriveWallet(ADM.words, ADM.version); line(w.addr === ADM.addr, 'Payout wallet derives: ' + w.addr); const b = BigInt(await admBalance()); line(b >= 30000000n, 'Payout balance ' + fromNano(b) + ' TON' + (b < 30000000n ? ' — top it up so payouts can be sent' : '')); const s = (await w.wallet.methods.seqno().call()); line(true, 'Wallet seqno readable: ' + (s || 0)); } catch (e) { line(false, 'Payout wallet: ' + e.message); }
-  } else line(null, 'No 24-word payout wallet saved yet (needed to pay sellers)');
+  } else line(null, 'No 24-word payout wallet saved yet (needed for manual payouts)');
   const t = deriveFromHash('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='); line(!!t.id && t.serial >= 100000, 'Skin derivation deterministic: ' + t.id + ' ' + fmtSerial(t.serial));
-  line(null, 'Receive-address test payment: buy one lootbox yourself with a SMALL price, then sell it and pay it from section 3.');
+  line(null, 'Receive-address test payment: buy one lootbox yourself with a SMALL price, then sell it from the Shop.');
 }
-async function admGift() { const inst = { id: 'aurora', serial: 123456, at: Date.now() }; Store.d.inst.push(inst); Store.save(); refreshHome(); toast('Test skin added (not sellable)', 'ok'); }
+async function admGift() { const inst = { id: 'aurora', serial: 123456, at: Date.now() }; Store.d.inst.push(inst); Store.save(); refreshHome(); renderLocker(); toast('Test skin added (not sellable)', 'ok'); }
 function admBackup() { copyText(JSON.stringify(Store.d.admin.reqs), 'Requests copied'); }
 
 /* =====================================================================
@@ -1234,7 +1315,8 @@ function init() {
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { const m = b.closest('.modal'); m.classList.remove('on'); if (m.id === 'mBox') stopBoxPoll(); }));
   $('playBtn').onclick = startGame; $('againBtn').onclick = startGame; $('homeBtn').onclick = goHome;
   $('prevSkin').onclick = () => cycleSkin(-1); $('nextSkin').onclick = () => cycleSkin(1);
-  $('dLocker').onclick = () => { renderLocker(); openModal('mLocker'); }; $('dBox').onclick = openBox;
+  $('dLocker').onclick = () => { renderLocker(); openModal('mLocker'); }; $('dBox').onclick = openBox; $('dShop').onclick = openShop;
+  $('lockRestore').onclick = restorePurchases;
   $('dWallet').onclick = () => { refreshWalletUi(); openModal('mWallet'); initTonConnect(); }; $('walletPill').onclick = $('dWallet').onclick;
   $('wConnect').onclick = async () => { await initTonConnect(); if (!tc) { toast('Wallet service unavailable', 'err'); return; } closeModal('mWallet'); const go = () => { const p = tc.openModal(); if (p && p.catch) p.catch(() => {}); }; if (tc.wallet) tc.disconnect().then(go).catch(go); else go(); };
   $('wDisc').onclick = () => { if (tc && tc.wallet) tc.disconnect().catch(() => {}); };
@@ -1251,7 +1333,8 @@ function init() {
   $('admTest').onclick = admSelfTest; $('admGift').onclick = admGift; $('admBackup').onclick = admBackup; $('admLockBtn').onclick = admLock;
   // resume payments that were paid but not yet delivered
   if (Store.d.orders.length) { boxPollStart = Date.now(); setTimeout(() => { initTonConnect(); startBoxPoll(); }, 800); }
-  document.addEventListener('pointerdown', () => {}, { passive: true });
+  // resume sales that never got an answer from the payout server
+  const c0 = cfg(); if (c0.SELL_API) Store.d.sold.filter((s) => s.status === 'sending').forEach((s) => sendSale(s));
   requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); }); requestAnimationFrame(animPreview);
 }
 init();
