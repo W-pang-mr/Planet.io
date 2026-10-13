@@ -8,7 +8,7 @@ const BASE = E.BASE_URL || E.RENDER_EXTERNAL_URL || '';
 const sb = createClient(E.SUPABASE_URL, E.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
 const app = express();
 app.use(express.json({ limit: '50kb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'Public')));
 
 /* ---------- helpers ---------- */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
