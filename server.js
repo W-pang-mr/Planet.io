@@ -1,4 +1,4 @@
-const express = require('express'), crypto = require('crypto'), path = require('path');
+const express = require('express'), crypto = require('crypto'), path = require('path'), fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 const { TonClient, WalletContractV5R1, internal } = require('@ton/ton');
 const { Address, SendMode } = require('@ton/core');
@@ -8,7 +8,8 @@ const BASE = E.BASE_URL || E.RENDER_EXTERNAL_URL || '';
 const sb = createClient(E.SUPABASE_URL, E.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
 const app = express();
 app.use(express.json({ limit: '50kb' }));
-app.use(express.static(path.join(__dirname, 'Public')));
+const PUB = ['Public', 'public'].map(d => path.join(__dirname, d)).find(d => fs.existsSync(d)) || __dirname;
+app.use(express.static(PUB));
 
 /* ---------- helpers ---------- */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -60,17 +61,20 @@ const nano = t => Math.round(Number(t) * 1e9);
 app.get('/api/me', wrap(async (req, res) => {
   const u = req.u;
   await sb.from('players').upsert({ telegram_id: u.id, username: u.username || null, first_name: u.first_name || null, last_seen: new Date().toISOString() }, { onConflict: 'telegram_id' });
-  await sb.from('player_skins').upsert({ telegram_id: u.id, skin_id: 'pixel_knight' }, { onConflict: 'telegram_id,skin_id', ignoreDuplicates: true });
-  const [{ data: player }, { data: skins }, { data: owned }, { data: wd }] = await Promise.all([
+  await sb.from('player_guns').upsert({ telegram_id: u.id, gun_id: 'colt' }, { onConflict: 'telegram_id,gun_id', ignoreDuplicates: true });
+  await sb.from('player_skins').upsert({ telegram_id: u.id, skin_id: 'colt_0' }, { onConflict: 'telegram_id,skin_id', ignoreDuplicates: true });
+  const [{ data: player }, { data: guns }, { data: skins }, { data: og }, { data: os }, { data: wd }] = await Promise.all([
     sb.from('players').select('*').eq('telegram_id', u.id).single(),
-    sb.from('skins').select('id,name,rarity,price_nano,sort').eq('active', true).order('sort'),
+    sb.from('guns').select('id,name,price_nano,sort').eq('active', true).order('sort'),
+    sb.from('skins').select('id,name,rarity,price_nano,sort,gun').eq('active', true).order('sort'),
+    sb.from('player_guns').select('gun_id').eq('telegram_id', u.id),
     sb.from('player_skins').select('skin_id').eq('telegram_id', u.id),
     sb.from('withdrawals').select('id,amount_nano,fee_nano,status,address,created_at').eq('telegram_id', u.id).order('id', { ascending: false }).limit(8)
   ]);
   if (player.banned) throw new Error('Account banned');
   const s = await settings();
   res.json({
-    player, skins, owned: owned.map(o => o.skin_id), withdrawals: wd,
+    player, guns, skins, ownedGuns: og.map(o => o.gun_id), ownedSkins: os.map(o => o.skin_id), withdrawals: wd,
     cfg: { reward: s.reward_per_kill_nano, min: s.min_withdraw_nano, fee: s.withdraw_fee_nano, cap: s.daily_withdraw_cap_nano },
     deposit: { address: walletAddr, comment: 'G' + u.id },
     isAdmin: (await adminIds()).includes(String(u.id))
@@ -116,11 +120,24 @@ app.post('/api/skin/buy', wrap(async (req, res) => {
   });
 }));
 
+app.post('/api/gun/buy', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    const { error } = await sb.rpc('buy_gun', { p_tid: req.u.id, p_gun: String(req.body.id) });
+    if (error) throw new Error(error.message.includes('check') ? 'Not enough balance' : error.message);
+    const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', req.u.id).single();
+    res.json({ balance: p.balance_nano });
+  });
+}));
+
 app.post('/api/skin/equip', wrap(async (req, res) => {
   const id = String(req.body.id);
-  const { data } = await sb.from('player_skins').select('skin_id').eq('telegram_id', req.u.id).eq('skin_id', id);
-  if (!data || !data.length) throw new Error('Skin not owned');
-  await sb.from('players').update({ equipped_skin: id }).eq('telegram_id', req.u.id); res.json({ ok: 1 });
+  const { data: o } = await sb.from('player_skins').select('skin_id').eq('telegram_id', req.u.id).eq('skin_id', id);
+  if (!o || !o.length) throw new Error('Skin not owned');
+  const { data: sk } = await sb.from('skins').select('gun').eq('id', id).single();
+  const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', req.u.id).single();
+  const eq = { ...(p.equipped_skins || {}), [sk.gun]: id };
+  await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+  res.json({ equipped: eq });
 }));
 
 app.post('/api/withdraw', wrap(async (req, res) => {
@@ -139,14 +156,15 @@ app.post('/api/withdraw', wrap(async (req, res) => {
 /* ---------- admin api ---------- */
 const KEYS = ['reward_per_kill_nano', 'min_withdraw_nano', 'withdraw_fee_nano', 'daily_withdraw_cap_nano', 'max_kills_per_minute'];
 app.get('/api/admin/overview', wrap(async (req, res) => {
-  const [{ data: skins }, { data: wd }, { count }] = await Promise.all([
-    sb.from('skins').select('*').order('sort'),
+  const [{ data: skins }, { data: wd }, { count }, { data: weapons }] = await Promise.all([
+    sb.from('skins').select('*').order('weapon').order('sort'),
     sb.from('withdrawals').select('*').order('id', { ascending: false }).limit(40),
-    sb.from('players').select('*', { count: 'exact', head: true })
+    sb.from('players').select('*', { count: 'exact', head: true }),
+    sb.from('weapons').select('*').order('sort')
   ]);
   const s = await settings(); const cfg = {}; KEYS.forEach(k => cfg[k] = s[k]);
   let hot = null; try { if (client) hot = String(await client.getBalance(wallet.address)); } catch { }
-  res.json({ cfg, skins, withdrawals: wd, players: count, hot, address: walletAddr });
+  res.json({ cfg, skins, weapons, withdrawals: wd, players: count, hot, address: walletAddr });
 }, true));
 app.post('/api/admin/settings', wrap(async (req, res) => {
   const { key, value } = req.body; if (!KEYS.includes(key)) throw new Error('bad key');
@@ -157,6 +175,14 @@ app.post('/api/admin/settings', wrap(async (req, res) => {
 app.post('/api/admin/skin', wrap(async (req, res) => {
   const { id, price_nano, active } = req.body;
   await sb.from('skins').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/weapon', wrap(async (req, res) => {
+  const { id, price_nano, active } = req.body;
+  await sb.from('weapons').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/gun', wrap(async (req, res) => {
+  const { id, price_nano, active } = req.body;
+  await sb.from('guns').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
 }, true));
 app.post('/api/admin/refund', wrap(async (req, res) => {
   const { data, error } = await sb.rpc('refund_withdrawal', { p_wid: Number(req.body.id) });
