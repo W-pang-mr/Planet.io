@@ -140,6 +140,16 @@ app.post('/api/skin/equip', wrap(async (req, res) => {
   res.json({ equipped: eq });
 }));
 
+app.get('/api/wallet', wrap(async (req, res) => {
+  const uid = req.u.id, since = new Date(Date.now() - 864e5).toISOString();
+  const [{ data: h }, { data: k }, { data: wd }] = await Promise.all([
+    sb.from('ledger').select('type,amount_nano,ref,created_at').eq('telegram_id', uid).neq('type', 'kill_reward').order('id', { ascending: false }).limit(30),
+    sb.from('ledger').select('amount_nano').eq('telegram_id', uid).eq('type', 'kill_reward').gte('created_at', since).limit(5000),
+    sb.from('withdrawals').select('id,status').eq('telegram_id', uid).order('id', { ascending: false }).limit(40)
+  ]);
+  res.json({ history: h || [], today: (k || []).reduce((a, r) => a + Number(r.amount_nano), 0), wd: wd || [] });
+}));
+
 app.post('/api/withdraw', wrap(async (req, res) => {
   await withLock(req.u.id, async () => {
     let addr; try { addr = Address.parse(String(req.body.address).trim()).toString({ bounceable: false }); } catch { throw new Error('Invalid TON address'); }
