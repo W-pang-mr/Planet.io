@@ -11,7 +11,8 @@ button{border:0;color:#fff;font-weight:700;padding:11px 16px;border-radius:999px
 </style></head><body>
 <h1>⚙️ Admin</h1><div class="st"><div class="g"><b id="hot">–</b><span class="m">Hot wallet TON</span></div><div class="g"><b id="pl">–</b><span class="m">Players</span></div></div>
 <div class="g" style="margin-top:12px"><h3>Economy (TON)</h3><div id="eco"></div></div>
-<div class="g"><h3>Skins (price in TON)</h3><div id="sk"></div></div>
+<div class="g"><h3>Weapons (price in TON)</h3><div id="wp"></div></div>
+<div class="g"><h3>Gun skins (price in TON)</h3><div id="sk"></div></div>
 <div class="g"><h3>Withdrawals</h3><div id="wd"></div></div>
 <div class="g"><h3>Ban player</h3><input id="bid" type="number" placeholder="Telegram ID"><div class="r"><button onclick="ban(true)">Ban</button><button onclick="ban(false)">Unban</button></div></div>
 <script>
@@ -23,11 +24,15 @@ async function load(){
  try{const d=await api('/api/admin/overview');
  $('hot').textContent=d.hot?f(d.hot).toFixed(3):'–';$('pl').textContent=d.players;
  $('eco').innerHTML=Object.keys(L).map(k=>`<label>${L[k][0]}</label><div class="r"><input id="c_${k}" type="number" step="any" value="${L[k][1]?f(d.cfg[k]):d.cfg[k]}"><button onclick="sv('${k}',${L[k][1]})">Save</button></div>`).join('');
- $('sk').innerHTML=d.skins.map(s=>`<label>${s.name} · ${s.rarity}</label><div class="r"><input id="p_${s.id}" type="number" step="any" value="${f(s.price_nano)}"><input id="a_${s.id}" type="checkbox" ${s.active?'checked':''} style="flex:0 0 26px;height:26px"><button onclick="ss('${s.id}')">Save</button></div>`).join('');
+ $('wp').innerHTML=d.weapons.map(s=>`<label>${s.name}</label><div class="r"><input id="wp_${s.id}" type="number" step="any" value="${f(s.price_nano)}"><input id="wa_${s.id}" type="checkbox" ${s.active?'checked':''} style="flex:0 0 26px;height:26px"><button onclick="sw('${s.id}')">Save</button></div>`).join('');
+ $('gn').innerHTML=d.guns.map(g=>`<label>${g.name}</label><div class="r"><input id="gp_${g.id}" type="number" step="any" value="${f(g.price_nano)}"><input id="ga_${g.id}" type="checkbox" ${g.active?'checked':''} style="flex:0 0 26px;height:26px"><button onclick="sg('${g.id}')">Save</button></div>`).join('');
+ $('sk').innerHTML=d.skins.map(s=>`<label>${s.weapon.toUpperCase()} · ${s.name} · ${s.rarity}</label><div class="r"><input id="p_${s.id}" type="number" step="any" value="${f(s.price_nano)}"><input id="a_${s.id}" type="checkbox" ${s.active?'checked':''} style="flex:0 0 26px;height:26px"><button onclick="ss('${s.id}')">Save</button></div>`).join('');
  $('wd').innerHTML=d.withdrawals.map(w=>`<div class="w"><span>#${w.id} · ${w.telegram_id}<br><span class="m">${w.address.slice(0,10)}…</span></span><span style="text-align:right">${f(w.amount_nano)} TON<br><span class="m">${w.status}${w.error?' · '+w.error:''}</span>${w.status==='failed'?`<br><button style="padding:5px 10px;margin:4px 0 0" onclick="rf(${w.id})">Refund</button>`:''}</span></div>`).join('')||'<div class="m">None</div>';
  }catch(e){document.body.innerHTML='<h1>'+e.message+'</h1>'}
 }
 async function sv(k,t){try{await api('/api/admin/settings',{key:k,value:t?$('c_'+k).value*1e9:$('c_'+k).value});alert('Saved')}catch(e){alert(e.message)}}
+async function sw(id){try{await api('/api/admin/weapon',{id,price_nano:$('wp_'+id).value*1e9,active:$('wa_'+id).checked});alert('Saved')}catch(e){alert(e.message)}}
+async function sg(id){try{await api('/api/admin/gun',{id,price_nano:$('gp_'+id).value*1e9,active:$('ga_'+id).checked});alert('Saved')}catch(e){alert(e.message)}}
 async function ss(id){try{await api('/api/admin/skin',{id,price_nano:$('p_'+id).value*1e9,active:$('a_'+id).checked});alert('Saved')}catch(e){alert(e.message)}}
 async function rf(id){if(!confirm('Refund #'+id+'? Make sure it was NOT paid on-chain.'))return;try{await api('/api/admin/refund',{id});load()}catch(e){alert(e.message)}}
 async function ban(b){try{await api('/api/admin/ban',{telegram_id:$('bid').value,banned:b});alert('Done')}catch(e){alert(e.message)}}
