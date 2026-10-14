@@ -262,10 +262,27 @@ async function processWithdrawals() {
         for (let i = 0; i < 14 && !ok; i++) { await sleep(5000); ok = (await contract.getSeqno()) > seqno; }
         if (!ok) throw new Error('not confirmed, check wallet manually');
         await sb.from('withdrawals').update({ status: 'sent', processed_at: new Date().toISOString() }).eq('id', w.id);
+        // Notify user on successful withdrawal
+        const amountTon = (Number(w.amount_nano - w.fee_nano) / 1e9).toFixed(4);
+        const feeTon = (Number(w.fee_nano) / 1e9).toFixed(4);
+        try {
+          await tg('sendMessage', {
+            chat_id: w.telegram_id,
+            text: `✅ Withdrawal successful!\n\n💰 Amount: ${amountTon} TON\n🧾 Fee: ${feeTon} TON\n📬 To: \`${w.address}\`\n🆔 ID: #${w.id}`,
+            parse_mode: 'Markdown'
+          });
+        } catch (notifyErr) { console.error('notify success', w.id, notifyErr.message); }
       } catch (e) {
         console.error('withdraw', w.id, e.message);
         if (!broadcast) { await sb.from('withdrawals').update({ status: 'pending', error: e.message }).eq('id', w.id); break; }
         await sb.from('withdrawals').update({ status: 'failed', error: e.message, processed_at: new Date().toISOString() }).eq('id', w.id);
+        // Notify user on failed withdrawal
+        try {
+          await tg('sendMessage', {
+            chat_id: w.telegram_id,
+            text: `❌ Withdrawal failed\n\n🆔 ID: #${w.id}\nReason: ${e.message}\n\nYour balance has been restored. Please try again later or contact support.`
+          });
+        } catch (notifyErr) { console.error('notify fail', w.id, notifyErr.message); }
       }
     }
   } catch (e) { console.error('wd loop', e.message); } finally { wdBusy = false; }
