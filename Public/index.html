@@ -7,52 +7,47 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-:root{--g1:rgba(255,255,255,.2);--g2:rgba(255,255,255,.05);--ac:#6ee7ff;--tx:#f4f8ff;--mut:rgba(244,248,255,.62)}
+:root{--ac:#27f5c1;--ac2:#7c5cff;--tx:#f0f4ff;--mut:rgba(230,235,255,.55);--bg:#06080f;--card:rgba(16,18,28,.82);--border:rgba(255,255,255,.12)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
-html,body{margin:0;height:100%;overflow:hidden;background:#070b14;color:var(--tx);font-family:-apple-system,"SF Pro Display",Inter,Roboto,sans-serif}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-family:-apple-system,Inter,Roboto,sans-serif}
 canvas#c{position:fixed;inset:0;width:100%;height:100%}
-.glass{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--g1),var(--g2));backdrop-filter:blur(22px) saturate(190%) brightness(1.08);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.08);border:1px solid rgba(255,255,255,.26);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.6),inset 0 -10px 24px rgba(255,255,255,.05),inset 0 0 30px rgba(120,200,255,.07),0 14px 40px rgba(0,0,0,.4);border-radius:26px}
-.glass::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.3) 48%,transparent 60%);transform:translateX(-120%);animation:sheen 7s ease-in-out infinite}
-.glass::after{content:"";position:absolute;left:8%;right:8%;top:0;height:42%;pointer-events:none;border-radius:0 0 50% 50%;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent)}
-@keyframes sheen{0%,55%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.glass{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 8px 28px rgba(0,0,0,.45)}
 .scr{position:fixed;inset:0;display:none;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));pointer-events:none}
 .scr.on{display:flex;flex-direction:column}.scr>*{pointer-events:auto}
-.btn{border:0;color:var(--tx);font:700 16px -apple-system,Inter,Roboto,sans-serif;padding:15px 22px;border-radius:999px;cursor:pointer;transition:transform .12s;text-align:center}
-.btn:active{transform:scale(.93)}.btn.pri{background:linear-gradient(135deg,rgba(110,231,255,.65),rgba(179,136,255,.6))}
-.btn:disabled{opacity:.45}
-.chip{display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;font-weight:700;font-size:15px}
+.btn{border:0;color:var(--tx);font:700 15px -apple-system,Inter,sans-serif;padding:14px 20px;border-radius:14px;cursor:pointer;transition:transform .1s,opacity .15s;text-align:center;background:rgba(255,255,255,.08)}
+.btn:active{transform:scale(.95)}.btn.pri{background:linear-gradient(135deg,#1ad4a0,#5b45e0);box-shadow:0 6px 22px rgba(39,245,193,.25)}
+.btn:disabled{opacity:.4}
+.chip{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;font-weight:700;font-size:14px;background:var(--card);border:1px solid var(--border)}
 .top{display:flex;justify-content:space-between;gap:8px}
-.dock{display:flex;gap:6px;padding:7px;border-radius:999px;margin:12px auto 0}
-.dock .btn{padding:11px 20px;font-size:14px;background:transparent}.dock .btn.act{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.08));box-shadow:inset 0 1px 1px rgba(255,255,255,.6)}
+.dock{display:flex;gap:4px;padding:5px;border-radius:14px;margin:10px auto 0;background:var(--card);border:1px solid var(--border)}
+.dock .btn{padding:10px 18px;font-size:13px;background:transparent;border-radius:10px}.dock .btn.act{background:rgba(39,245,193,.18);color:#27f5c1}
 .grow{flex:1}.col{display:flex;flex-direction:column;gap:10px}
-.panel{padding:18px}.mut{color:var(--mut);font-size:13px}
-.title{font-size:30px;font-weight:800;letter-spacing:-.5px;text-shadow:0 4px 24px rgba(110,231,255,.5)}
+.panel{padding:16px}.mut{color:var(--mut);font-size:13px}
+.title{font-size:28px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#fff}
 .cards{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;touch-action:pan-x}
 .cards::-webkit-scrollbar{display:none}.cards *{touch-action:pan-x}
-.sk{flex:0 0 118px;scroll-snap-align:center;padding:12px 10px;border-radius:22px;text-align:center;cursor:pointer;transition:transform .2s}
-.sk.sel{transform:translateY(-6px) scale(1.04);border-color:rgba(255,255,255,.75)}
-.sk .dot{width:42px;height:42px;border-radius:13px;margin:0 auto 8px;box-shadow:0 0 22px currentColor}
+.sk{flex:0 0 110px;scroll-snap-align:center;padding:12px 10px;border-radius:16px;text-align:center;cursor:pointer;transition:transform .15s;background:var(--card);border:1px solid var(--border)}
+.sk.sel{transform:translateY(-4px);border-color:var(--ac);box-shadow:0 0 16px rgba(39,245,193,.25)}
+.sk .dot{width:38px;height:38px;border-radius:10px;margin:0 auto 8px}
 .sk b{display:block;font-size:13px}.sk small{font-size:11px;color:var(--mut)}
-.tabs{display:flex;gap:6px;padding:6px;border-radius:999px}.tabs .btn{flex:1;padding:10px;font-size:14px;background:transparent}.tabs .btn.act{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.08));box-shadow:inset 0 1px 1px rgba(255,255,255,.6)}
-.gchips{display:flex;gap:6px;overflow-x:auto;touch-action:pan-x}.gchips::-webkit-scrollbar{display:none}.gchips .btn{padding:8px 14px;font-size:13px;flex:0 0 auto}.gchips .btn.act{border-color:#fff;box-shadow:0 0 16px var(--ac)}
-input{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:13px 14px;color:var(--tx);font-size:15px;outline:0;touch-action:auto;user-select:text;-webkit-user-select:text}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--border)}.tabs .btn{flex:1;padding:9px;font-size:13px;background:transparent;border-radius:9px}.tabs .btn.act{background:rgba(39,245,193,.18);color:#27f5c1}
+.gchips{display:flex;gap:6px;overflow-x:auto;touch-action:pan-x}.gchips::-webkit-scrollbar{display:none}.gchips .btn{padding:8px 14px;font-size:12px;flex:0 0 auto}.gchips .btn.act{border-color:var(--ac);color:var(--ac)}
+input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--tx);font-size:15px;outline:0;touch-action:auto;user-select:text;-webkit-user-select:text}
 .row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}
-.hist{font-size:13px;display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}
-.bar{height:14px;border-radius:9px;background:rgba(0,0,0,.35);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
-.bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff5d7a,#ffb86b);transition:width .15s}
+.bar{height:12px;border-radius:8px;background:rgba(0,0,0,.4);overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff3b5c,#ff9d3b);transition:width .12s}
 .stick{position:fixed;border-radius:50%;width:120px;height:120px;margin:-60px 0 0 -60px;display:none;pointer-events:none}
-.stick i{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.45);box-shadow:inset 0 1px 2px #fff}
+.stick i{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.4)}
 #dmg{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 120px rgba(255,40,70,0);transition:box-shadow .25s}
-#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45));display:none}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.55));display:none}
 .fl{position:fixed;pointer-events:none;font-weight:800;font-size:15px;color:#9dffdf;text-shadow:0 2px 8px #000;animation:fl .9s forwards;transform:translateX(-50%)}
 .fl.hs{color:#ffd24a;font-size:18px}
 @keyframes fl{to{transform:translate(-50%,-46px);opacity:0}}
-#toast{position:fixed;left:50%;top:max(16px,env(safe-area-inset-top));transform:translate(-50%,-90px);padding:12px 20px;border-radius:999px;transition:transform .35s;z-index:9;font-weight:600;font-size:14px;max-width:90vw;text-align:center}
+#toast{position:fixed;left:50%;top:max(16px,env(safe-area-inset-top));transform:translate(-50%,-90px);padding:12px 20px;border-radius:14px;transition:transform .3s;z-index:9;font-weight:600;font-size:14px;max-width:90vw;text-align:center;background:var(--card);border:1px solid var(--border)}
 #toast.on{transform:translate(-50%,0)}
-.big{font-size:44px;font-weight:800}
-#home,#shop,#wallet{padding-bottom:calc(max(14px,env(safe-area-inset-bottom)) + 78px)}
+.big{font-size:40px;font-weight:800}
+#home,#shop,#wallet{padding-bottom:calc(max(14px,env(safe-area-inset-bottom)) + 72px)}
 #wallet{pointer-events:auto;touch-action:pan-y;overflow:auto}#wallet *{touch-action:pan-y}#wallet input{touch-action:auto}
-/* hud */
 #ch{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none;display:none}
 #ch::before,#ch::after{content:"";position:absolute;background:#fff;box-shadow:0 0 4px #000}
 #ch::before{left:12px;top:0;width:2px;height:26px;-webkit-mask:linear-gradient(#000 0 8px,transparent 8px 18px,#000 18px);mask:linear-gradient(#000 0 8px,transparent 8px 18px,#000 18px)}
@@ -61,59 +56,43 @@ input{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,2
 #scope{position:fixed;inset:0;pointer-events:none;display:none;background:radial-gradient(circle at center,transparent 28%,#000 29%)}
 #hitarrow{position:fixed;left:50%;top:50%;width:0;height:0;pointer-events:none;opacity:0;transition:opacity .4s}
 #hitarrow i{position:absolute;left:-14px;top:-120px;border:14px solid transparent;border-bottom:26px solid rgba(255,50,80,.9);border-top:0}
-.hb{position:fixed;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;text-align:center;color:#fff}
-.hb:active{filter:brightness(1.4);transform:scale(.94)}
-.wb{padding:7px 9px;border-radius:16px;font-size:11px;font-weight:700;text-align:center;min-width:64px;cursor:pointer;color:var(--tx);pointer-events:auto}
-.wb.on{border-color:#fff;box-shadow:0 0 18px var(--ac),inset 0 1px 1px rgba(255,255,255,.7)}
-.wb small{display:block;font-weight:500;opacity:.75;font-size:10px}
-
-/* ===== dark theme overrides ===== */
-:root{--g1:rgba(255,255,255,.09);--g2:rgba(255,255,255,.015);--ac:#27f5c1;--ac2:#7c5cff;--mut:rgba(235,240,255,.55)}
-html,body{background:#04050a}
-.glass{background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.015)),rgba(10,12,18,.6);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 40px rgba(39,245,193,.03),0 18px 50px rgba(0,0,0,.65)}
-.glass::before{background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.12) 50%,transparent 62%)}
-.glass::after{background:linear-gradient(180deg,rgba(255,255,255,.07),transparent)}
-.btn.pri{background:linear-gradient(135deg,#1fe0ad,#6b4dff);box-shadow:inset 0 1px 1px rgba(255,255,255,.55),0 8px 30px rgba(80,90,255,.45)}
-#play{animation:glow 2.4s ease-in-out infinite;letter-spacing:3px}
-@keyframes glow{50%{box-shadow:inset 0 1px 1px rgba(255,255,255,.55),0 8px 50px rgba(39,245,193,.6)}}
-.title{background:linear-gradient(90deg,#fff,#27f5c1 55%,#7c5cff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 4px 22px rgba(39,245,193,.4));letter-spacing:3px;text-transform:uppercase;font-weight:900}
-.dock .btn.act,.tabs .btn.act{background:linear-gradient(135deg,rgba(39,245,193,.28),rgba(124,92,255,.22));box-shadow:inset 0 1px 1px rgba(255,255,255,.4)}
-.bar i{background:linear-gradient(90deg,#ff3b5c,#ff9d3b)}
-.sk[data-r=rare]{border-color:rgba(70,150,255,.7);box-shadow:0 0 18px rgba(70,150,255,.25)}
-.sk[data-r=epic]{border-color:rgba(170,100,255,.75);box-shadow:0 0 20px rgba(170,100,255,.3)}
-.sk[data-r=legendary]{border-color:rgba(255,160,50,.8);box-shadow:0 0 22px rgba(255,160,50,.35)}
-.sk[data-r=mythic]{border-color:rgba(255,70,190,.85);box-shadow:0 0 26px rgba(255,70,190,.4)}
-#vig{background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.6))}
+.hb{position:fixed;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;text-align:center;color:#fff;background:rgba(12,14,22,.75);border:1px solid var(--border)}
+.hb:active{filter:brightness(1.3);transform:scale(.94)}
+.wb{padding:7px 9px;border-radius:12px;font-size:11px;font-weight:700;text-align:center;min-width:60px;cursor:pointer;color:var(--tx);pointer-events:auto;background:var(--card);border:1px solid var(--border)}
+.wb.on{border-color:var(--ac);box-shadow:0 0 14px rgba(39,245,193,.3)}
+.wb small{display:block;font-weight:500;opacity:.7;font-size:10px}
+.sk[data-r=rare]{border-color:rgba(70,150,255,.6)}
+.sk[data-r=epic]{border-color:rgba(170,100,255,.65)}
+.sk[data-r=legendary]{border-color:rgba(255,160,50,.7)}
+.sk[data-r=mythic]{border-color:rgba(255,70,190,.75)}
 #vig.low{animation:beat 1s infinite}
-@keyframes beat{0%,100%{box-shadow:inset 0 0 90px rgba(255,0,40,.25)}50%{box-shadow:inset 0 0 170px rgba(255,0,40,.6)}}
-/* hud */
+@keyframes beat{0%,100%{box-shadow:inset 0 0 90px rgba(255,0,40,.25)}50%{box-shadow:inset 0 0 160px rgba(255,0,40,.55)}}
 .hpw{padding:8px 12px;flex:1;gap:8px}.hpw b{font-size:13px;min-width:26px;text-align:right}.hpi{color:#ff3b5c;font-size:14px}
 .earn{color:#27f5c1}.sm{padding:6px 12px;font-size:12px;letter-spacing:1px}
-#radar{position:fixed;right:12px;top:calc(max(12px,env(safe-area-inset-top)) + 96px);width:108px;height:108px;border-radius:50%;pointer-events:none;box-shadow:0 0 24px rgba(39,245,193,.25)}
-#kf{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 96px);width:48vw;pointer-events:none}
-.kfi{padding:6px 12px;border-radius:14px;font-size:12px;font-weight:700;margin-bottom:5px;animation:sli .25s}
-@keyframes sli{from{transform:translateX(-30px);opacity:0}}
-#banner{position:fixed;left:0;right:0;top:20%;text-align:center;pointer-events:none;opacity:0}
-.bt{font-size:40px;font-weight:900;letter-spacing:5px;text-shadow:0 4px 30px rgba(39,245,193,.8),0 2px 0 #000;color:#fff}.bt.red{color:#ff3b5c;text-shadow:0 4px 30px rgba(255,59,92,.9)}.bt.gold{color:#ffd24a;text-shadow:0 4px 30px rgba(255,190,50,.9)}
-.bs{font-size:13px;letter-spacing:3px;color:var(--mut);margin-top:4px;text-transform:uppercase}
-@keyframes pop{0%{opacity:0;transform:scale(1.7)}14%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
-#rr{position:fixed;left:50%;top:50%;width:70px;height:70px;margin:-35px;border-radius:50%;pointer-events:none;display:none;background:conic-gradient(#27f5c1 var(--p,0deg),rgba(255,255,255,.1) 0);-webkit-mask:radial-gradient(circle,transparent 29px,#000 30px);mask:radial-gradient(circle,transparent 29px,#000 30px)}
-#amm{text-align:center;line-height:1}#amm small{display:block;font-size:11px;letter-spacing:3px;color:var(--mut);margin-bottom:3px}#amm b{font-size:34px;font-weight:900}#amm span{font-size:15px;color:var(--mut);margin-left:4px}
-/* wallet */
-.wcard{margin-top:6px;padding:20px;border-radius:30px;background:radial-gradient(circle at 90% 0%,rgba(124,92,255,.5),transparent 55%),radial-gradient(circle at 0% 110%,rgba(39,245,193,.3),transparent 55%),rgba(12,14,22,.75)}
-.wcard .lab{font-size:11px;letter-spacing:3px;color:var(--mut)}
-.wstats{display:flex;gap:10px;margin-top:12px}.wstats>div{flex:1;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.06);font-size:12px;color:var(--mut)}.wstats b{display:block;font-size:15px;color:#fff;margin-top:2px}
-.prog{height:8px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:12px}.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#27f5c1,#7c5cff);transition:width .5s}
+#radar{position:fixed;right:12px;top:calc(max(12px,env(safe-area-inset-top)) + 90px);width:100px;height:100px;border-radius:50%;pointer-events:none;box-shadow:0 0 18px rgba(39,245,193,.2)}
+#kf{position:fixed;left:12px;top:calc(max(12px,env(safe-area-inset-top)) + 90px);width:46vw;pointer-events:none}
+.kfi{padding:6px 11px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:5px;animation:sli .2s;background:var(--card);border:1px solid var(--border)}
+@keyframes sli{from{transform:translateX(-20px);opacity:0}}
+#banner{position:fixed;left:0;right:0;top:18%;text-align:center;pointer-events:none;opacity:0}
+.bt{font-size:36px;font-weight:900;letter-spacing:4px;text-shadow:0 3px 20px rgba(39,245,193,.7);color:#fff}.bt.red{color:#ff3b5c}.bt.gold{color:#ffd24a}
+.bs{font-size:12px;letter-spacing:2px;color:var(--mut);margin-top:4px;text-transform:uppercase}
+@keyframes pop{0%{opacity:0;transform:scale(1.5)}12%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
+#rr{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px;border-radius:50%;pointer-events:none;display:none;background:conic-gradient(#27f5c1 var(--p,0deg),rgba(255,255,255,.08) 0);-webkit-mask:radial-gradient(circle,transparent 26px,#000 27px);mask:radial-gradient(circle,transparent 26px,#000 27px)}
+#amm{text-align:center;line-height:1}#amm small{display:block;font-size:11px;letter-spacing:2px;color:var(--mut);margin-bottom:2px}#amm b{font-size:30px;font-weight:900}#amm span{font-size:14px;color:var(--mut);margin-left:3px}
+.wcard{margin-top:6px;padding:18px;border-radius:20px;background:linear-gradient(145deg,rgba(39,245,193,.12),rgba(124,92,255,.1)),var(--card)}
+.wcard .lab{font-size:11px;letter-spacing:2px;color:var(--mut)}
+.wstats{display:flex;gap:8px;margin-top:12px}.wstats>div{flex:1;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);font-size:12px;color:var(--mut)}.wstats b{display:block;font-size:15px;color:#fff;margin-top:2px}
+.prog{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:12px}.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#27f5c1,#7c5cff);transition:width .4s}
 .wp{display:none;flex-direction:column;gap:10px;margin-top:10px}
-.qrbox{align-self:center;padding:10px;border-radius:18px;background:#fff;line-height:0}
+.qrbox{align-self:center;padding:10px;border-radius:14px;background:#fff;line-height:0}
 .chips{display:flex;gap:6px}.chips button{flex:1;padding:9px 0;font-size:12px}
 .sumr{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}.sumr b{color:#fff}
 .err{color:#ff7a8e;font-size:12px;min-height:16px}
-.tx{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07)}
-.txi{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800}.txi.in{background:rgba(39,245,193,.15);color:#27f5c1}.txi.out{background:rgba(255,255,255,.08);color:#cfd6ff}
+.tx{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.txi{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}.txi.in{background:rgba(39,245,193,.15);color:#27f5c1}.txi.out{background:rgba(255,255,255,.06);color:#cfd6ff}
 .pos{color:#27f5c1}.neg{color:#e8ecff}
-.pill{display:inline-block;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(255,255,255,.1)}
-.pill.sent{background:rgba(39,245,193,.2);color:#27f5c1}.pill.pending,.pill.processing{background:rgba(255,200,60,.18);color:#ffcf4a}.pill.failed,.pill.refunded{background:rgba(255,70,100,.2);color:#ff7a8e}
+.pill{display:inline-block;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(255,255,255,.08)}
+.pill.sent{background:rgba(39,245,193,.18);color:#27f5c1}.pill.pending,.pill.processing{background:rgba(255,200,60,.15);color:#ffcf4a}.pill.failed,.pill.refunded{background:rgba(255,70,100,.18);color:#ff7a8e}
 .tabs.w3{width:100%}
 </style></head><body>
 <canvas id="c"></canvas><div id="vig"></div><div id="scope"></div><div id="dmg"></div><div id="ch"></div><div id="hitarrow"><i></i></div><div id="toast" class="glass"></div>
@@ -138,10 +117,12 @@ html,body{background:#04050a}
    <div class="wstats"><div>Earned (24h)<b id="wtoday" class="pos">+0.000</b></div><div>Total kills<b id="wkills">0</b></div></div>
    <div class="prog"><i id="wprog"></i></div><div class="mut" id="wptxt" style="margin-top:6px;font-size:12px"></div></div>
   <div class="tabs w3 glass" style="margin-top:10px"><button class="btn act" id="wt_dep">Deposit</button><button class="btn" id="wt_wd">Withdraw</button><button class="btn" id="wt_hist">History</button></div>
-  <div id="wp_dep" class="wp glass panel"><div class="qrbox" id="qr"></div><div class="mut" style="text-align:center">Scan, or send TON to this address with the exact comment. Credited automatically within about a minute.</div>
+  <div id="wp_dep" class="wp glass panel"><div class="qrbox" id="qr"></div><div class="mut" style="text-align:center;margin-bottom:12px">Scan QR or send TON to this address.<br><b style="color:#27f5c1">You MUST include the exact comment</b> or it won't be credited.</div>
+   <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">WALLET ADDRESS</div>
    <div class="row"><input id="da" readonly><button class="btn glass" data-copy="da" style="padding:12px 14px">Copy</button></div>
-   <div class="row"><input id="dc" readonly><button class="btn glass" data-copy="dc" style="padding:12px 14px">Copy</button></div>
-   <button class="btn glass pri" id="wopen">Open in wallet app</button></div>
+   <div class="mut" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">COMMENT (required)</div>
+   <div class="row"><input id="dc" readonly style="font-weight:700;color:#27f5c1;letter-spacing:1px"><button class="btn glass" data-copy="dc" style="padding:12px 14px">Copy</button></div>
+   <button class="btn glass pri" id="wopen" style="margin-top:14px">Open in wallet app</button></div>
   <div id="wp_wd" class="wp glass panel"><input id="wa" placeholder="Your TON address"><input id="wm" type="number" step="0.01" placeholder="Amount (TON)">
    <div class="chips"><button class="btn glass" data-q="min">Min</button><button class="btn glass" data-q="0.25">25%</button><button class="btn glass" data-q="0.5">50%</button><button class="btn glass" data-q="max">Max</button></div>
    <div class="sumr"><span>Network fee</span><b><span id="wfee">0</span> TON</b></div><div class="sumr"><span>You receive</span><b><span id="wrecv">0</span> TON</b></div><div class="err" id="wmsg"></div>
@@ -212,12 +193,12 @@ const SK={ /* enemy bot skins */
  void_phantom:{skin:0x2b1a4d,body:0x3b2570,leg:0x3b2570,glow:0xa66bff,hat:'phantom',fx:'orbit'}
 };
 const ET={
- grunt:{skin:'toxic_hazmat',hp:55,sp:3,dmg:9,r:.55,sc:1},
- runner:{skin:'neon_ninja',hp:38,sp:5.4,dmg:7,r:.5,sc:.95,zig:1},
- gunner:{skin:'cyber_samurai',hp:85,sp:2.6,dmg:8,r:.55,sc:1,rng:12,rate:1.1,pspd:17},
- tank:{skin:'inferno_demon',hp:300,sp:2,dmg:20,r:.9,sc:1.55},
- sniper:{skin:'frost_mage',hp:70,sp:2.2,dmg:24,r:.55,sc:1,rng:22,rate:.45,pspd:36,laser:1},
- boss:{skin:'void_phantom',hp:1600,sp:2.4,dmg:14,r:1.2,sc:2.1,rng:15,rate:.8,pspd:15,burst:6}
+ grunt:{skin:'toxic_hazmat',hp:70,sp:3.4,dmg:12,r:.55,sc:1},
+ runner:{skin:'neon_ninja',hp:48,sp:6.2,dmg:9,r:.5,sc:.95,zig:1},
+ gunner:{skin:'cyber_samurai',hp:110,sp:2.9,dmg:11,r:.55,sc:1,rng:14,rate:1.35,pspd:19},
+ tank:{skin:'inferno_demon',hp:380,sp:2.3,dmg:26,r:.95,sc:1.6},
+ sniper:{skin:'frost_mage',hp:85,sp:2.5,dmg:32,r:.55,sc:1,rng:26,rate:.55,pspd:42,laser:1},
+ boss:{skin:'void_phantom',hp:2200,sp:2.8,dmg:18,r:1.25,sc:2.15,rng:16,rate:1.0,pspd:17,burst:7}
 };
 const CR=[[-8,-6,3,3],[7,-9,3,2],[-14,8,2,4],[12,6,4,3],[0,12,3,2],[-3,-16,4,2],[17,-2,2,3],[-18,-8,2,3],[3,0,2,2]];
 const ARENA=24,EYE=1.62;
@@ -226,14 +207,15 @@ const ARENA=24,EYE=1.62;
 const canvas=$('c'),R=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 R.autoClear=false;
 const scene=new T.Scene(),vmScene=new T.Scene();R.setClearColor(0x04050a);const skyG=new T.Group();scene.add(skyG);
-scene.fog=new T.Fog(0x070a14,18,72);
+scene.fog=new T.Fog(0x05070f,22,85);
 const cam=new T.PerspectiveCamera(70,1,.1,400);cam.rotation.order='YXZ';
 const vmCam=new T.PerspectiveCamera(62,1,.01,10);
 let FOV=70;function setFov(){cam.fov=FOV*(innerWidth/innerHeight<.8?1.12:1);cam.updateProjectionMatrix()}
-scene.add(new T.HemisphereLight(0x9fb8ff,0x141a2c,.6));
-const sun=new T.DirectionalLight(0xdfe8ff,.7);sun.position.set(12,24,8);scene.add(sun);
-[[-20,5,-20,0x27f5c1],[20,5,-20,0x7c5cff],[-20,5,20,0xff3b7a],[20,5,20,0x27f5c1]].forEach(([x,y,z,c])=>{const l=new T.PointLight(c,1.2,46);l.position.set(x,y,z);scene.add(l)});
-vmScene.add(new T.HemisphereLight(0xffffff,0x445066,1.0));const vsun=new T.DirectionalLight(0xffffff,.9);vsun.position.set(1,2,1.5);vmScene.add(vsun);
+scene.add(new T.AmbientLight(0x1a2235,.45));
+scene.add(new T.HemisphereLight(0xb0c8ff,0x0c1220,.75));
+const sun=new T.DirectionalLight(0xe8f0ff,.95);sun.position.set(14,28,10);sun.castShadow=false;scene.add(sun);
+[[-22,6,-20,0x27f5c1],[22,6,-20,0x7c5cff],[-20,5,22,0xff3b7a],[20,5,20,0x27f5c1],[0,8,0,0x4a6aff]].forEach(([x,y,z,c])=>{const l=new T.PointLight(c,1.45,52);l.position.set(x,y,z);scene.add(l)});
+vmScene.add(new T.HemisphereLight(0xffffff,0x445066,1.15));const vsun=new T.DirectionalLight(0xffffff,1.05);vsun.position.set(1,2.2,1.6);vmScene.add(vsun);
 function resize(){const w=innerWidth,h=innerHeight;R.setPixelRatio(Math.min(devicePixelRatio||1,1.5));R.setSize(w,h,false);cam.aspect=vmCam.aspect=w/h;cam.fov=FOV*(w/h<.8?1.12:1);cam.updateProjectionMatrix();vmCam.updateProjectionMatrix()}
 addEventListener('resize',resize);
 const gc={};const geo=(w,h,d)=>gc[w+'_'+h+'_'+d]||(gc[w+'_'+h+'_'+d]=new T.BoxGeometry(w,h,d));
@@ -434,9 +416,9 @@ function newGame(){
 }
 const VC={colt:{p:[.26,-.27,-.55],s:1.15},regbar:{p:[.25,-.28,-.38],s:.95},shotgun:{p:[.24,-.28,-.3],s:.88},rifle:{p:[.24,-.28,-.22],s:.82},sniper:{p:[.23,-.29,-.1],s:.68}};
 function startWave(){
- wave++;const n=Math.min(5+wave*3,45),hm=1+.13*(wave-1),dm=1+.04*(wave-1);spawnQ=[];
- for(let i=0;i<n;i++){const pool=['grunt'];if(wave>=2)pool.push('runner','runner');if(wave>=3)pool.push('gunner');if(wave>=4)pool.push('tank');if(wave>=5)pool.push('sniper');spawnQ.push([pool[Math.random()*pool.length|0],hm,dm])}
- if(wave%5===0)spawnQ.unshift(['boss',hm,dm]);P.cleared=0;banner(wave%5===0?'BOSS WAVE':'WAVE '+wave,n+' hostiles incoming',wave%5===0?'red':'');hud();
+ wave++;const n=Math.min(6+wave*3.2,52),hm=1+.16*(wave-1),dm=1+.055*(wave-1);spawnQ=[];
+ for(let i=0;i<n;i++){const pool=['grunt','grunt'];if(wave>=2)pool.push('runner','runner','runner');if(wave>=3)pool.push('gunner','gunner');if(wave>=4)pool.push('tank');if(wave>=5)pool.push('sniper','sniper');if(wave>=7)pool.push('tank','gunner');spawnQ.push([pool[Math.random()*pool.length|0],hm,dm])}
+ if(wave%5===0)spawnQ.unshift(['boss',hm*1.1,dm*1.1]);P.cleared=0;banner(wave%5===0?'BOSS WAVE':'WAVE '+wave,n+' hostiles incoming',wave%5===0?'red':'');hud();
 }
 function spawn(t,hm,dm){
  const d=ET[t],ch=buildChar(d.skin,!!d.rng),a=Math.random()*6.28,r=ARENA-2;let x=P.x+Math.cos(a)*18,z=P.z+Math.sin(a)*18;x=Math.max(-r,Math.min(r,x));z=Math.max(-r,Math.min(r,z));
@@ -565,28 +547,59 @@ function step(dt,t){
   const alive=enemies.filter(e=>!e.dead).length;
   if(spawnQ.length){spawnT-=dt;if(spawnT<=0&&alive<(10+Math.min(wave,8))){const q=spawnQ.shift();spawn(q[0],q[1],q[2]);spawnT=Math.max(.35,1.1-wave*.05)}}
   else if(alive===0){if(wave>0&&!P.cleared){P.cleared=1;banner('WAVE CLEARED','Reload and get ready','gold')}waveBreak-=dt;if(waveBreak<=0){startWave();waveBreak=3}}
-  /* enemies */
+  /* enemies - smarter AI */
   for(const e of enemies){
    if(e.dead){e.dead+=dt;e.ch.g.scale.setScalar(e.d.sc*Math.max(.01,1-e.dead*2.2));e.ch.g.rotation.x=-e.dead*2.6;e.bar.visible=false;continue}
-   const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||1,nx=dx/dist,nz=dz/dist,d=e.d;let vx=0,vz=0,sp=d.sp*(1+.015*wave);e.ph+=dt;e.cd-=dt;
+   const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||1,nx=dx/dist,nz=dz/dist,d=e.d;
+   let vx=0,vz=0,sp=d.sp*(1+.022*wave);e.ph+=dt;e.cd-=dt;
+   // low HP → try to strafe / back off more aggressively
+   const lowHp=e.hp<e.max*.35;
    if(d.rng){
-    if(dist>d.rng*.85){vx=nx;vz=nz}else if(dist<d.rng*.5){vx=-nx;vz=-nz}else{vx=-nz*e.dir;vz=nx*e.dir}
-    if(Math.sin(e.ph*.7)>.95)e.dir*=-1;
-    if(d.laser){
-     if(e.charge>0){e.charge-=dt;sp=0;if(e.charge<=0)enemyShot(e,P.x,P.z,d.pspd,d.dmg*e.dm,0x7fe3ff)}
-     else if(e.cd<=0&&dist<d.rng+4){e.charge=.9;e.cd=1/d.rate+.9}
-    } else if(e.cd<=0&&dist<d.rng+3){
-     e.cd=1/d.rate;const ps=d.pspd;
-     if(d.burst){for(let i=-2;i<=3;i++){const a=Math.atan2(dx,dz)+i*.17-.085;enemyShot(e,e.x+Math.sin(a)*10,e.z+Math.cos(a)*10,ps,d.dmg*e.dm,0xb388ff)}}
-     else enemyShot(e,P.x+(Math.random()-.5)*1.2,P.z+(Math.random()-.5)*1.2,ps,d.dmg*e.dm)
+    // preferred engagement distance with small random offset
+    const ideal=d.rng*(.72+(e.dir>0?.08:-.05));
+    if(dist>ideal+2.2){vx=nx;vz=nz}          // close the gap
+    else if(dist<ideal-1.8||lowHp){vx=-nx;vz=-nz} // back off
+    else{ // strafe / circle
+      vx=-nz*e.dir*(lowHp?1.4:1);vz=nx*e.dir*(lowHp?1.4:1);
+      if(Math.sin(e.ph*.55+e.ph)>.92)e.dir*=-1;
     }
-    if(d.burst){e.sum-=dt;if(e.sum<=0){e.sum=10;for(let i=0;i<2;i++)spawn('runner',1+.13*(wave-1),1)}}
+    // occasional aggressive push
+    if(!lowHp&&Math.sin(e.ph*.3)>.97&&dist<d.rng+6){vx+=nx*.7;vz+=nz*.7}
+    if(d.laser){
+     if(e.charge>0){e.charge-=dt;sp=0;if(e.charge<=0){
+       // lead the player a bit
+       const lead=P.mvm>0.3?0.35:0.12;
+       enemyShot(e,P.x+Math.sin(P.yaw)*lead*8,P.z+Math.cos(P.yaw)*lead*8,d.pspd,d.dmg*e.dm,0x7fe3ff)
+     }}
+     else if(e.cd<=0&&dist<d.rng+5){e.charge=.75;e.cd=1/d.rate+.75}
+    } else if(e.cd<=0&&dist<d.rng+4){
+     e.cd=1/d.rate*(lowHp?.7:1);
+     const ps=d.pspd,spread=lowHp?.4:.9;
+     if(d.burst){
+       for(let i=-3;i<=3;i++){const a=Math.atan2(dx,dz)+i*.14;enemyShot(e,e.x+Math.sin(a)*12,e.z+Math.cos(a)*12,ps,d.dmg*e.dm,0xb388ff)}
+     } else {
+       // better aim + slight prediction
+       const pred=0.22+Math.random()*0.18;
+       enemyShot(e,P.x+(Math.random()-.5)*spread+Math.sin(P.yaw)*pred*6,P.z+(Math.random()-.5)*spread+Math.cos(P.yaw)*pred*6,ps,d.dmg*e.dm)
+     }
+    }
+    if(d.burst){e.sum-=dt;if(e.sum<=0){e.sum=7+Math.random()*3;for(let i=0;i<2+Math.min(2,wave/4|0);i++)spawn('runner',1+.15*(wave-1),1+.02*wave)}}
    } else {
-    vx=nx;vz=nz;if(d.zig){const s=Math.sin(e.ph*5)*.9;vx+=-nz*s;vz+=nx*s}
-    if(dist<d.r+.95&&e.cd<=0){hurt(d.dmg*e.dm,e.x,e.z);e.cd=.85}
+    // melee: more aggressive zig + direct charge when close
+    vx=nx;vz=nz;
+    if(d.zig){const s=Math.sin(e.ph*6.2)*1.15;vx+=-nz*s;vz+=nx*s}
+    if(dist<4.5){sp*=1.25} // sprint in final approach
+    if(dist<d.r+1.05&&e.cd<=0){hurt(d.dmg*e.dm*(lowHp?1.15:1),e.x,e.z);e.cd=.7}
    }
-   for(const o of enemies){if(o===e||o.dead)continue;const ox=e.x-o.x,oz=e.z-o.z,od=Math.hypot(ox,oz);if(od<1.1&&od>0){vx+=ox/od*.7;vz+=oz/od*.7}}
-   const vl=Math.hypot(vx,vz)||1;e.x+=vx/vl*sp*dt;e.z+=vz/vl*sp*dt;if(dist<d.r+.6){e.x-=nx*sp*dt;e.z-=nz*sp*dt}
+   // separation + slight attraction to pack when far
+   for(const o of enemies){
+     if(o===e||o.dead)continue;
+     const ox=e.x-o.x,oz=e.z-o.z,od=Math.hypot(ox,oz);
+     if(od<1.25&&od>0){vx+=ox/od*.95;vz+=oz/od*.95}
+     else if(od>9&&od<16&&!d.rng){vx-=ox/od*.15;vz-=oz/od*.15} // pack up
+   }
+   const vl=Math.hypot(vx,vz)||1;e.x+=vx/vl*sp*dt;e.z+=vz/vl*sp*dt;
+   if(dist<d.r+.55){e.x-=nx*sp*dt*1.1;e.z-=nz*sp*dt*1.1}
    const pp={x:e.x,z:e.z};pushOut(pp,d.r);e.x=pp.x;e.z=pp.z;
    e.ch.g.position.set(e.x,e.ch.float?.35+Math.sin(t*2+e.ph)*.15:0,e.z);e.ch.g.rotation.y=Math.atan2(nx,nz);e.ch.update(t+e.ph,sp>0?1:0);e.flash=(e.flash||0)-dt;e.ch.g.scale.setScalar(e.d.sc*(e.flash>0?1.08:1));
    e.bar.position.set(e.x,2.6*d.sc+.35,e.z);e.bar.rotation.y=P.yaw;e.fg.scale.x=Math.max(.001,e.hp/e.max);e.fg.position.x=-(1-e.hp/e.max)*.6;
