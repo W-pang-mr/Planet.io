@@ -93,6 +93,38 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
 .chips{display:flex;gap:6px}.chips button{flex:1;padding:9px 0;font-size:12px}
 .sumr{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}.sumr b{color:#fff}
 .err{color:#ff7a8e;font-size:12px;min-height:16px}
+.dep{gap:10px;margin-top:10px}.dep.on{display:flex}
+.dstat{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:18px}
+.dstat b{font-size:14px}.dstat .mut{font-size:12px;margin-top:2px}
+.dstat .pulse{width:12px;height:12px;border-radius:50%;background:var(--ac);box-shadow:0 0 0 0 rgba(42,245,200,.6);animation:pl 1.8s infinite;flex:0 0 auto}
+@keyframes pl{70%{box-shadow:0 0 0 12px rgba(42,245,200,0)}100%{box-shadow:0 0 0 0 rgba(42,245,200,0)}}
+.dstat[data-s=ok]{border-color:rgba(42,245,200,.7);background:linear-gradient(135deg,rgba(42,245,200,.22),rgba(139,108,255,.14)),var(--card);animation:okp .7s}
+.dstat[data-s=ok] .pulse{animation:none;background:#fff;box-shadow:0 0 14px var(--ac)}
+.dstat[data-s=off] .pulse{background:#ff6b9d;animation:none}
+@keyframes okp{0%{transform:scale(.96)}50%{transform:scale(1.025)}100%{transform:scale(1)}}
+.net{font-size:11px;font-weight:800;padding:5px 9px;border-radius:9px;background:rgba(0,152,234,.2);color:#6cc4ff;border:1px solid rgba(0,152,234,.45)}
+.qrcard{padding:16px 14px 12px;border-radius:22px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.qrwrap{position:relative;padding:8px}
+.qrwrap .qrbox{padding:12px;border-radius:18px;box-shadow:0 0 0 1px rgba(255,255,255,.2),0 10px 34px rgba(42,245,200,.18)}
+.qrwrap .qrbox canvas,.qrwrap .qrbox img{display:block}
+.qrwrap .scan{position:absolute;left:14px;right:14px;top:14px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);box-shadow:0 0 12px var(--ac);animation:sc 3s ease-in-out infinite;pointer-events:none}
+@keyframes sc{0%,100%{transform:translateY(0);opacity:0}10%,90%{opacity:.9}50%{transform:translateY(176px)}}
+.amts{display:flex;gap:6px;width:100%}.amts .btn{flex:1;padding:9px 0;font-size:13px}.amts .btn.act{border:1px solid var(--ac);color:var(--ac);background:rgba(42,245,200,.12)}
+.dmin{font-size:11px;text-align:center}
+.fcard{padding:12px 14px;border-radius:16px;cursor:pointer;transition:transform .12s,border-color .2s;position:relative}
+.fcard:active{transform:scale(.985)}.fcard.done{border-color:var(--ac)}
+.fl2{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);font-weight:600}.fl2 em{font-style:normal;font-size:11px;opacity:.7}
+.fcard.done .fl2 em{color:var(--ac);opacity:1}
+.fv{margin-top:6px;font:600 13px ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;line-height:1.5;user-select:text;-webkit-user-select:text}
+.fv.big2{font-size:22px;font-weight:800;letter-spacing:1.5px;color:var(--ac)}
+.fcard.warn{border-color:rgba(255,157,59,.55);background:linear-gradient(135deg,rgba(255,157,59,.14),rgba(255,59,92,.06)),var(--card)}
+.fnote{margin-top:6px;font-size:11.5px;line-height:1.45;color:#ffb36b}
+.wl{display:flex;gap:8px}.wl .btn{flex:1;padding:13px 6px;font-size:13px}.wl .btn.pri{flex:1.5}
+.rules{padding:12px 14px;border-radius:16px;font-size:12px;line-height:1.5;color:var(--mut);display:flex;flex-direction:column;gap:5px}.rules b{color:#fff}
+.dh{padding:6px 14px;border-radius:16px}.dhh{font-size:12px;font-weight:700;color:var(--mut);padding:8px 0 2px}
+.dr{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.07)}.dr:first-of-type{border-top:0}
+.dr .txi{flex:0 0 auto}
+
 .tx{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .txi{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}.txi.in{background:rgba(39,245,193,.15);color:#27f5c1}.txi.out{background:rgba(255,255,255,.06);color:#cfd6ff}
 .pos{color:#27f5c1}.neg{color:#e8ecff}
@@ -139,23 +171,22 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
    <div class="wstats"><div>Earned (24h)<b id="wtoday" class="pos">+0.000</b></div><div>Total kills<b id="wkills">0</b></div></div>
    <div class="prog"><i id="wprog"></i></div><div class="mut" id="wptxt" style="margin-top:6px;font-size:12px"></div></div>
   <div class="tabs w3 glass" style="margin-top:10px"><button class="btn act" id="wt_dep">Deposit</button><button class="btn" id="wt_wd">Withdraw</button><button class="btn" id="wt_hist">History</button></div>
-  <div id="wp_dep" class="wp glass panel" style="gap:12px">
-    <div style="text-align:center">
-      <div class="qrbox" id="qr" style="margin:0 auto 10px"></div>
-      <div class="mut" style="font-size:12px;line-height:1.45">Send <b style="color:#fff">TON</b> to the address below.<br>Balance updates automatically in ~15–30s.</div>
+  <div id="wp_dep" class="wp dep">
+    <div class="dstat glass" id="dstat" data-s="wait">
+      <span class="pulse"></span><div class="grow"><b id="dsT">Waiting for your deposit</b><div class="mut" id="dsS">Send TON, it shows up here automatically</div></div><span class="net">TON</span>
     </div>
-    <div>
-      <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">① ADDRESS</div>
-      <div class="row"><input id="da" readonly style="font-size:12px"><button class="btn glass" id="copyAddr" style="padding:12px 14px">Copy</button></div>
+    <div class="qrcard glass">
+      <div class="qrwrap"><div class="qrbox" id="qr"></div><i class="scan"></i></div>
+      <div class="amts" id="amts"><button class="btn glass" data-a="0">Any</button><button class="btn glass" data-a="1">1</button><button class="btn glass" data-a="5">5</button><button class="btn glass" data-a="10">10</button><button class="btn glass" data-a="25">25</button></div>
+      <div class="mut dmin" id="dmin"></div>
     </div>
-    <div style="padding:12px;border-radius:14px;background:rgba(42,245,200,.08);border:1px solid rgba(42,245,200,.35)">
-      <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">② COMMENT <span style="color:#ff6b9d">(required)</span></div>
-      <div class="row"><input id="dc" readonly style="font-weight:800;color:#2af5c8;letter-spacing:1px;font-size:16px"><button class="btn glass" id="copyCmt" style="padding:12px 14px">Copy</button></div>
-      <div class="mut" style="font-size:11px;margin-top:8px;line-height:1.4">Without this exact comment your deposit <b style="color:#ff6b9d">cannot</b> be credited.</div>
-    </div>
-    <button class="btn glass pri" id="wopen">Open Tonkeeper</button>
-    <button class="btn glass" id="wrefresh">Refresh balance</button>
-    <div class="mut" id="depHint" style="text-align:center;font-size:11px;min-height:16px"></div>
+    <div class="fcard glass" id="fAddr"><div class="fl2"><span>Deposit address</span><em>tap to copy</em></div><div class="fv" id="daV">—</div></div>
+    <div class="fcard glass warn" id="fCmt"><div class="fl2"><span>Comment (required)</span><em>tap to copy</em></div><div class="fv big2" id="dcV">—</div><div class="fnote">Without this exact comment the deposit can't be matched to you.</div></div>
+    <input id="da" type="hidden"><input id="dc" type="hidden">
+    <div class="wl"><button class="btn glass pri" id="wopen">Open in wallet</button><button class="btn glass" id="wTk">Tonkeeper</button><button class="btn glass" id="wMy">MyTonWallet</button></div>
+    <button class="btn glass" id="copyBoth">Copy address + comment</button>
+    <div class="rules glass"><div><b>Only TON.</b> Jettons, USDT and NFTs sent here are not credited.</div><div>Credited after network confirmation, usually 15–40 s.</div><div id="dminR"></div></div>
+    <div class="dh glass"><div class="dhh">Recent deposits</div><div id="dhist"><div class="mut" style="padding:8px 0;text-align:center">No deposits yet</div></div></div>
   </div>
   <div id="wp_wd" class="wp glass panel"><input id="wa" placeholder="Your TON address"><input id="wm" type="number" step="0.01" placeholder="Amount (TON)">
    <div class="chips"><button class="btn glass" data-q="min">Min</button><button class="btn glass" data-q="0.25">25%</button><button class="btn glass" data-q="0.5">50%</button><button class="btn glass" data-q="max">Max</button></div>
@@ -474,31 +505,78 @@ function renderShop(){
 let wTab='dep',WH=null,qrFor='';
 const AGO=ts=>{const x=(Date.now()-new Date(ts))/1000;return x<60?'just now':x<3600?Math.floor(x/60)+'m ago':x<86400?Math.floor(x/3600)+'h ago':Math.floor(x/86400)+'d ago'};
 function wTabs(){['dep','wd','hist'].forEach(k=>{$('wt_'+k).classList.toggle('act',wTab===k);$('wp_'+k).style.display=wTab===k?'flex':'none'})}
-['dep','wd','hist'].forEach(k=>$('wt_'+k).onclick=()=>{wTab=k;wTabs();if(k==='hist')loadHist()});
+['dep','wd','hist'].forEach(k=>$('wt_'+k).onclick=()=>{wTab=k;wTabs();if(k==='hist')loadHist();if(k==='dep')depCheck(true)});
 function wdCalc(){const amt=Number($('wm').value)||0,fee=Number(ME.cfg.fee)/1e9,min=Number(ME.cfg.min)/1e9,b=bal()/1e9;let msg='',ok=true;
  if(amt<=0){msg='';ok=false}else if(amt<min){msg='Minimum withdrawal is '+min.toFixed(3)+' TON';ok=false}else if(amt>b){msg='Not enough balance';ok=false}else if(amt<=fee){msg='Amount must exceed the fee';ok=false}
  $('wrecv').textContent=Math.max(0,amt-fee).toFixed(4);$('wfee').textContent=fee.toFixed(4);$('wmsg').textContent=msg;$('wb').disabled=!ok}
 $('wm').oninput=wdCalc;
 document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const q=b.dataset.q,bl=bal()/1e9,fl=v=>(Math.floor(v*1e4)/1e4).toString();$('wm').value=q==='min'?(Number(ME.cfg.min)/1e9).toFixed(3):q==='max'?fl(bl):fl(bl*Number(q));wdCalc()});
-$('wopen').onclick=()=>{
-  if(!ME||!ME.deposit)return toast('Deposit not ready');
-  const addr=ME.deposit.address,cmt=ME.deposit.comment;
-  if(!addr)return toast('Wallet address missing');
-  const u='https://app.tonkeeper.com/transfer/'+encodeURIComponent(addr)+'?text='+encodeURIComponent(cmt||'');
-  try{TG.openLink(u)}catch(e){window.open(u,'_blank')}
-};
-function copyField(id,label){
-  const el=$(id);if(!el||!el.value||el.value==='—')return toast('Nothing to copy');
-  const v=el.value;
-  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(()=>toast(label+' copied')).catch(()=>{el.select();document.execCommand('copy');toast(label+' copied')});
-  else{el.select();document.execCommand('copy');toast(label+' copied')}
+/* ===== Deposit UI v2 ===== */
+const DEP={addr:'',cmt:'',amt:0,min:0,topId:null,qr:'',busy:false,okT:0};
+const shortA=a=>a&&a.length>20?a.slice(0,8)+'…'+a.slice(-8):a;
+function depUri(){let u='ton://transfer/'+DEP.addr+'?text='+encodeURIComponent(DEP.cmt);if(DEP.amt>0)u+='&amount='+Math.round(DEP.amt*1e9);return u}
+function depWeb(base){let u=base+DEP.addr+'?text='+encodeURIComponent(DEP.cmt);if(DEP.amt>0)u+='&amount='+Math.round(DEP.amt*1e9);return u}
+function openLinkSafe(u){try{TG.openLink(u,{try_instant_view:false})}catch(e){window.open(u,'_blank')}}
+function depStatus(s,t,sub){const e=$('dstat');e.dataset.s=s;$('dsT').textContent=t;$('dsS').textContent=sub}
+function drawQR(){
+  const key=DEP.addr+'|'+DEP.cmt+'|'+DEP.amt;if(!window.QRCode||!DEP.addr||DEP.qr===key)return;
+  DEP.qr=key;$('qr').innerHTML='';
+  try{new QRCode($('qr'),{text:depUri(),width:176,height:176,colorDark:'#070b14',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){console.warn(e)}
 }
-$('copyAddr').onclick=()=>copyField('da','Address');
-$('copyCmt').onclick=()=>copyField('dc','Comment');
-$('wrefresh').onclick=async()=>{
-  $('depHint').textContent='Checking balance…';
-  try{ME=await api('/api/me');setBal(ME.player.balance_nano);$('tk').textContent=ME.player.total_kills;renderWallet();$('depHint').textContent='Balance updated ✔';toast('Balance refreshed')}catch(e){$('depHint').textContent=e.message;toast(e.message)}
-};
+function renderDepList(list){
+  const L={credited:['Credited',''],unmatched:['Unmatched','pending'],below_min:['Below minimum','failed'],unknown_user:['Unknown','failed']};
+  $('dhist').innerHTML=list&&list.length?list.map(d=>{const st=L[d.status]||[d.status,''],ok=d.status==='credited';
+    return `<div class="dr"><div class="txi ${ok?'in':'out'}">↓</div><div class="grow"><b>Deposit</b><div class="mut">${AGO(d.created_at)}${d.tx_hash?' · '+String(d.tx_hash).slice(0,6)+'…':''}</div></div><div style="text-align:right"><b class="${ok?'pos':''}">${ok?'+':''}${(Number(d.amount_nano)/1e9).toFixed(4)}</b>${ok?'':`<div class="pill ${st[1]}">${st[0]}</div>`}</div></div>`}).join(''):'<div class="mut" style="padding:8px 0;text-align:center">No deposits yet</div>';
+}
+function renderDeposit(){
+  const d=ME.deposit||{};DEP.addr=d.address||'';DEP.cmt=d.comment||('G'+(ME.player&&ME.player.telegram_id||''));
+  $('daV').textContent=DEP.addr?shortA(DEP.addr):'—';$('dcV').textContent=DEP.cmt;
+  $('da').value=DEP.addr;$('dc').value=DEP.cmt;
+  document.querySelectorAll('#amts .btn').forEach(b=>b.classList.toggle('act',Number(b.dataset.a)===DEP.amt));
+  $('dmin').textContent=DEP.amt>0?'QR includes '+DEP.amt+' TON':'Any amount — you choose in your wallet';
+  if(DEP.min){$('dminR').innerHTML='Minimum deposit: <b>'+(DEP.min/1e9).toFixed(3)+' TON</b>. Smaller transfers are not credited automatically.'}
+  if(!DEP.addr)depStatus('off','Deposits unavailable','Wallet is not configured on the server');
+  drawQR();
+}
+async function copyText(v,label,el){
+  if(!v)return toast('Nothing to copy');
+  let ok=false;
+  try{await navigator.clipboard.writeText(v);ok=true}catch(e){
+    try{const t=document.createElement('textarea');t.value=v;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();ok=document.execCommand('copy');t.remove()}catch(_){}
+  }
+  if(ok){toast(label+' copied');buzz('light');if(el){el.classList.add('done');const em=el.querySelector('em'),o=em.textContent;em.textContent='copied ✓';setTimeout(()=>{el.classList.remove('done');em.textContent=o},1600)}}
+  else toast('Copy failed — long-press the text')
+}
+$('fAddr').onclick=()=>copyText(DEP.addr,'Address',$('fAddr'));
+$('fCmt').onclick=()=>copyText(DEP.cmt,'Comment',$('fCmt'));
+$('copyBoth').onclick=()=>copyText('Address: '+DEP.addr+'\nComment: '+DEP.cmt,'Address + comment');
+$('wopen').onclick=()=>{if(!DEP.addr)return toast('Wallet address missing');buzz('medium');window.location.href=depUri()};
+$('wTk').onclick=()=>{if(!DEP.addr)return toast('Wallet address missing');openLinkSafe(depWeb('https://app.tonkeeper.com/transfer/'))};
+$('wMy').onclick=()=>{if(!DEP.addr)return toast('Wallet address missing');openLinkSafe(depWeb('https://my.tt/transfer/'))};
+document.querySelectorAll('#amts .btn').forEach(b=>b.onclick=()=>{DEP.amt=Number(b.dataset.a);buzz('light');renderDeposit()});
+async function depCheck(first){
+  if(DEP.busy||view!=='wallet'||wTab!=='dep'||document.hidden)return;DEP.busy=true;
+  try{
+    const r=await api('/api/deposit?watch=1');
+    DEP.min=Number(r.min_nano)||0;renderDepList(r.recent);
+    const top=r.recent&&r.recent[0]?r.recent[0].id:0;
+    if(DEP.topId===null)DEP.topId=top;
+    else if(top>DEP.topId){
+      DEP.topId=top;const nw=r.recent.filter(x=>x.status==='credited')[0];
+      if(nw){setBal(r.balance);ME.player.balance_nano=r.balance;
+        depStatus('ok','+'+(Number(nw.amount_nano)/1e9).toFixed(4)+' TON received','Your balance has been updated');
+        buzz('heavy');try{TG.HapticFeedback.notificationOccurred('success')}catch(e){}
+        toast('Deposit received 💎');clearTimeout(DEP.okT);DEP.okT=setTimeout(()=>depStatus('wait','Waiting for your deposit','Send TON, it shows up here automatically'),9000);
+      }
+    }
+    if($('dstat').dataset.s==='off'&&r.ready)depStatus('wait','Waiting for your deposit','Send TON, it shows up here automatically');
+    if(!r.ready)depStatus('off','Deposits unavailable','Wallet is not configured on the server');
+    renderDeposit();
+  }catch(e){if(first)depStatus('off','Connection problem',e.message)}
+  finally{DEP.busy=false}
+}
+setInterval(()=>depCheck(false),5000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)depCheck(false)});
 async function loadHist(){try{WH=await api('/api/wallet');renderHist()}catch(e){}}
 function renderHist(){
  if(!WH)return;$('wtoday').textContent='+'+(WH.today/1e9).toFixed(3);
@@ -513,19 +591,9 @@ function renderWallet(){
  const min=Number(ME.cfg.min||0)/1e9,b=bal()/1e9,pct=min>0?Math.min(100,b/min*100):100;
  $('wprog').style.width=pct+'%';$('wptxt').textContent=b>=min?'Ready to withdraw':(pct.toFixed(0)+'% to min withdraw ('+min.toFixed(3)+' TON)');
  $('wkills').textContent=ME.player.total_kills||0;
- const dep=ME.deposit||{};
- const addr=dep.address||'';
- const cmt=dep.comment||('G'+(ME.player&&ME.player.telegram_id||''));
- $('da').value=addr||'—';
- $('dc').value=cmt||'—';
  $('wa').value=$('wa').value||ME.player.wallet_address||'';
- const qKey=addr+'|'+cmt;
- if(window.QRCode&&addr&&qrFor!==qKey){
-  qrFor=qKey;$('qr').innerHTML='';
-  try{new QRCode($('qr'),{text:'ton://transfer/'+addr+'?text='+encodeURIComponent(cmt),width:160,height:160,colorDark:'#0a0e18',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){console.warn(e)}
- }
- if($('depHint'))$('depHint').textContent=addr?'Tip: copy comment first, then address':'Deposit wallet not configured';
- wTabs();wdCalc();renderHist();loadHist();
+ renderDeposit();
+ wTabs();wdCalc();renderHist();loadHist();depCheck(true);
 }
 $('wb').onclick=async()=>{const b=$('wb');b.disabled=true;try{const r=await api('/api/withdraw',{address:$('wa').value,amount:$('wm').value});setBal(r.balance);toast('Withdrawal queued ✔');$('wm').value='';ME=await api('/api/me');wTab='hist';renderWallet();buzz('medium')}catch(e){toast(e.message)}wdCalc()};
 
