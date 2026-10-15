@@ -99,7 +99,20 @@ app.post('/api/session/kills', wrap(async (req, res) => {
     const allowed = Math.max(0, Math.floor(el * Number(cfg.max_kills_per_minute || 40)) + 3 - s.kills_paid);
     const n = Math.min(k, allowed, 60);
     await sb.from('game_sessions').update({ kills_claimed: s.kills_claimed + k }).eq('id', sid);
-    if (n > 0) { const { error } = await sb.rpc('award_kills', { p_tid: uid, p_session: sid, p_kills: n }); if (error) throw error; }
+    if (n > 0) {
+      const { error } = await sb.rpc('award_kills', { p_tid: uid, p_session: sid, p_kills: n });
+      if (error) throw error;
+      // skin multiplier bonus on top of base award_kills
+      const mult = await playerRewardMult(uid);
+      if (mult > 1.001) {
+        const bonus = Math.round((mult - 1) * n * Number(cfg.reward_per_kill_nano || 0));
+        if (bonus > 0) {
+          const { data: p0 } = await sb.from('players').select('balance_nano').eq('telegram_id', uid).single();
+          await sb.from('players').update({ balance_nano: Number(p0.balance_nano) + bonus }).eq('telegram_id', uid);
+          try { await sb.from('ledger').insert({ telegram_id: uid, type: 'skin_bonus', amount_nano: bonus, ref: String(sid) }); } catch (_) {}
+        }
+      }
+    }
     const { data: p } = await sb.from('players').select('balance_nano,total_kills').eq('telegram_id', uid).single();
     res.json({ paid: n, balance: p.balance_nano, total: p.total_kills });
   });
@@ -140,6 +153,61 @@ app.post('/api/skin/equip', wrap(async (req, res) => {
   res.json({ equipped: eq });
 }));
 
+// Character skins stored inside equipped_skins JSON: { character, _chars:[] }
+const CHAR_PRICES = { char_0: 5e7, char_1: 12e7, char_2: 25e7, char_3: 5e8, char_4: 12e8 };
+const CHAR_MULT = { char_0: 1.5, char_1: 2, char_2: 2.5, char_3: 3.5, char_4: 5 };
+const GUN_SKIN_MULT = { 0: 1, 1: 1.5, 2: 2 };
+app.post('/api/char/buy', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    const id = String(req.body.id || '');
+    if (!CHAR_PRICES[id]) throw new Error('Unknown character skin');
+    const price = CHAR_PRICES[id];
+    const { data: p } = await sb.from('players').select('balance_nano,equipped_skins').eq('telegram_id', req.u.id).single();
+    const eq = { ...(p.equipped_skins || {}) };
+    const owned = Array.isArray(eq._chars) ? eq._chars.slice() : [];
+    if (owned.includes(id)) {
+      eq.character = id;
+      await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+      return res.json({ balance: p.balance_nano, character_skin: id, owned_chars: owned });
+    }
+    if (Number(p.balance_nano) < price) throw new Error('Not enough balance');
+    owned.push(id);
+    eq._chars = owned;
+    eq.character = id;
+    const { data: up, error } = await sb.from('players').update({
+      balance_nano: Number(p.balance_nano) - price,
+      equipped_skins: eq
+    }).eq('telegram_id', req.u.id).select('balance_nano').single();
+    if (error) throw error;
+    try { await sb.from('ledger').insert({ telegram_id: req.u.id, type: 'char_purchase', amount_nano: -price, ref: id }); } catch (_) {}
+    res.json({ balance: up.balance_nano, character_skin: id, owned_chars: owned });
+  });
+}));
+app.post('/api/char/equip', wrap(async (req, res) => {
+  const id = String(req.body.id || '');
+  const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', req.u.id).single();
+  const eq = { ...(p.equipped_skins || {}) };
+  const owned = Array.isArray(eq._chars) ? eq._chars : [];
+  if (!owned.includes(id)) throw new Error('Character skin not owned');
+  eq.character = id;
+  await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+  res.json({ character_skin: id });
+}));
+async function playerRewardMult(uid) {
+  try {
+    const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', uid).single();
+    const eq = p.equipped_skins || {};
+    let maxG = 1;
+    for (const k of Object.keys(eq)) {
+      if (k === 'character' || k === '_chars') continue;
+      const idx = +String(eq[k]).split('_')[1] || 0;
+      maxG = Math.max(maxG, GUN_SKIN_MULT[idx] || 1);
+    }
+    const cm = CHAR_MULT[eq.character] || 1;
+    return Math.min(maxG * cm, 12);
+  } catch { return 1; }
+}
+
 app.get('/api/wallet', wrap(async (req, res) => {
   const uid = req.u.id, since = new Date(Date.now() - 864e5).toISOString();
   const [{ data: h }, { data: k }, { data: wd }] = await Promise.all([
@@ -166,15 +234,25 @@ app.post('/api/withdraw', wrap(async (req, res) => {
 /* ---------- admin api ---------- */
 const KEYS = ['reward_per_kill_nano', 'min_withdraw_nano', 'withdraw_fee_nano', 'daily_withdraw_cap_nano', 'max_kills_per_minute'];
 app.get('/api/admin/overview', wrap(async (req, res) => {
-  const [{ data: skins }, { data: wd }, { count }, { data: weapons }] = await Promise.all([
-    sb.from('skins').select('*').order('weapon').order('sort'),
-    sb.from('withdrawals').select('*').order('id', { ascending: false }).limit(40),
+  const [{ data: skins }, { data: wd }, { count }, { data: weapons }, { data: guns }] = await Promise.all([
+    sb.from('skins').select('*').order('sort'),
+    sb.from('withdrawals').select('*').order('id', { ascending: false }).limit(50),
     sb.from('players').select('*', { count: 'exact', head: true }),
-    sb.from('weapons').select('*').order('sort')
+    sb.from('weapons').select('*').order('sort'),
+    sb.from('guns').select('*').order('sort')
   ]);
   const s = await settings(); const cfg = {}; KEYS.forEach(k => cfg[k] = s[k]);
   let hot = null; try { if (client) hot = String(await client.getBalance(wallet.address)); } catch { }
-  res.json({ cfg, skins, weapons, withdrawals: wd, players: count, hot, address: walletAddr });
+  res.json({
+    cfg,
+    skins: skins || [],
+    weapons: weapons || [],
+    guns: guns || [],
+    withdrawals: wd || [],
+    players: count || 0,
+    hot,
+    address: walletAddr
+  });
 }, true));
 app.post('/api/admin/settings', wrap(async (req, res) => {
   const { key, value } = req.body; if (!KEYS.includes(key)) throw new Error('bad key');
@@ -218,6 +296,30 @@ app.post('/tg/' + tgSecret, async (req, res) => {
 
 /* ---------- TON wallet: deposits + withdrawals ---------- */
 let client, wallet, contract, key, walletAddr = '';
+// parse comment from message body (handles plain text & common wallet formats)
+function extractComment(body) {
+  if (!body) return '';
+  try {
+    const s = body.beginParse();
+    if (s.remainingBits < 32) return '';
+    const op = s.loadUint(32);
+    // 0 = plain text comment
+    if (op === 0) {
+      try { return (s.loadStringTail() || '').trim(); } catch { return ''; }
+    }
+    // some wallets put text after other ops — try remaining as string
+    try {
+      if (s.remainingBits >= 8) return (s.loadStringTail() || '').trim();
+    } catch { }
+  } catch { }
+  return '';
+}
+function matchDepositComment(c) {
+  if (!c) return null;
+  // accept: G123456, g123456, G 123456, comment with extra spaces
+  const m = /(?:^|\s)[Gg]\s*(\d{3,15})(?:\s|$)/.exec(String(c).trim());
+  return m ? Number(m[1]) : null;
+}
 async function initWallet() {
   if (!E.WALLET_MNEMONIC) return console.warn('WALLET_MNEMONIC missing: payments disabled');
   key = await mnemonicToPrivateKey(E.WALLET_MNEMONIC.trim().split(/\s+/));
@@ -228,24 +330,60 @@ async function initWallet() {
   console.log('Payment wallet:', walletAddr);
   if (E.PAY_ADDRESS && Address.parse(E.PAY_ADDRESS).toRawString() !== wallet.address.toRawString())
     console.warn('WARNING: PAY_ADDRESS does not match the wallet derived from the mnemonic!');
-  setInterval(pollDeposits, 20000); setInterval(processWithdrawals, 15000);
+  // poll faster so small deposits show up quicker
+  setInterval(pollDeposits, 12000);
+  setInterval(processWithdrawals, 12000);
+  // run once soon after boot
+  setTimeout(pollDeposits, 3000);
+  setTimeout(processWithdrawals, 5000);
 }
 let depBusy = false;
 async function pollDeposits() {
-  if (depBusy) return; depBusy = true;
+  if (depBusy || !client) return; depBusy = true;
   try {
-    const txs = await client.getTransactions(wallet.address, { limit: 40 });
+    const txs = await client.getTransactions(wallet.address, { limit: 50 });
     for (const tx of txs.reverse()) {
-      const m = tx.inMessage; if (!m || m.info.type !== 'internal' || !m.info.src) continue;
-      let c = ''; try { const s = m.body.beginParse(); if (s.remainingBits >= 32 && s.loadUint(32) === 0) c = s.loadStringTail(); } catch { }
-      const mt = /^G(\d{3,15})$/.exec(c.trim()); if (!mt) continue;
-      await sb.rpc('credit_deposit', { p_tid: Number(mt[1]), p_amount: Number(m.info.value.coins), p_hash: tx.hash().toString('hex'), p_comment: c.trim() });
+      const m = tx.inMessage;
+      if (!m || m.info.type !== 'internal' || !m.info.src) continue;
+      const coins = Number(m.info.value.coins);
+      if (!(coins > 0)) continue;
+      const c = extractComment(m.body);
+      const tid = matchDepositComment(c);
+      if (!tid) continue;
+      const hash = tx.hash().toString('hex');
+      try {
+        const { data, error } = await sb.rpc('credit_deposit', {
+          p_tid: tid,
+          p_amount: coins,
+          p_hash: hash,
+          p_comment: c || ('G' + tid)
+        });
+        if (error) {
+          // duplicate hash / already credited is normal
+          if (!/duplicate|unique|already/i.test(error.message || '')) {
+            console.error('credit_deposit', tid, error.message);
+          }
+          continue;
+        }
+        // notify user that deposit was credited
+        const ton = (coins / 1e9).toFixed(4);
+        try {
+          await tg('sendMessage', {
+            chat_id: tid,
+            text: `💎 Deposit received!\n\n+${ton} TON credited to your balance.\nOpen the game to see it.`,
+            reply_markup: { inline_keyboard: [[{ text: 'Open game', web_app: { url: BASE || '' } }]] }
+          });
+        } catch (ne) { console.error('deposit notify', tid, ne.message); }
+        console.log('deposit credited', tid, ton, 'TON', hash.slice(0, 12));
+      } catch (e) {
+        console.error('deposit rpc', tid, e.message);
+      }
     }
   } catch (e) { console.error('deposit poll', e.message); } finally { depBusy = false; }
 }
 let wdBusy = false;
 async function processWithdrawals() {
-  if (wdBusy) return; wdBusy = true;
+  if (wdBusy || !client) return; wdBusy = true;
   try {
     const { data } = await sb.from('withdrawals').select('*').eq('status', 'pending').order('id').limit(5);
     for (const w of data || []) {
@@ -253,16 +391,34 @@ async function processWithdrawals() {
       if (!c || !c.length) continue;
       let broadcast = false;
       try {
-        const send = BigInt(w.amount_nano - w.fee_nano); if (send <= 0n) throw new Error('amount <= fee');
-        if ((await client.getBalance(wallet.address)) < send + 60000000n) throw new Error('hot wallet low');
-        const seqno = await contract.getSeqno(); broadcast = true;
-        await contract.sendTransfer({ secretKey: key.secretKey, seqno, sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
-          messages: [internal({ to: Address.parse(w.address), value: send, bounce: false, body: 'Game withdrawal #' + w.id })] });
+        const send = BigInt(w.amount_nano - w.fee_nano);
+        if (send <= 0n) throw new Error('amount <= fee');
+        // minimal gas reserve so small hot-wallet balances can still pay
+        const gasReserve = 1000000n; // 0.001 TON
+        const bal = await client.getBalance(wallet.address);
+        if (bal < send + gasReserve) {
+          throw new Error('hot wallet low (' + (Number(bal) / 1e9).toFixed(4) + ' TON)');
+        }
+        const seqno = await contract.getSeqno();
+        broadcast = true;
+        await contract.sendTransfer({
+          secretKey: key.secretKey,
+          seqno,
+          sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
+          messages: [internal({
+            to: Address.parse(w.address),
+            value: send,
+            bounce: false,
+            body: 'Game withdrawal #' + w.id
+          })]
+        });
         let ok = false;
-        for (let i = 0; i < 14 && !ok; i++) { await sleep(5000); ok = (await contract.getSeqno()) > seqno; }
+        for (let i = 0; i < 16 && !ok; i++) {
+          await sleep(4000);
+          ok = (await contract.getSeqno()) > seqno;
+        }
         if (!ok) throw new Error('not confirmed, check wallet manually');
-        await sb.from('withdrawals').update({ status: 'sent', processed_at: new Date().toISOString() }).eq('id', w.id);
-        // Notify user on successful withdrawal
+        await sb.from('withdrawals').update({ status: 'sent', processed_at: new Date().toISOString(), error: null }).eq('id', w.id);
         const amountTon = (Number(w.amount_nano - w.fee_nano) / 1e9).toFixed(4);
         const feeTon = (Number(w.fee_nano) / 1e9).toFixed(4);
         try {
@@ -274,9 +430,14 @@ async function processWithdrawals() {
         } catch (notifyErr) { console.error('notify success', w.id, notifyErr.message); }
       } catch (e) {
         console.error('withdraw', w.id, e.message);
-        if (!broadcast) { await sb.from('withdrawals').update({ status: 'pending', error: e.message }).eq('id', w.id); break; }
+        if (!broadcast) {
+          // not sent yet — put back to pending so it retries (e.g. hot wallet low)
+          await sb.from('withdrawals').update({ status: 'pending', error: e.message }).eq('id', w.id);
+          // if hot wallet low, stop queue so we don't burn through all pending
+          if (/hot wallet low/i.test(e.message)) break;
+          continue;
+        }
         await sb.from('withdrawals').update({ status: 'failed', error: e.message, processed_at: new Date().toISOString() }).eq('id', w.id);
-        // Notify user on failed withdrawal
         try {
           await tg('sendMessage', {
             chat_id: w.telegram_id,
