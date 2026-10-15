@@ -126,7 +126,8 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
 </div>
 
 <div id="shop" class="scr">
-  <div class="top"><div class="chip glass">💎 <span class="balx">0.0000</span> TON</div><div class="tabs glass" style="width:190px"><button class="btn act" id="tg">Guns</button><button class="btn" id="ts">Skins</button></div></div>
+  <div class="top"><div class="chip glass">💎 <span class="balx">0.0000</span> TON</div></div>
+  <div class="tabs glass" style="width:100%;margin-top:8px"><button class="btn act" id="tg">Guns</button><button class="btn" id="ts">Gun skins</button><button class="btn" id="tc">Character</button></div>
   <div class="grow"></div>
   <div class="glass panel col" style="gap:8px"><div class="row"><div class="grow"><b id="sn" style="font-size:20px"></b><div class="mut" id="sr"></div></div><button class="btn glass pri" id="sbtn" style="padding:13px 20px"></button></div></div>
   <div class="gchips" id="gchips" style="margin-top:10px;display:none"></div>
@@ -138,12 +139,24 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
    <div class="wstats"><div>Earned (24h)<b id="wtoday" class="pos">+0.000</b></div><div>Total kills<b id="wkills">0</b></div></div>
    <div class="prog"><i id="wprog"></i></div><div class="mut" id="wptxt" style="margin-top:6px;font-size:12px"></div></div>
   <div class="tabs w3 glass" style="margin-top:10px"><button class="btn act" id="wt_dep">Deposit</button><button class="btn" id="wt_wd">Withdraw</button><button class="btn" id="wt_hist">History</button></div>
-  <div id="wp_dep" class="wp glass panel"><div class="qrbox" id="qr"></div><div class="mut" style="text-align:center;margin-bottom:12px">Scan QR or send TON to this address.<br><b style="color:#27f5c1">You MUST include the exact comment</b> or it won't be credited.</div>
-   <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">WALLET ADDRESS</div>
-   <div class="row"><input id="da" readonly><button class="btn glass" data-copy="da" style="padding:12px 14px">Copy</button></div>
-   <div class="mut" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">COMMENT (required)</div>
-   <div class="row"><input id="dc" readonly style="font-weight:700;color:#27f5c1;letter-spacing:1px"><button class="btn glass" data-copy="dc" style="padding:12px 14px">Copy</button></div>
-   <button class="btn glass pri" id="wopen" style="margin-top:14px">Open in wallet app</button></div>
+  <div id="wp_dep" class="wp glass panel" style="gap:12px">
+    <div style="text-align:center">
+      <div class="qrbox" id="qr" style="margin:0 auto 10px"></div>
+      <div class="mut" style="font-size:12px;line-height:1.45">Send <b style="color:#fff">TON</b> to the address below.<br>Balance updates automatically in ~15–30s.</div>
+    </div>
+    <div>
+      <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">① ADDRESS</div>
+      <div class="row"><input id="da" readonly style="font-size:12px"><button class="btn glass" id="copyAddr" style="padding:12px 14px">Copy</button></div>
+    </div>
+    <div style="padding:12px;border-radius:14px;background:rgba(42,245,200,.08);border:1px solid rgba(42,245,200,.35)">
+      <div class="mut" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">② COMMENT <span style="color:#ff6b9d">(required)</span></div>
+      <div class="row"><input id="dc" readonly style="font-weight:800;color:#2af5c8;letter-spacing:1px;font-size:16px"><button class="btn glass" id="copyCmt" style="padding:12px 14px">Copy</button></div>
+      <div class="mut" style="font-size:11px;margin-top:8px;line-height:1.4">Without this exact comment your deposit <b style="color:#ff6b9d">cannot</b> be credited.</div>
+    </div>
+    <button class="btn glass pri" id="wopen">Open Tonkeeper</button>
+    <button class="btn glass" id="wrefresh">Refresh balance</button>
+    <div class="mut" id="depHint" style="text-align:center;font-size:11px;min-height:16px"></div>
+  </div>
   <div id="wp_wd" class="wp glass panel"><input id="wa" placeholder="Your TON address"><input id="wm" type="number" step="0.01" placeholder="Amount (TON)">
    <div class="chips"><button class="btn glass" data-q="min">Min</button><button class="btn glass" data-q="0.25">25%</button><button class="btn glass" data-q="0.5">50%</button><button class="btn glass" data-q="max">Max</button></div>
    <div class="sumr"><span>Network fee</span><b><span id="wfee">0</span> TON</b></div><div class="sumr"><span>You receive</span><b><span id="wrecv">0</span> TON</b></div><div class="err" id="wmsg"></div>
@@ -189,13 +202,25 @@ const G={
  sniper:{n:'Sniper',dmg:155,rate:.9,mag:5,rel:2.5,pel:1,spr:0,rng:150,rc:.3,col:0xff6bd6,zoom:12,pierce:1}
 };
 const GORDER=['colt','regbar','sniper'];
-// 3 beautiful skins only
+// 3 gun skins — mult 1 / 1.5 / 2
 const TH=[
- {n:'Standard',body:0x4a5568,acc:0x94a3b8,anim:'none'},
- {n:'Neon',body:0x0f172a,acc:0x22d3ee,anim:'pulse'},
- {n:'Gold',body:0xb45309,acc:0xfbbf24,anim:'sweep'}
+ {n:'Standard',body:0x4a5568,acc:0x94a3b8,anim:'none',mult:1},
+ {n:'Neon',body:0x0f172a,acc:0x22d3ee,anim:'pulse',mult:1.5},
+ {n:'Gold',body:0xb45309,acc:0xfbbf24,anim:'sweep',mult:2}
 ];
 const ANIMN={none:'Classic',pulse:'Neon pulse',sweep:'Gold shine'};
+// 5 character skins — mult 1.5 → 5
+const CHAR=[
+ {id:'char_0',n:'Aurora',body:0x22d3ee,acc:0xa5f3fc,anim:'pulse',mult:1.5,price:0.05},
+ {id:'char_1',n:'Phantom',body:0x7c3aed,acc:0xd8b4fe,anim:'orbit',mult:2,price:0.12},
+ {id:'char_2',n:'Inferno',body:0xea580c,acc:0xfdba74,anim:'flame',mult:2.5,price:0.25},
+ {id:'char_3',n:'Void King',body:0x1e1b4b,acc:0xa78bfa,anim:'glitch',mult:3.5,price:0.5},
+ {id:'char_4',n:'Mythic',body:0xfbbf24,acc:0xfff7ed,anim:'rainbow',mult:5,price:1.2}
+];
+function gunSkinMult(){const id=typeof eqSkin==='function'?eqSkin(P&&P.gid||'colt'):'colt_0';const i=+String(id).split('_')[1]||0;return(TH[i]&&TH[i].mult)||1}
+function charSkinMult(){const id=typeof eqChar==='function'?eqChar():'';const c=CHAR.find(x=>x.id===id);return c?c.mult:1}
+function rewardMult(){return gunSkinMult()*charSkinMult()}
+function rewardPerKill(){return Math.round(Number((ME&&ME.cfg&&ME.cfg.reward)||0)*rewardMult())}
 const SK={ /* enemy bot skins */
  pixel_knight:{skin:0xf1c9a0,body:0x5b7fb8,leg:0x3d4f73,glow:0x9fd0ff,hat:'knight'},
  neon_ninja:{skin:0xe8b98f,body:0x15181f,leg:0x15181f,glow:0x39ffb6,hat:'ninja',fx:'trail'},
@@ -370,44 +395,80 @@ function go(v){view=v;['home','shop','wallet'].forEach(s=>$(s).classList.toggle(
  if(v==='home')showLobbyGun('colt',eqSkin('colt'));if(v==='shop'){shopGun=shopGun||'colt';renderShop()}if(v==='wallet')renderWallet();$('dockw').classList.add('on')}
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{if(mode==='lobby')go(b.dataset.go)});
 document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const i=$(b.dataset.copy);navigator.clipboard&&navigator.clipboard.writeText(i.value);toast('Copied')});
-$('tg').onclick=()=>{shopTab='guns';renderShop()};$('ts').onclick=()=>{shopTab='skins';prevSkin=eqSkin(shopGun);renderShop()};
+$('tg').onclick=()=>{shopTab='guns';renderShop()};
+$('ts').onclick=()=>{shopTab='skins';prevSkin=eqSkin(shopGun);renderShop()};
+$('tc').onclick=()=>{shopTab='char';renderShop()};
+function ownedChars(){
+  const eq=ME&&ME.player&&ME.player.equipped_skins;
+  if(eq&&Array.isArray(eq._chars))return eq._chars;
+  try{return JSON.parse(localStorage.getItem('owned_chars')||'[]')}catch(e){return[]}
+}
+function eqChar(){
+  const eq=ME&&ME.player&&ME.player.equipped_skins;
+  if(eq&&eq.character)return eq.character;
+  return localStorage.getItem('char_skin')||'';
+}
 
 function renderShop(){
- $('tg').classList.toggle('act',shopTab==='guns');$('ts').classList.toggle('act',shopTab==='skins');
+ $('tg').classList.toggle('act',shopTab==='guns');
+ $('ts').classList.toggle('act',shopTab==='skins');
+ $('tc').classList.toggle('act',shopTab==='char');
  const cards=$('cards'),chips=$('gchips');cards.innerHTML='';chips.style.display=shopTab==='skins'?'flex':'none';
- // only our 3 guns
- const activeGuns=ME.guns.filter(g=>GORDER.includes(g.id));
+ const activeGuns=(ME.guns||[]).filter(g=>GORDER.includes(g.id));
  const gunInfo=g=>activeGuns.find(x=>x.id===g)||{id:g,name:G[g]?.n||g,price_nano:0},owns=g=>ME.ownedGuns.includes(g),ownsS=s=>ME.ownedSkins.includes(s);
  const b=$('sbtn');
  if(shopTab==='guns'){
-  activeGuns.forEach(gn=>{const s=G[gn.id];if(!s)return;const d=document.createElement('div');d.className='sk glass'+(gn.id===shopGun?' sel':'');
+  (activeGuns.length?activeGuns:GORDER.map(id=>({id,name:G[id].n,price_nano:0}))).forEach(gn=>{const s=G[gn.id];if(!s)return;const d=document.createElement('div');d.className='sk glass'+(gn.id===shopGun?' sel':'');
    d.innerHTML=`<div class="dot" style="background:${hex(s.col)};color:${hex(s.col)}"></div><b>${gn.name||s.n}</b><small>${s.dmg} dmg · ${owns(gn.id)?'Owned':Number(gn.price_nano)?fmt(gn.price_nano)+' TON':'Free'}</small>`;
    d.onclick=()=>{shopGun=gn.id;showLobbyGun(gn.id,eqSkin(gn.id));renderShop()};cards.appendChild(d)});
-  // fallback if server has no guns yet
-  if(!activeGuns.length)GORDER.forEach(gid=>{const s=G[gid],d=document.createElement('div');d.className='sk glass'+(gid===shopGun?' sel':'');
-   d.innerHTML=`<div class="dot" style="background:${hex(s.col)};color:${hex(s.col)}"></div><b>${s.n}</b><small>${s.dmg} dmg · ${owns(gid)?'Owned':'Free'}</small>`;
-   d.onclick=()=>{shopGun=gid;showLobbyGun(gid,eqSkin(gid));renderShop()};cards.appendChild(d)});
   const gn=gunInfo(shopGun),s=G[shopGun],own=owns(shopGun);if(!lobbyGun||lobbyGun.gid!==shopGun){showLobbyGun(shopGun,eqSkin(shopGun));lobbyGun.gid=shopGun}
-  $('sn').textContent=gn.name||s.n;$('sr').textContent=`Damage ${s.dmg} · ${s.rate} shots/s · ${s.mag} mag`;
+  $('sn').textContent=gn.name||s.n;$('sr').textContent=`Damage ${s.dmg} · ${s.rate}/s · ${s.mag} mag`;
   b.disabled=own;b.textContent=own?'Owned':Number(gn.price_nano)?'Buy '+fmt(gn.price_nano):'Get free';
   b.onclick=async()=>{b.disabled=true;try{const r=await api('/api/gun/buy',{id:gn.id});setBal(r.balance);ME=await api('/api/me');toast((gn.name||s.n)+' unlocked!');buzz('medium')}catch(e){toast(e.message)}renderShop()};
- } else {
+ } else if(shopTab==='skins'){
   chips.innerHTML='';GORDER.forEach(g=>{const bt=document.createElement('button');bt.className='btn glass'+(g===shopGun?' act':'');bt.textContent=G[g].n+(owns(g)?'':' 🔒');bt.onclick=()=>{shopGun=g;prevSkin=eqSkin(g);renderShop()};chips.appendChild(bt)});
-  // only skins with index 0,1,2
-  const gunSkins=ME.skins.filter(x=>x.gun===shopGun&&(+String(x.id).split('_')[1]||0)<3);
-  gunSkins.forEach(sk=>{const idx=+sk.id.split('_')[1]||0,th=TH[idx]||TH[0],own=ownsS(sk.id),eq=eqSkin(shopGun)===sk.id,d=document.createElement('div');d.className='sk glass'+(sk.id===prevSkin?' sel':'');d.dataset.r=sk.rarity;
-   d.innerHTML=`<div class="dot" style="background:${hex(th.body)};color:${hex(th.acc)};border:2px solid ${hex(th.acc)}"></div><b>${th.n}</b><small>${eq?'Equipped':own?'Owned':Number(sk.price_nano)?fmt(sk.price_nano)+' TON':'Free'}</small>`;
+  const gunSkins=(ME.skins||[]).filter(x=>x.gun===shopGun&&(+String(x.id).split('_')[1]||0)<3);
+  const list=gunSkins.length?gunSkins:[0,1,2].map(i=>({id:shopGun+'_'+i,price_nano:i===0?0:i===1?5e7:1.5e8,rarity:['common','rare','legendary'][i]}));
+  list.forEach(sk=>{const idx=+String(sk.id).split('_')[1]||0,th=TH[idx]||TH[0],own=ownsS(sk.id)||idx===0,eq=eqSkin(shopGun)===sk.id,d=document.createElement('div');d.className='sk glass'+(sk.id===prevSkin?' sel':'');
+   d.innerHTML=`<div class="dot" style="background:${hex(th.body)};color:${hex(th.acc)};border:2px solid ${hex(th.acc)}"></div><b>${th.n}</b><small>×${th.mult} · ${eq?'Equipped':own?'Owned':fmt(sk.price_nano||0)+' TON'}</small>`;
    d.onclick=()=>{prevSkin=sk.id;renderShop()};cards.appendChild(d)});
-  // fallback generate 3 skins if none from server
-  if(!gunSkins.length){[0,1,2].forEach(i=>{const id=shopGun+'_'+i,th=TH[i],own=ownsS(id)||i===0,eq=eqSkin(shopGun)===id,d=document.createElement('div');d.className='sk glass'+(id===prevSkin?' sel':'');
-   d.innerHTML=`<div class="dot" style="background:${hex(th.body)};color:${hex(th.acc)};border:2px solid ${hex(th.acc)}"></div><b>${th.n}</b><small>${eq?'Equipped':own?'Owned':'Free'}</small>`;
-   d.onclick=()=>{prevSkin=id;renderShop()};cards.appendChild(d)})}
   if(!prevSkin.startsWith(shopGun+'_')||(+prevSkin.split('_')[1]||0)>2)prevSkin=shopGun+'_0';
   if(!lobbyGun||lobbyGun.sid!==prevSkin){showLobbyGun(shopGun,prevSkin);lobbyGun.sid=prevSkin;lobbyGun.gid=shopGun}
-  const sk=ME.skins.find(x=>x.id===prevSkin)||{id:prevSkin,price_nano:0,rarity:'common'},th=TH[+prevSkin.split('_')[1]||0]||TH[0],own=ownsS(prevSkin)||prevSkin.endsWith('_0'),eq=eqSkin(shopGun)===prevSkin;
-  $('sn').textContent=G[shopGun].n+' · '+th.n;$('sr').textContent=(ANIMN[th.anim]||'')+' · '+(sk.rarity||'common').toUpperCase();
-  b.disabled=eq||!owns(shopGun);b.textContent=!owns(shopGun)?'Buy the gun first':eq?'Equipped':own?'Equip':'Buy '+fmt(sk.price_nano||0);
-  b.onclick=async()=>{b.disabled=true;try{if(!own){const r=await api('/api/skin/buy',{id:sk.id});ME.ownedSkins.push(sk.id);setBal(r.balance)}const r2=await api('/api/skin/equip',{id:sk.id});ME.player.equipped_skins=r2.equipped;toast('Equipped!');buzz('medium')}catch(e){toast(e.message)}renderShop()};
+  const sk=list.find(x=>x.id===prevSkin)||list[0],th=TH[+String(prevSkin).split('_')[1]||0]||TH[0],own=ownsS(prevSkin)||prevSkin.endsWith('_0'),eq=eqSkin(shopGun)===prevSkin;
+  $('sn').textContent=G[shopGun].n+' · '+th.n;$('sr').textContent=`Reward ×${th.mult} · ${ANIMN[th.anim]||''}`;
+  b.disabled=eq||!owns(shopGun);b.textContent=!owns(shopGun)?'Buy gun first':eq?'Equipped ×'+th.mult:own?'Equip ×'+th.mult:'Buy '+fmt(sk.price_nano||0);
+  b.onclick=async()=>{b.disabled=true;try{if(!own){const r=await api('/api/skin/buy',{id:sk.id});ME.ownedSkins.push(sk.id);setBal(r.balance)}const r2=await api('/api/skin/equip',{id:sk.id});ME.player.equipped_skins=r2.equipped;toast('Equipped ×'+th.mult);buzz('medium')}catch(e){toast(e.message)}renderShop()};
+ } else {
+  // character skins
+  const oc=ownedChars(),cur=eqChar();
+  CHAR.forEach(ch=>{const own=oc.includes(ch.id),eq=cur===ch.id,d=document.createElement('div');d.className='sk glass'+(eq?' sel':'');
+   d.innerHTML=`<div class="dot" style="background:${hex(ch.body)};color:${hex(ch.acc)};border:2px solid ${hex(ch.acc)};box-shadow:0 0 18px ${hex(ch.acc)}"></div><b>${ch.n}</b><small>×${ch.mult} · ${eq?'Equipped':own?'Owned':ch.price+' TON'}</small>`;
+   d.onclick=()=>{window._selChar=ch.id;renderShop()};cards.appendChild(d)});
+  const sel=CHAR.find(c=>c.id===(window._selChar||cur||CHAR[0].id))||CHAR[0];
+  const own=oc.includes(sel.id),eq=cur===sel.id;
+  $('sn').textContent=sel.n;$('sr').textContent=`Character · Reward ×${sel.mult} · ${sel.anim}`;
+  b.disabled=eq;b.textContent=eq?'Equipped ×'+sel.mult:own?'Equip ×'+sel.mult:'Buy '+sel.price+' TON';
+  b.onclick=async()=>{
+   b.disabled=true;
+   try{
+    if(!own){
+     const r=await api('/api/char/buy',{id:sel.id});
+     setBal(r.balance);
+     if(!ME.player.equipped_skins)ME.player.equipped_skins={};
+     ME.player.equipped_skins.character=r.character_skin;
+     ME.player.equipped_skins._chars=r.owned_chars||[];
+     localStorage.setItem('owned_chars',JSON.stringify(r.owned_chars||[]));
+     localStorage.setItem('char_skin',sel.id);
+    } else {
+     await api('/api/char/equip',{id:sel.id});
+     if(!ME.player.equipped_skins)ME.player.equipped_skins={};
+     ME.player.equipped_skins.character=sel.id;
+     localStorage.setItem('char_skin',sel.id);
+    }
+    toast(sel.n+' equipped ×'+sel.mult);buzz('medium');
+   }catch(e){toast(e.message)}
+   renderShop();
+  };
  }
 }
 let wTab='dep',WH=null,qrFor='';
@@ -419,7 +480,25 @@ function wdCalc(){const amt=Number($('wm').value)||0,fee=Number(ME.cfg.fee)/1e9,
  $('wrecv').textContent=Math.max(0,amt-fee).toFixed(4);$('wfee').textContent=fee.toFixed(4);$('wmsg').textContent=msg;$('wb').disabled=!ok}
 $('wm').oninput=wdCalc;
 document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const q=b.dataset.q,bl=bal()/1e9,fl=v=>(Math.floor(v*1e4)/1e4).toString();$('wm').value=q==='min'?(Number(ME.cfg.min)/1e9).toFixed(3):q==='max'?fl(bl):fl(bl*Number(q));wdCalc()});
-$('wopen').onclick=()=>{const u='https://app.tonkeeper.com/transfer/'+ME.deposit.address+'?text='+ME.deposit.comment;try{TG.openLink(u)}catch(e){window.open(u,'_blank')}};
+$('wopen').onclick=()=>{
+  if(!ME||!ME.deposit)return toast('Deposit not ready');
+  const addr=ME.deposit.address,cmt=ME.deposit.comment;
+  if(!addr)return toast('Wallet address missing');
+  const u='https://app.tonkeeper.com/transfer/'+encodeURIComponent(addr)+'?text='+encodeURIComponent(cmt||'');
+  try{TG.openLink(u)}catch(e){window.open(u,'_blank')}
+};
+function copyField(id,label){
+  const el=$(id);if(!el||!el.value||el.value==='—')return toast('Nothing to copy');
+  const v=el.value;
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(v).then(()=>toast(label+' copied')).catch(()=>{el.select();document.execCommand('copy');toast(label+' copied')});
+  else{el.select();document.execCommand('copy');toast(label+' copied')}
+}
+$('copyAddr').onclick=()=>copyField('da','Address');
+$('copyCmt').onclick=()=>copyField('dc','Comment');
+$('wrefresh').onclick=async()=>{
+  $('depHint').textContent='Checking balance…';
+  try{ME=await api('/api/me');setBal(ME.player.balance_nano);$('tk').textContent=ME.player.total_kills;renderWallet();$('depHint').textContent='Balance updated ✔';toast('Balance refreshed')}catch(e){$('depHint').textContent=e.message;toast(e.message)}
+};
 async function loadHist(){try{WH=await api('/api/wallet');renderHist()}catch(e){}}
 function renderHist(){
  if(!WH)return;$('wtoday').textContent='+'+(WH.today/1e9).toFixed(3);
@@ -431,11 +510,21 @@ function renderHist(){
 }
 function renderWallet(){
  document.querySelectorAll('.balx').forEach(e=>e.textContent=fmt(bal()));
- const min=Number(ME.cfg.min)/1e9,b=bal()/1e9,pct=Math.min(100,b/min*100);
- $('wprog').style.width=pct+'%';$('wptxt').textContent=b>=min?'Ready to withdraw':(pct.toFixed(0)+'% to the minimum withdrawal ('+min.toFixed(3)+' TON)');
- $('wkills').textContent=ME.player.total_kills;
- $('da').value=ME.deposit.address||'—';$('dc').value=ME.deposit.comment;$('wa').value=$('wa').value||ME.player.wallet_address||'';
- if(window.QRCode&&ME.deposit.address&&qrFor!==ME.deposit.address+ME.deposit.comment){qrFor=ME.deposit.address+ME.deposit.comment;$('qr').innerHTML='';try{new QRCode($('qr'),{text:'ton://transfer/'+ME.deposit.address+'?text='+ME.deposit.comment,width:150,height:150,colorDark:'#000000',colorLight:'#ffffff'})}catch(e){}}
+ const min=Number(ME.cfg.min||0)/1e9,b=bal()/1e9,pct=min>0?Math.min(100,b/min*100):100;
+ $('wprog').style.width=pct+'%';$('wptxt').textContent=b>=min?'Ready to withdraw':(pct.toFixed(0)+'% to min withdraw ('+min.toFixed(3)+' TON)');
+ $('wkills').textContent=ME.player.total_kills||0;
+ const dep=ME.deposit||{};
+ const addr=dep.address||'';
+ const cmt=dep.comment||('G'+(ME.player&&ME.player.telegram_id||''));
+ $('da').value=addr||'—';
+ $('dc').value=cmt||'—';
+ $('wa').value=$('wa').value||ME.player.wallet_address||'';
+ const qKey=addr+'|'+cmt;
+ if(window.QRCode&&addr&&qrFor!==qKey){
+  qrFor=qKey;$('qr').innerHTML='';
+  try{new QRCode($('qr'),{text:'ton://transfer/'+addr+'?text='+encodeURIComponent(cmt),width:160,height:160,colorDark:'#0a0e18',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){console.warn(e)}
+ }
+ if($('depHint'))$('depHint').textContent=addr?'Tip: copy comment first, then address':'Deposit wallet not configured';
  wTabs();wdCalc();renderHist();loadHist();
 }
 $('wb').onclick=async()=>{const b=$('wb');b.disabled=true;try{const r=await api('/api/withdraw',{address:$('wa').value,amount:$('wm').value});setBal(r.balance);toast('Withdrawal queued ✔');$('wm').value='';ME=await api('/api/me');wTab='hist';renderWallet();buzz('medium')}catch(e){toast(e.message)}wdCalc()};
@@ -515,7 +604,7 @@ function hurt(d,fx,fz){P.hp-=d;const el=$('dmg');el.style.boxShadow='inset 0 0 1
  if(fx!=null){const dx=fx-P.x,dz=fz-P.z,r=dx*Math.cos(P.yaw)-dz*Math.sin(P.yaw),f=-dx*Math.sin(P.yaw)-dz*Math.cos(P.yaw),ar=$('hitarrow');ar.style.transform=`rotate(${Math.atan2(r,f)}rad)`;ar.style.opacity=1;clearTimeout(hurt.t);hurt.t=setTimeout(()=>ar.style.opacity=0,500)}
  if(P.hp<=0)gameOver();hud()}
 function killEnemy(e,head){
- e.dead=.01;kills++;pending++;const r=Number(ME.cfg.reward||0);earned+=r;P.streak++;P.st=3;P.best=Math.max(P.best,P.streak);if(head)P.heads++;
+ e.dead=.01;kills++;pending++;const r=rewardPerKill();earned+=r;P.streak++;P.st=3;P.best=Math.max(P.best,P.streak);if(head)P.heads++;
  // different death style based on gun
  e.deathStyle=P.gid; // colt / regbar / sniper
  if(head)e.deathStyle='head';
@@ -787,7 +876,7 @@ function stepAgar(dt,t){
     if(b===agarPlayer){agarGameOver();return}
     if(a===agarPlayer){
      agarKills++;agarPending++;
-     const r=Number(ME.cfg.reward||0);agarEarned+=r;
+     const r=rewardPerKill();agarEarned+=r;
      buzz('medium');toast('Ate cell +'+(r/1e9).toFixed(3)+' TON');
     }
    }
