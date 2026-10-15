@@ -105,8 +105,24 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
 <div id="home" class="scr">
   <div class="top"><div class="chip glass">💎 <span id="bal">0.0000</span> TON</div><div class="chip glass">☠ <span id="tk">0</span></div></div>
   <div class="grow"></div>
-  <div class="col" style="align-items:center;margin-bottom:6px"><div class="title">GRAM SHOOTER</div><div class="mut">Every kill pays real TON</div></div>
-  <button class="btn glass pri" id="play" style="font-size:20px;padding:19px">▶ PLAY</button>
+  <div class="col" style="align-items:center;margin-bottom:10px;gap:6px">
+    <div class="title">PLANET.IO</div>
+    <div class="mut">Pick a mode · every win pays real TON</div>
+  </div>
+  <div class="col" style="gap:10px;width:100%;max-width:340px;align-self:center">
+    <button class="btn glass pri" id="play" style="font-size:17px;padding:16px">🔫 SHOOTER · kill bots</button>
+    <button class="btn glass" id="playAgar" style="font-size:17px;padding:16px;background:linear-gradient(135deg,rgba(42,245,200,.25),rgba(139,108,255,.3));border:1px solid rgba(42,245,200,.35)">🟢 AGAR · eat & grow</button>
+  </div>
+</div>
+<div id="agarHud" class="scr" style="padding:0;pointer-events:none">
+  <div style="padding:max(12px,env(safe-area-inset-top)) 12px 0" class="col">
+    <div class="row">
+      <div class="glass chip earn">💎 +<span id="aEarn">0.000</span></div>
+      <div class="glass chip sm">MASS <b id="aMass">10</b></div>
+      <div class="glass chip sm">☠ <b id="aKills">0</b></div>
+    </div>
+  </div>
+  <div class="mut" style="position:fixed;left:0;right:0;bottom:max(18px,env(safe-area-inset-bottom));text-align:center;pointer-events:none">Drag to move · eat smaller cells</div>
 </div>
 
 <div id="shop" class="scr">
@@ -153,7 +169,7 @@ input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border)
 <div id="sL" class="stick glass"><i></i></div>
 
 <div id="over" class="scr" style="justify-content:center">
-  <div class="glass panel col" style="text-align:center;gap:14px"><div class="title">DOWN!</div><div class="mut">Wave <b id="ow">1</b> · Kills <b id="ok">0</b></div><div class="big" style="color:#27f5c1">+<span id="oe">0.000</span> TON</div><div class="mut" id="ostat"></div>
+  <div class="glass panel col" style="text-align:center;gap:14px"><div class="title" id="otitle">DOWN!</div><div class="mut" id="osub">Wave <b id="ow">1</b> · Kills <b id="ok">0</b></div><div class="big" style="color:#27f5c1">+<span id="oe">0.000</span> TON</div><div class="mut" id="ostat"></div>
   <button class="btn glass pri" id="again">Play again</button><button class="btn glass" id="ohome">Home</button></div>
 </div>
 <div id="dockw" class="scr" style="justify-content:flex-end;padding-top:0;z-index:2"><div class="dock glass" id="dock"><button class="btn act" data-go="home">Home</button><button class="btn" data-go="shop">Shop</button><button class="btn" data-go="wallet">Wallet</button></div></div>
@@ -520,22 +536,47 @@ async function flush(force){if(!SID||pending<=0)return;const n=pending;pending=0
 function hudShow(on){['fire','rel','ads','jump','amm','ch','vig','radar','kf'].forEach(i=>$(i).style.display=on?((i==='amm'||i==='ch'||i==='vig'||i==='radar'||i==='kf')?'block':'flex'):'none');$('wbtns').style.display=on?'flex':'none';$('hud').classList.toggle('on',on);if(!on){$('rr').style.display='none';$('banner').style.opacity=0;$('sL').style.display='none';$('scope').style.display='none';if(document.exitPointerLock)try{document.exitPointerLock()}catch(e){}}}
 async function gameOver(){
  if(mode!=='play')return;mode='over';fireHeld=false;adsHeld=false;
- setTimeout(()=>{hudShow(false);$('over').classList.add('on');$('ow').textContent=wave;$('ok').textContent=kills;$('oe').textContent=(earned/1e9).toFixed(3);$('ostat').textContent='Accuracy '+(P.shots?Math.round(P.hits/P.shots*100):0)+'% · Headshots '+P.heads+' · Best streak '+P.best},500);
+ setTimeout(()=>{hudShow(false);$('otitle').textContent='DOWN!';$('osub').innerHTML='Wave <b id="ow">'+wave+'</b> · Kills <b id="ok">'+kills+'</b>';$('over').classList.add('on');$('oe').textContent=(earned/1e9).toFixed(3);$('ostat').textContent='Accuracy '+(P.shots?Math.round(P.hits/P.shots*100):0)+'% · Headshots '+P.heads+' · Best streak '+P.best},500);
  await flush(true);try{await api('/api/session/end',{sid:SID})}catch(e){}
  try{ME=await api('/api/me');setBal(ME.player.balance_nano);$('tk').textContent=ME.player.total_kills}catch(e){}
 }
-async function play(){
+let gameType='shooter';
+async function playShooter(){
+ gameType='shooter';
  try{const r=await api('/api/session/start',{});SID=r.sid}catch(e){return toast(e.message)}
- ['home','shop','wallet','over'].forEach(s=>$(s).classList.remove('on'));$('dockw').classList.remove('on');
+ ['home','shop','wallet','over','agarHud'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on')});$('dockw').classList.remove('on');
  [lobbyGun&&lobbyGun.g].forEach(g=>g&&(g.visible=false));
+ if(typeof arena!=='undefined'&&arena)arena.visible=true;
+ if(agarRoot)agarRoot.visible=false;
  newGame();mode='play';hudShow(true);FOV=70;setFov();
 }
-$('play').onclick=play;$('again').onclick=()=>{$('over').classList.remove('on');play()};
-$('ohome').onclick=()=>{$('over').classList.remove('on');mode='lobby';for(const k in vms)vmScene.remove(vms[k].g);vms={};enemies.forEach(e=>{scene.remove(e.ch.g);scene.remove(e.bar)});enemies=[];go('home')};
+async function playAgar(){
+ gameType='agar';
+ try{const r=await api('/api/session/start',{});SID=r.sid}catch(e){return toast(e.message)}
+ ['home','shop','wallet','over','hud'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on')});$('dockw').classList.remove('on');
+ [lobbyGun&&lobbyGun.g].forEach(g=>g&&(g.visible=false));
+ hudShow(false);
+ if(typeof arena!=='undefined'&&arena)arena.visible=false;
+ startAgar();mode='agar';$('agarHud').classList.add('on');
+}
+$('play').onclick=playShooter;
+$('playAgar').onclick=playAgar;
+$('again').onclick=()=>{$('over').classList.remove('on');gameType==='agar'?playAgar():playShooter()};
+$('ohome').onclick=()=>{
+ $('over').classList.remove('on');$('agarHud').classList.remove('on');
+ mode='lobby';gameType='shooter';
+ for(const k in vms)vmScene.remove(vms[k].g);vms={};
+ enemies.forEach(e=>{scene.remove(e.ch.g);scene.remove(e.bar)});enemies=[];
+ endAgar();
+ if(typeof arena!=='undefined'&&arena)arena.visible=true;
+ go('home');
+};
 
 /* ================= INPUT ================= */
 const touches={};const SENS=.0052;
+// agar pointer aim
 addEventListener('pointerdown',e=>{
+ if(mode==='agar'){agarDir.x=(e.clientX/innerWidth)*2-1;agarDir.z=(e.clientY/innerHeight)*2-1;e.preventDefault();return}
  if(mode!=='play')return;const t=e.target;
  if(t.closest('.hb,.wb'))return;
  if(e.pointerType==='mouse'){if(!document.pointerLockElement&&canvas.requestPointerLock)canvas.requestPointerLock();return}
@@ -544,6 +585,7 @@ addEventListener('pointerdown',e=>{
  else if(!left&&!touches.R){touches.R={id:e.pointerId,x:e.clientX,y:e.clientY};e.preventDefault()}
 });
 addEventListener('pointermove',e=>{
+ if(mode==='agar'){agarDir.x=(e.clientX/innerWidth)*2-1;agarDir.z=(e.clientY/innerHeight)*2-1;return}
  if(mode!=='play')return;
  const L=touches.L,Rr=touches.R;
  if(L&&L.id===e.pointerId){let dx=e.clientX-L.x,dy=e.clientY-L.y;const l=Math.hypot(dx,dy),m=55;if(l>m){dx*=m/l;dy*=m/l}$('sL').firstElementChild.style.transform=`translate(${dx}px,${dy}px)`;mv.x=dx/m;mv.y=dy/m}
@@ -555,13 +597,217 @@ addEventListener('mousemove',e=>{if(mode==='play'&&document.pointerLockElement){
 addEventListener('mousedown',e=>{if(mode==='play'&&document.pointerLockElement){if(e.button===0)fireHeld=true;if(e.button===2)adsHeld=true}});
 addEventListener('mouseup',e=>{if(e.button===0)fireHeld=false;if(e.button===2)adsHeld=false});
 addEventListener('contextmenu',e=>e.preventDefault());
-addEventListener('keydown',e=>{keys[e.code]=1;if(mode!=='play')return;if(e.code==='Space'&&P.y<=.001)P.vy=6.4;const i=e.code.startsWith('Digit')?+e.code.slice(5)-1:-1;const own=GORDER.filter(g=>ME.ownedGuns.includes(g));if(own[i])selGun(own[i]);if(e.code==='KeyR')reload()});
-addEventListener('keyup',e=>keys[e.code]=0);
+addEventListener('keydown',e=>{
+ keys[e.code]=1;
+ if(mode==='agar'){
+  agarDir.x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0);
+  agarDir.z=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);
+  return;
+ }
+ if(mode!=='play')return;if(e.code==='Space'&&P.y<=.001)P.vy=6.4;const i=e.code.startsWith('Digit')?+e.code.slice(5)-1:-1;const own=GORDER.filter(g=>ME.ownedGuns.includes(g));if(own[i])selGun(own[i]);if(e.code==='KeyR')reload()
+});
+addEventListener('keyup',e=>{
+ keys[e.code]=0;
+ if(mode==='agar'){
+  agarDir.x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0);
+  agarDir.z=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);
+ }
+});
 function bindBtn(id,dn,upf){const el=$(id);el.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();dn();});['pointerup','pointercancel','pointerleave'].forEach(n=>el.addEventListener(n,e=>{upf&&upf()}))}
 function reload(){if(!P||P.reload>0)return;const g=G[P.gid];if(P.gs[P.gid].ammo<g.mag){P.reload=g.rel;hud();beep(140,.1,.03)}}
 bindBtn('fire',()=>{fireHeld=true;sndCtx()&&window._ac.resume&&window._ac.resume()},()=>fireHeld=false);
 bindBtn('rel',reload);bindBtn('jump',()=>{if(P&&P.y<=.001){P.vy=6.4;beep(300,.06,.02,'sine')}});
 bindBtn('ads',()=>adsHeld=!adsHeld);
+
+/* ================= AGAR.IO MODE ================= */
+const AGAR_R=90,AGAR_FOOD=160,AGAR_BOTS=18;
+let agarRoot=null,agarPlayer=null,agarCells=[],agarFood=[],agarDir={x:0,z:0},agarEarned=0,agarKills=0,agarPending=0,agarFlushT=0;
+const AGAR_COLS=[0x2af5c8,0x8b6cff,0xff6b9d,0xffd24a,0x4cc9ff,0xff7a3b,0x9dff8a,0xff4fd8,0x7be0ff,0xffffff];
+function massToR(m){return Math.sqrt(m)*.55+.35}
+function makeDisk(r,col,y){
+ const g=new T.Mesh(new T.CircleGeometry(r,28),new T.MeshBasicMaterial({color:col,transparent:true,opacity:.92}));
+ g.rotation.x=-Math.PI/2;g.position.y=y||.05;return g;
+}
+function ensureAgarWorld(){
+ if(agarRoot)return;
+ agarRoot=new T.Group();agarRoot.visible=false;scene.add(agarRoot);
+ // circular floor
+ const floor=new T.Mesh(new T.CircleGeometry(AGAR_R,64),new T.MeshStandardMaterial({color:0x0a0e18,roughness:.8,metalness:.15}));
+ floor.rotation.x=-Math.PI/2;agarRoot.add(floor);
+ // border ring
+ const border=new T.Mesh(new T.TorusGeometry(AGAR_R,.35,8,96),new T.MeshBasicMaterial({color:0x2af5c8}));
+ border.rotation.x=Math.PI/2;border.position.y=.2;agarRoot.add(border);
+ // soft grid dots
+ for(let i=0;i<80;i++){
+  const a=Math.random()*6.28,rr=Math.random()*AGAR_R*.95;
+  const d=new T.Mesh(new T.CircleGeometry(.15,8),new T.MeshBasicMaterial({color:0x1a2235}));
+  d.rotation.x=-Math.PI/2;d.position.set(Math.cos(a)*rr,.02,Math.sin(a)*rr);agarRoot.add(d);
+ }
+}
+function spawnAgarFood(){
+ while(agarFood.length<AGAR_FOOD){
+  const a=Math.random()*6.28,rr=Math.random()*(AGAR_R-2);
+  const col=AGAR_COLS[Math.random()*AGAR_COLS.length|0];
+  const m=makeDisk(.22+Math.random()*.12,col,.06);
+  m.position.set(Math.cos(a)*rr,.06,Math.sin(a)*rr);
+  agarRoot.add(m);
+  agarFood.push({m,x:m.position.x,z:m.position.z,mass:1});
+ }
+}
+function spawnAgarBot(){
+ const a=Math.random()*6.28,rr=15+Math.random()*(AGAR_R-20);
+ const mass=8+Math.random()*40;
+ const col=AGAR_COLS[Math.random()*AGAR_COLS.length|0];
+ const r=massToR(mass);
+ const mesh=makeDisk(1,col,.08); // unit disk, scaled by r
+ mesh.scale.setScalar(r);
+ mesh.position.set(Math.cos(a)*rr,.08,Math.sin(a)*rr);
+ agarRoot.add(mesh);
+ const ol=makeDisk(1.08,0xffffff,.07);ol.material.opacity=.18;mesh.add(ol);
+ agarCells.push({ai:1,m:mesh,x:mesh.position.x,z:mesh.position.z,mass,r,col,vx:0,vz:0,tx:0,tz:0,think:0});
+}
+function startAgar(){
+ ensureAgarWorld();
+ // clear previous
+ agarCells.forEach(c=>agarRoot.remove(c.m));agarCells=[];
+ agarFood.forEach(f=>agarRoot.remove(f.m));agarFood=[];
+ agarEarned=0;agarKills=0;agarPending=0;agarFlushT=0;agarDir={x:0,z:0};
+ // player — unit disk scaled by radius
+ const pMesh=makeDisk(1,0x2af5c8,.1);
+ pMesh.scale.setScalar(massToR(12));
+ pMesh.position.set(0,.1,0);agarRoot.add(pMesh);
+ const ol=makeDisk(1.12,0xffffff,.09);ol.material.opacity=.25;pMesh.add(ol);
+ agarPlayer={ai:0,m:pMesh,x:0,z:0,mass:12,r:massToR(12),col:0x2af5c8,vx:0,vz:0};
+ agarCells.push(agarPlayer);
+ for(let i=0;i<AGAR_BOTS;i++)spawnAgarBot();
+ spawnAgarFood();
+ agarRoot.visible=true;
+ agarHud();
+}
+function endAgar(){
+ if(!agarRoot)return;
+ agarRoot.visible=false;
+ agarCells.forEach(c=>agarRoot.remove(c.m));agarCells=[];
+ agarFood.forEach(f=>agarRoot.remove(f.m));agarFood=[];
+ agarPlayer=null;
+}
+function agarHud(){
+ if(!agarPlayer)return;
+ $('aEarn').textContent=(agarEarned/1e9).toFixed(3);
+ $('aMass').textContent=Math.floor(agarPlayer.mass);
+ $('aKills').textContent=agarKills;
+}
+function clampAgar(c){
+ const d=Math.hypot(c.x,c.z),lim=AGAR_R-c.r;
+ if(d>lim&&d>0.01){c.x=c.x/d*lim;c.z=c.z/d*lim}
+}
+function agarSpeed(mass){return Math.max(1.8,12/Math.sqrt(mass))}
+async function agarFlush(force){
+ if(!SID||agarPending<=0)return;
+ const n=agarPending;agarPending=0;
+ try{const r=await api('/api/session/kills',{sid:SID,kills:n});setBal(r.balance)}catch(e){agarPending+=n;if(force)toast('Sync failed')}
+}
+async function agarGameOver(){
+ if(mode!=='agar')return;mode='over';
+ await agarFlush(true);
+ try{await api('/api/session/end',{sid:SID})}catch(e){}
+ try{ME=await api('/api/me');setBal(ME.player.balance_nano);$('tk').textContent=ME.player.total_kills}catch(e){}
+ $('agarHud').classList.remove('on');
+ $('otitle').textContent='EATEN!';
+ $('osub').innerHTML='Mass <b>'+Math.floor(agarPlayer?agarPlayer.mass:0)+'</b> · Kills <b>'+agarKills+'</b>';
+ $('oe').textContent=(agarEarned/1e9).toFixed(3);
+ $('ostat').textContent='Survive longer · eat smaller cells';
+ $('over').classList.add('on');
+}
+function stepAgar(dt,t){
+ if(!agarPlayer||mode!=='agar')return;
+ // player move toward agarDir
+ const sp=agarSpeed(agarPlayer.mass);
+ if(agarDir.x||agarDir.z){
+  const L=Math.hypot(agarDir.x,agarDir.z)||1;
+  agarPlayer.x+=(agarDir.x/L)*sp*dt;
+  agarPlayer.z+=(agarDir.z/L)*sp*dt;
+ }
+ clampAgar(agarPlayer);
+ agarPlayer.r=massToR(agarPlayer.mass);
+ agarPlayer.m.scale.setScalar(agarPlayer.r);
+ agarPlayer.m.position.set(agarPlayer.x,.1,agarPlayer.z);
+
+ // AI
+ for(const c of agarCells){
+  if(!c.ai||c.dead)continue;
+  c.think-=dt;
+  if(c.think<=0){
+   c.think=.4+Math.random()*.8;
+   // find nearest threat / prey / food
+   let bestFood=null,bf=1e9,threat=null,prey=null;
+   for(const f of agarFood){const d=Math.hypot(f.x-c.x,f.z-c.z);if(d<bf){bf=d;bestFood=f}}
+   for(const o of agarCells){
+    if(o===c||o.dead)continue;
+    const d=Math.hypot(o.x-c.x,o.z-c.z);
+    if(o.mass>c.mass*1.15&&d<30)threat=o;
+    if(c.mass>o.mass*1.15&&d<25)prey=o;
+   }
+   if(threat){c.tx=c.x-(threat.x-c.x);c.tz=c.z-(threat.z-c.z)}
+   else if(prey){c.tx=prey.x;c.tz=prey.z}
+   else if(bestFood){c.tx=bestFood.x;c.tz=bestFood.z}
+   else{const a=Math.random()*6.28;c.tx=Math.cos(a)*AGAR_R*.6;c.tz=Math.sin(a)*AGAR_R*.6}
+  }
+  const dx=c.tx-c.x,dz=c.tz-c.z,L=Math.hypot(dx,dz)||1;
+  const s=agarSpeed(c.mass);
+  c.x+=(dx/L)*s*dt;c.z+=(dz/L)*s*dt;
+  clampAgar(c);
+  c.r=massToR(c.mass);
+  c.m.scale.setScalar(c.r);
+  c.m.position.set(c.x,.08,c.z);
+ }
+
+ // eat food
+ for(let i=agarFood.length-1;i>=0;i--){
+  const f=agarFood[i];
+  for(const c of agarCells){
+   if(c.dead)continue;
+   if(Math.hypot(f.x-c.x,f.z-c.z)<c.r*.9){
+    c.mass+=1;agarRoot.remove(f.m);agarFood.splice(i,1);break;
+   }
+  }
+ }
+ spawnAgarFood();
+
+ // eat cells
+ for(const a of agarCells){
+  if(a.dead)continue;
+  for(const b of agarCells){
+   if(a===b||b.dead)continue;
+   if(a.mass<=b.mass*1.12)continue;
+   const d=Math.hypot(a.x-b.x,a.z-b.z);
+   if(d<a.r-b.r*.35){
+    a.mass+=b.mass*.85;b.dead=1;
+    agarRoot.remove(b.m);
+    if(b===agarPlayer){agarGameOver();return}
+    if(a===agarPlayer){
+     agarKills++;agarPending++;
+     const r=Number(ME.cfg.reward||0);agarEarned+=r;
+     buzz('medium');toast('Ate cell +'+(r/1e9).toFixed(3)+' TON');
+    }
+   }
+  }
+ }
+ agarCells=agarCells.filter(c=>!c.dead);
+ // respawn bots
+ while(agarCells.filter(c=>c.ai).length<AGAR_BOTS)spawnAgarBot();
+ // mass decay slow
+ if(agarPlayer&&agarPlayer.mass>30)agarPlayer.mass-=dt*.15;
+
+ agarHud();
+ agarFlushT+=dt;if(agarFlushT>4){agarFlushT=0;agarFlush()}
+
+ // camera top-down follow player
+ const z=28+agarPlayer.r*2.2;
+ cam.position.set(agarPlayer.x,z,agarPlayer.z+0.01);
+ cam.lookAt(agarPlayer.x,0,agarPlayer.z);
+ cam.fov=50;cam.updateProjectionMatrix();
+}
 
 /* ================= LOOP ================= */
 let last=performance.now();
@@ -574,9 +820,13 @@ function loop(now){
   stars.forEach(s=>{s.position.y=2+Math.sin(t+s.userData.p)*2+s.userData.p/2;s.rotation.y=t});ring.rotation.z=t;
   R.render(scene,cam);return;
  }
+ if(mode==='agar'||(mode==='over'&&gameType==='agar')){
+  if(mode==='agar')stepAgar(dt,t);
+  R.render(scene,cam);return;
+ }
  if(P)step(dt,t);
  R.render(scene,cam);
- if(P&&(mode==='play'||mode==='over')){R.clearDepth();R.render(vmScene,vmCam)}
+ if(P&&(mode==='play'||mode==='over')&&gameType==='shooter'){R.clearDepth();R.render(vmScene,vmCam)}
 }
 function step(dt,t){
  const g=G[P.gid],vm=vms[P.gid];
