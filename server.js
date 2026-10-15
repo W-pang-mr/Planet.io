@@ -280,6 +280,20 @@ app.post('/api/admin/ban', wrap(async (req, res) => {
   await sb.from('players').update({ banned: !!req.body.banned }).eq('telegram_id', Number(req.body.telegram_id)); res.json({ ok: 1 });
 }, true));
 
+app.post('/api/admin/reset-user', wrap(async (req, res) => {
+  const tid = Number(req.body.telegram_id); if (!tid) throw new Error('bad id');
+  const { data } = await sb.from('players').update({ balance_nano: 0 }).eq('telegram_id', tid).select('telegram_id');
+  res.json({ ok: 1, count: (data || []).length });
+}, true));
+// DANGER: zeroes every player's balance. Requires the literal confirm word.
+app.post('/api/admin/reset-balances', wrap(async (req, res) => {
+  if (req.body.confirm !== 'RESET') throw new Error('confirmation missing');
+  const { data, error } = await sb.from('players').update({ balance_nano: 0 }).gt('balance_nano', 0).select('telegram_id');
+  if (error) throw error;
+  console.warn('ADMIN RESET ALL BALANCES by', req.u.id, 'players:', (data || []).length);
+  res.json({ ok: 1, count: (data || []).length });
+}, true));
+
 /* ---------- Telegram bot (webhook) ---------- */
 const tgSecret = crypto.createHash('sha256').update(String(E.BOT_TOKEN)).digest('hex').slice(0, 24);
 const tg = (m, b) => fetch(`https://api.telegram.org/bot${E.BOT_TOKEN}/${m}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
