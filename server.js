@@ -232,7 +232,7 @@ app.post('/api/withdraw', wrap(async (req, res) => {
 }));
 
 /* ---------- admin api ---------- */
-const KEYS = ['reward_per_kill_nano', 'min_withdraw_nano', 'withdraw_fee_nano', 'daily_withdraw_cap_nano', 'max_kills_per_minute'];
+const KEYS = ['reward_per_kill_nano', 'min_withdraw_nano', 'withdraw_fee_nano', 'daily_withdraw_cap_nano', 'max_kills_per_minute', 'min_deposit_nano'];
 app.get('/api/admin/overview', wrap(async (req, res) => {
   const [{ data: skins }, { data: wd }, { count }, { data: weapons }, { data: guns }] = await Promise.all([
     sb.from('skins').select('*').order('sort'),
@@ -296,30 +296,137 @@ app.post('/tg/' + tgSecret, async (req, res) => {
 
 /* ---------- TON wallet: deposits + withdrawals ---------- */
 let client, wallet, contract, key, walletAddr = '';
-// parse comment from message body (handles plain text & common wallet formats)
+
+/* ===== Deposit engine v2 =====
+   - cursor based scan (never misses txs after downtime, paginates past 50)
+   - strict comment parsing (text comments only, op = 0)
+   - ignores bounces, failed txs, self-transfers, dust below minimum
+   - idempotent crediting by tx hash (credit_deposit_v2, falls back to legacy RPC)
+   - unmatched / below-min transfers are recorded for admin follow-up
+   - fast polling while a user is watching the deposit screen */
+const DEP_MIN_DEFAULT = 10000000; // 0.01 TON
+let depLastLt = 0n, depWatchUntil = 0, depLastRun = 0, depBusy = false, v2Missing = false;
+const depSeen = new Set(); // tx hashes handled in this process (avoid repeat DB work / repeat notifications)
+
 function extractComment(body) {
   if (!body) return '';
   try {
     const s = body.beginParse();
     if (s.remainingBits < 32) return '';
-    const op = s.loadUint(32);
-    // 0 = plain text comment
-    if (op === 0) {
-      try { return (s.loadStringTail() || '').trim(); } catch { return ''; }
-    }
-    // some wallets put text after other ops — try remaining as string
-    try {
-      if (s.remainingBits >= 8) return (s.loadStringTail() || '').trim();
-    } catch { }
-  } catch { }
-  return '';
+    if (s.loadUint(32) !== 0) return ''; // only plain text comments (op 0)
+    return (s.loadStringTail() || '').trim().slice(0, 120);
+  } catch { return ''; }
 }
 function matchDepositComment(c) {
   if (!c) return null;
-  // accept: G123456, g123456, G 123456, comment with extra spaces
-  const m = /(?:^|\s)[Gg]\s*(\d{3,15})(?:\s|$)/.exec(String(c).trim());
+  const m = /^\s*[Gg]\s*[-:#]?\s*(\d{3,15})\s*$/.exec(String(c));
   return m ? Number(m[1]) : null;
 }
+async function depMin() {
+  const s = await settings();
+  const v = Number(s.min_deposit_nano ?? E.MIN_DEPOSIT_NANO ?? DEP_MIN_DEFAULT);
+  return v > 0 ? v : DEP_MIN_DEFAULT;
+}
+async function depFetchNew() {
+  const fresh = []; let cursor = null;
+  for (let page = 0; page < 8; page++) {
+    const opts = { limit: 50, archival: true };
+    if (cursor) { opts.lt = cursor.lt; opts.hash = cursor.hash; }
+    if (depLastLt > 0n) opts.to_lt = depLastLt.toString();
+    const batch = await client.getTransactions(wallet.address, opts);
+    const list = cursor ? batch.filter(t => String(t.lt) !== cursor.lt) : batch;
+    if (!list.length) break;
+    for (const t of list) if (BigInt(t.lt) > depLastLt) fresh.push(t);
+    const oldest = list[list.length - 1];
+    cursor = { lt: String(oldest.lt), hash: oldest.hash().toString('base64') };
+    if (batch.length < 50) break;
+  }
+  return fresh.sort((a, b) => (BigInt(a.lt) < BigInt(b.lt) ? -1 : 1)); // oldest first
+}
+async function depRecord(row) { // best effort log for non-credited transfers
+  try { await sb.from('deposits').upsert(row, { onConflict: 'tx_hash', ignoreDuplicates: true }); } catch (_) {}
+}
+async function depCredit(tid, coins, hash, comment, sender) {
+  if (!v2Missing) {
+    const { data, error } = await sb.rpc('credit_deposit_v2', { p_tid: tid, p_amount: coins, p_hash: hash, p_comment: comment, p_sender: sender });
+    if (!error) return data === true; // true = newly credited, false = already credited
+    if (/PGRST202|could not find|does not exist/i.test(error.code + ' ' + error.message)) {
+      v2Missing = true; console.warn('credit_deposit_v2 missing — using legacy credit_deposit. Run deposit_v2.sql for full protection.');
+    } else throw new Error(error.message);
+  }
+  const { error } = await sb.rpc('credit_deposit', { p_tid: tid, p_amount: coins, p_hash: hash, p_comment: comment });
+  if (error) { if (/duplicate|unique|already/i.test(error.message || '')) return false; throw new Error(error.message); }
+  return true;
+}
+async function pollDeposits() {
+  if (depBusy || !client) return; depBusy = true; depLastRun = Date.now();
+  try {
+    const min = await depMin(), self = wallet.address.toRawString();
+    const txs = await depFetchNew();
+    let maxLt = depLastLt, allOk = true;
+    for (const tx of txs) {
+      const lt = BigInt(tx.lt), hash = tx.hash().toString('hex');
+      if (depSeen.has(hash)) { if (lt > maxLt) maxLt = lt; continue; }
+      const m = tx.inMessage;
+      const aborted = tx.description && tx.description.type === 'generic' && tx.description.aborted;
+      if (!m || m.info.type !== 'internal' || !m.info.src || m.info.bounced || aborted) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const sender = m.info.src.toString({ bounceable: false });
+      if (m.info.src.toRawString() === self) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const coins = Number(m.info.value.coins);
+      if (!(coins > 0)) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const comment = extractComment(m.body), tid = matchDepositComment(comment);
+      try {
+        if (!tid) {
+          await depRecord({ tx_hash: hash, telegram_id: null, amount_nano: coins, comment, sender, status: 'unmatched' });
+        } else if (coins < min) {
+          await depRecord({ tx_hash: hash, telegram_id: tid, amount_nano: coins, comment, sender, status: 'below_min' });
+        } else {
+          const { data: pl } = await sb.from('players').select('telegram_id').eq('telegram_id', tid).maybeSingle();
+          if (!pl) {
+            await depRecord({ tx_hash: hash, telegram_id: tid, amount_nano: coins, comment, sender, status: 'unknown_user' });
+          } else if (await depCredit(tid, coins, hash, comment || ('G' + tid), sender)) {
+            const ton = (coins / 1e9).toFixed(4);
+            console.log('deposit credited', tid, ton, 'TON', hash.slice(0, 12));
+            tg('sendMessage', {
+              chat_id: tid,
+              text: `💎 Deposit received!\n\n+${ton} TON was added to your balance.\n🧾 Tx: ${hash.slice(0, 10)}…`,
+              reply_markup: { inline_keyboard: [[{ text: 'Open game', web_app: { url: BASE || '' } }]] }
+            }).catch(ne => console.error('deposit notify', tid, ne.message));
+          }
+        }
+        depSeen.add(hash); if (lt > maxLt) maxLt = lt;
+      } catch (e) { allOk = false; console.error('deposit', hash.slice(0, 12), e.message); break; } // stop here, retry next round
+    }
+    if (allOk && maxLt > depLastLt) depLastLt = maxLt;
+    if (depSeen.size > 5000) { let i = 0; for (const h of depSeen) { depSeen.delete(h); if (++i > 2500) break; } }
+  } catch (e) { console.error('deposit poll', e.message); } finally { depBusy = false; }
+}
+async function depLoop() {
+  await pollDeposits();
+  setTimeout(depLoop, Date.now() < depWatchUntil ? 4000 : 15000);
+}
+
+/* player-facing deposit endpoint: info + recent deposits + live balance */
+app.get('/api/deposit', wrap(async (req, res) => {
+  const uid = req.u.id;
+  if (req.query.watch) { // user is staring at the deposit screen → poll fast, and kick a poll now
+    depWatchUntil = Date.now() + 3 * 60 * 1000;
+    if (Date.now() - depLastRun > 3500) pollDeposits();
+  }
+  let recent = [];
+  const r1 = await sb.from('deposits').select('id,amount_nano,status,created_at,tx_hash').eq('telegram_id', uid).order('id', { ascending: false }).limit(6);
+  if (!r1.error) recent = r1.data || [];
+  else {
+    const r2 = await sb.from('ledger').select('id,amount_nano,created_at,ref').eq('telegram_id', uid).eq('type', 'deposit').order('id', { ascending: false }).limit(6);
+    recent = (r2.data || []).map(x => ({ id: x.id, amount_nano: x.amount_nano, status: 'credited', created_at: x.created_at, tx_hash: x.ref }));
+  }
+  const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', uid).single();
+  res.json({
+    address: walletAddr, comment: 'G' + uid, min_nano: await depMin(),
+    balance: p ? p.balance_nano : 0, recent, ready: !!walletAddr
+  });
+}));
+
 async function initWallet() {
   if (!E.WALLET_MNEMONIC) return console.warn('WALLET_MNEMONIC missing: payments disabled');
   key = await mnemonicToPrivateKey(E.WALLET_MNEMONIC.trim().split(/\s+/));
@@ -330,56 +437,9 @@ async function initWallet() {
   console.log('Payment wallet:', walletAddr);
   if (E.PAY_ADDRESS && Address.parse(E.PAY_ADDRESS).toRawString() !== wallet.address.toRawString())
     console.warn('WARNING: PAY_ADDRESS does not match the wallet derived from the mnemonic!');
-  // poll faster so small deposits show up quicker
-  setInterval(pollDeposits, 12000);
+  setTimeout(depLoop, 3000);
   setInterval(processWithdrawals, 12000);
-  // run once soon after boot
-  setTimeout(pollDeposits, 3000);
   setTimeout(processWithdrawals, 5000);
-}
-let depBusy = false;
-async function pollDeposits() {
-  if (depBusy || !client) return; depBusy = true;
-  try {
-    const txs = await client.getTransactions(wallet.address, { limit: 50 });
-    for (const tx of txs.reverse()) {
-      const m = tx.inMessage;
-      if (!m || m.info.type !== 'internal' || !m.info.src) continue;
-      const coins = Number(m.info.value.coins);
-      if (!(coins > 0)) continue;
-      const c = extractComment(m.body);
-      const tid = matchDepositComment(c);
-      if (!tid) continue;
-      const hash = tx.hash().toString('hex');
-      try {
-        const { data, error } = await sb.rpc('credit_deposit', {
-          p_tid: tid,
-          p_amount: coins,
-          p_hash: hash,
-          p_comment: c || ('G' + tid)
-        });
-        if (error) {
-          // duplicate hash / already credited is normal
-          if (!/duplicate|unique|already/i.test(error.message || '')) {
-            console.error('credit_deposit', tid, error.message);
-          }
-          continue;
-        }
-        // notify user that deposit was credited
-        const ton = (coins / 1e9).toFixed(4);
-        try {
-          await tg('sendMessage', {
-            chat_id: tid,
-            text: `💎 Deposit received!\n\n+${ton} TON credited to your balance.\nOpen the game to see it.`,
-            reply_markup: { inline_keyboard: [[{ text: 'Open game', web_app: { url: BASE || '' } }]] }
-          });
-        } catch (ne) { console.error('deposit notify', tid, ne.message); }
-        console.log('deposit credited', tid, ton, 'TON', hash.slice(0, 12));
-      } catch (e) {
-        console.error('deposit rpc', tid, e.message);
-      }
-    }
-  } catch (e) { console.error('deposit poll', e.message); } finally { depBusy = false; }
 }
 let wdBusy = false;
 async function processWithdrawals() {
