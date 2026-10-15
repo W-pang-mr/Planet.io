@@ -1,299 +1,531 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Admin · Gram Shooter</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-:root{--bg:#07090f;--card:#12151f;--border:rgba(255,255,255,.1);--ac:#27f5c1;--mut:rgba(230,235,255,.5);--tx:#f0f4ff;--red:#ff4d6d;--gold:#ffcf4a}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;min-height:100vh;padding:max(14px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom));color:var(--tx);font-family:-apple-system,Inter,Roboto,sans-serif;background:var(--bg)}
-h1{margin:0 0 14px;font-size:22px;font-weight:800}
-h3{margin:0 0 10px;font-size:14px;letter-spacing:.5px;color:var(--mut);text-transform:uppercase}
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center}
-.stat b{display:block;font-size:20px;margin-bottom:2px}
-.stat span{font-size:11px;color:var(--mut)}
-label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
-input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:#fff;font-size:15px;outline:0}
-.row{display:flex;gap:8px;align-items:center;margin-top:6px}
-.row>*{min-width:0}
-.row input[type=number]{flex:1}
-.row input[type=checkbox]{width:22px;height:22px;flex:0 0 22px;accent-color:var(--ac)}
-button{border:0;color:#fff;font-weight:700;padding:10px 14px;border-radius:12px;background:linear-gradient(135deg,#1ad4a0,#5b45e0);cursor:pointer;font-size:13px;white-space:nowrap}
-button:active{opacity:.85}
-button.ghost{background:rgba(255,255,255,.08)}
-button.danger{background:linear-gradient(135deg,#ff4d6d,#c0392b)}
-button.sm{padding:6px 10px;font-size:11px;border-radius:8px}
-.item{padding:10px 0;border-bottom:1px solid var(--border)}
-.item:last-child{border-bottom:0}
-.item .name{font-weight:700;font-size:14px;margin-bottom:6px}
-.muted{font-size:12px;color:var(--mut)}
-.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:rgba(255,255,255,.08)}
-.pill.sent{background:rgba(39,245,193,.18);color:var(--ac)}
-.pill.pending,.pill.processing{background:rgba(255,200,60,.15);color:var(--gold)}
-.pill.failed{background:rgba(255,70,100,.18);color:var(--red)}
-.tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px}
-.tabs button{flex:1;background:transparent;padding:10px;border-radius:9px;font-size:13px}
-.tabs button.on{background:rgba(39,245,193,.18);color:var(--ac)}
-.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border);padding:12px 18px;border-radius:14px;font-weight:600;font-size:13px;transition:transform .3s;z-index:20;max-width:90vw;text-align:center}
-.toast.on{transform:translateX(-50%) translateY(0)}
-.empty{text-align:center;padding:20px;color:var(--mut);font-size:13px}
-#addrBox{font-size:12px;word-break:break-all;background:rgba(255,255,255,.05);padding:10px;border-radius:10px;margin-top:8px}
-</style>
-</head>
-<body>
-<h1>⚙️ Admin</h1>
+const express = require('express'), crypto = require('crypto'), path = require('path'), fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
+const { TonClient, WalletContractV5R1, internal } = require('@ton/ton');
+const { Address, SendMode } = require('@ton/core');
+const { mnemonicToPrivateKey } = require('@ton/crypto');
+const E = process.env;
+const BASE = E.BASE_URL || E.RENDER_EXTERNAL_URL || '';
+const sb = createClient(E.SUPABASE_URL, E.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+const app = express();
+app.use(express.json({ limit: '50kb' }));
+const PUB = ['Public', 'public'].map(d => path.join(__dirname, d)).find(d => fs.existsSync(d)) || __dirname;
+app.use(express.static(PUB));
 
-<div class="stats">
-  <div class="stat"><b id="hot">–</b><span>Hot wallet (TON)</span></div>
-  <div class="stat"><b id="pl">–</b><span>Players</span></div>
-</div>
-
-<div class="tabs" id="tabs">
-  <button class="on" data-t="eco">Economy</button>
-  <button data-t="guns">Guns</button>
-  <button data-t="skins">Skins</button>
-  <button data-t="wd">Withdraw</button>
-  <button data-t="tools">Tools</button>
-</div>
-
-<div class="panel" id="p_eco">
-  <div class="card">
-    <h3>Economy settings</h3>
-    <div id="eco"></div>
-  </div>
-  <div class="card">
-    <h3>Hot wallet address</h3>
-    <div id="addrBox">–</div>
-  </div>
-</div>
-
-<div class="panel" id="p_guns" style="display:none">
-  <div class="card">
-    <h3>Guns (price in TON)</h3>
-    <div id="guns"></div>
-  </div>
-</div>
-
-<div class="panel" id="p_skins" style="display:none">
-  <div class="card">
-    <h3>Skins (price in TON)</h3>
-    <div id="skins"></div>
-  </div>
-</div>
-
-<div class="panel" id="p_wd" style="display:none">
-  <div class="card">
-    <h3>Recent withdrawals</h3>
-    <div id="wd"></div>
-  </div>
-</div>
-
-<div class="panel" id="p_tools" style="display:none">
-  <div class="card">
-    <h3>Ban / Unban player</h3>
-    <label>Telegram ID</label>
-    <input id="bid" type="number" placeholder="e.g. 123456789">
-    <div class="row" style="margin-top:10px">
-      <button class="danger" onclick="ban(true)">Ban</button>
-      <button class="ghost" onclick="ban(false)">Unban</button>
-    </div>
-  </div>
-  <div class="card">
-    <h3>Quick actions</h3>
-    <button class="ghost" style="width:100%;margin-top:4px" onclick="load()">🔄 Refresh data</button>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const TG = window.Telegram && Telegram.WebApp;
-if (TG) { TG.ready(); TG.expand(); try { TG.disableVerticalSwipes(); } catch(e){} }
-
-const $ = id => document.getElementById(id);
-const f = n => (Number(n) / 1e9);
-const fmt = n => f(n).toFixed(4);
-
-function toast(m) {
-  const t = $('toast');
-  t.textContent = m;
-  t.classList.add('on');
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove('on'), 2200);
+/* ---------- helpers ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let cfgCache = { t: 0, v: {} };
+async function settings() {
+  if (Date.now() - cfgCache.t < 4000) return cfgCache.v;
+  const { data } = await sb.from('app_settings').select('key,value');
+  const v = {}; (data || []).forEach(r => v[r.key] = r.value);
+  cfgCache = { t: Date.now(), v }; return v;
 }
+function verify(init) {
+  if (!init) return null;
+  const p = new URLSearchParams(init); const hash = p.get('hash'); p.delete('hash');
+  const str = [...p.entries()].sort(([a], [b]) => a < b ? -1 : 1).map(([k, v]) => k + '=' + v).join('\n');
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(E.BOT_TOKEN).digest();
+  const h = crypto.createHmac('sha256', secret).update(str).digest('hex');
+  if (h !== hash) return null;
+  if (Date.now() / 1000 - Number(p.get('auth_date')) > 86400) return null;
+  try { return JSON.parse(p.get('user')); } catch { return null; }
+}
+async function adminIds() {
+  const s = await settings();
+  const env = (E.ADMIN_IDS || '').split(',').map(x => x.trim()).filter(Boolean);
+  return [...env, ...(Array.isArray(s.admin_telegram_ids) ? s.admin_telegram_ids : []).map(String)];
+}
+const hits = new Map();
+function limited(uid) {
+  const now = Date.now(), a = (hits.get(uid) || []).filter(t => now - t < 10000);
+  a.push(now); hits.set(uid, a); return a.length > 40;
+}
+const locks = new Map();
+async function withLock(uid, fn) {
+  while (locks.get(uid)) await sleep(30);
+  locks.set(uid, true);
+  try { return await fn(); } finally { locks.delete(uid); }
+}
+const wrap = (fn, admin) => async (req, res) => {
+  try {
+    const u = verify(req.get('X-Init'));
+    if (!u) return res.status(401).json({ error: 'Open the game from Telegram' });
+    if (limited(u.id)) return res.status(429).json({ error: 'Too many requests' });
+    if (admin && !(await adminIds()).includes(String(u.id))) return res.status(403).json({ error: 'Admins only' });
+    req.u = u; await fn(req, res);
+  } catch (e) { console.error(e); res.status(400).json({ error: (e.message || 'error').slice(0, 160) }); }
+};
+const nano = t => Math.round(Number(t) * 1e9);
 
-async function api(path, body) {
-  const r = await fetch(path, {
-    method: body ? 'POST' : 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Init': (TG && TG.initData) || ''
-    },
-    body: body ? JSON.stringify(body) : undefined
+/* ---------- player api ---------- */
+app.get('/api/me', wrap(async (req, res) => {
+  const u = req.u;
+  await sb.from('players').upsert({ telegram_id: u.id, username: u.username || null, first_name: u.first_name || null, last_seen: new Date().toISOString() }, { onConflict: 'telegram_id' });
+  await sb.from('player_guns').upsert({ telegram_id: u.id, gun_id: 'colt' }, { onConflict: 'telegram_id,gun_id', ignoreDuplicates: true });
+  await sb.from('player_skins').upsert({ telegram_id: u.id, skin_id: 'colt_0' }, { onConflict: 'telegram_id,skin_id', ignoreDuplicates: true });
+  const [{ data: player }, { data: guns }, { data: skins }, { data: og }, { data: os }, { data: wd }] = await Promise.all([
+    sb.from('players').select('*').eq('telegram_id', u.id).single(),
+    sb.from('guns').select('id,name,price_nano,sort').eq('active', true).order('sort'),
+    sb.from('skins').select('id,name,rarity,price_nano,sort,gun').eq('active', true).order('sort'),
+    sb.from('player_guns').select('gun_id').eq('telegram_id', u.id),
+    sb.from('player_skins').select('skin_id').eq('telegram_id', u.id),
+    sb.from('withdrawals').select('id,amount_nano,fee_nano,status,address,created_at').eq('telegram_id', u.id).order('id', { ascending: false }).limit(8)
+  ]);
+  if (player.banned) throw new Error('Account banned');
+  const s = await settings();
+  res.json({
+    player, guns, skins, ownedGuns: og.map(o => o.gun_id), ownedSkins: os.map(o => o.skin_id), withdrawals: wd,
+    cfg: { reward: s.reward_per_kill_nano, min: s.min_withdraw_nano, fee: s.withdraw_fee_nano, cap: s.daily_withdraw_cap_nano },
+    deposit: { address: walletAddr, comment: 'G' + u.id },
+    isAdmin: (await adminIds()).includes(String(u.id))
   });
-  const j = await r.json();
-  if (!r.ok) throw new Error(j.error || 'Error');
-  return j;
+}));
+
+app.post('/api/session/start', wrap(async (req, res) => {
+  await sb.from('game_sessions').update({ status: 'finished', ended_at: new Date().toISOString() }).eq('telegram_id', req.u.id).eq('status', 'active');
+  const { data, error } = await sb.from('game_sessions').insert({ telegram_id: req.u.id }).select('id').single();
+  if (error) throw error; res.json({ sid: data.id });
+}));
+
+app.post('/api/session/kills', wrap(async (req, res) => {
+  const uid = req.u.id;
+  await withLock(uid, async () => {
+    const { sid, kills } = req.body; const k = Math.floor(Number(kills));
+    if (!sid || !(k > 0)) throw new Error('bad request');
+    const { data: s } = await sb.from('game_sessions').select('*').eq('id', sid).eq('telegram_id', uid).single();
+    if (!s || s.status !== 'active') throw new Error('session closed');
+    const cfg = await settings();
+    const el = (Date.now() - new Date(s.started_at)) / 60000;
+    const allowed = Math.max(0, Math.floor(el * Number(cfg.max_kills_per_minute || 40)) + 3 - s.kills_paid);
+    const n = Math.min(k, allowed, 60);
+    await sb.from('game_sessions').update({ kills_claimed: s.kills_claimed + k }).eq('id', sid);
+    if (n > 0) {
+      const { error } = await sb.rpc('award_kills', { p_tid: uid, p_session: sid, p_kills: n });
+      if (error) throw error;
+      // skin multiplier bonus on top of base award_kills
+      const mult = await playerRewardMult(uid);
+      if (mult > 1.001) {
+        const bonus = Math.round((mult - 1) * n * Number(cfg.reward_per_kill_nano || 0));
+        if (bonus > 0) {
+          const { data: p0 } = await sb.from('players').select('balance_nano').eq('telegram_id', uid).single();
+          await sb.from('players').update({ balance_nano: Number(p0.balance_nano) + bonus }).eq('telegram_id', uid);
+          try { await sb.from('ledger').insert({ telegram_id: uid, type: 'skin_bonus', amount_nano: bonus, ref: String(sid) }); } catch (_) {}
+        }
+      }
+    }
+    const { data: p } = await sb.from('players').select('balance_nano,total_kills').eq('telegram_id', uid).single();
+    res.json({ paid: n, balance: p.balance_nano, total: p.total_kills });
+  });
+}));
+
+app.post('/api/session/end', wrap(async (req, res) => {
+  await sb.from('game_sessions').update({ status: 'finished', ended_at: new Date().toISOString() }).eq('id', req.body.sid).eq('telegram_id', req.u.id);
+  const { data: p } = await sb.from('players').select('balance_nano,total_kills').eq('telegram_id', req.u.id).single();
+  res.json({ balance: p.balance_nano, total: p.total_kills });
+}));
+
+app.post('/api/skin/buy', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    const { error } = await sb.rpc('buy_skin', { p_tid: req.u.id, p_skin: String(req.body.id) });
+    if (error) throw new Error(error.message.includes('check') ? 'Not enough balance' : error.message);
+    const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', req.u.id).single();
+    res.json({ balance: p.balance_nano });
+  });
+}));
+
+app.post('/api/gun/buy', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    const { error } = await sb.rpc('buy_gun', { p_tid: req.u.id, p_gun: String(req.body.id) });
+    if (error) throw new Error(error.message.includes('check') ? 'Not enough balance' : error.message);
+    const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', req.u.id).single();
+    res.json({ balance: p.balance_nano });
+  });
+}));
+
+app.post('/api/skin/equip', wrap(async (req, res) => {
+  const id = String(req.body.id);
+  const { data: o } = await sb.from('player_skins').select('skin_id').eq('telegram_id', req.u.id).eq('skin_id', id);
+  if (!o || !o.length) throw new Error('Skin not owned');
+  const { data: sk } = await sb.from('skins').select('gun').eq('id', id).single();
+  const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', req.u.id).single();
+  const eq = { ...(p.equipped_skins || {}), [sk.gun]: id };
+  await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+  res.json({ equipped: eq });
+}));
+
+// Character skins stored inside equipped_skins JSON: { character, _chars:[] }
+const CHAR_PRICES = { char_0: 5e7, char_1: 12e7, char_2: 25e7, char_3: 5e8, char_4: 12e8 };
+const CHAR_MULT = { char_0: 1.5, char_1: 2, char_2: 2.5, char_3: 3.5, char_4: 5 };
+const GUN_SKIN_MULT = { 0: 1, 1: 1.5, 2: 2 };
+app.post('/api/char/buy', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    const id = String(req.body.id || '');
+    if (!CHAR_PRICES[id]) throw new Error('Unknown character skin');
+    const price = CHAR_PRICES[id];
+    const { data: p } = await sb.from('players').select('balance_nano,equipped_skins').eq('telegram_id', req.u.id).single();
+    const eq = { ...(p.equipped_skins || {}) };
+    const owned = Array.isArray(eq._chars) ? eq._chars.slice() : [];
+    if (owned.includes(id)) {
+      eq.character = id;
+      await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+      return res.json({ balance: p.balance_nano, character_skin: id, owned_chars: owned });
+    }
+    if (Number(p.balance_nano) < price) throw new Error('Not enough balance');
+    owned.push(id);
+    eq._chars = owned;
+    eq.character = id;
+    const { data: up, error } = await sb.from('players').update({
+      balance_nano: Number(p.balance_nano) - price,
+      equipped_skins: eq
+    }).eq('telegram_id', req.u.id).select('balance_nano').single();
+    if (error) throw error;
+    try { await sb.from('ledger').insert({ telegram_id: req.u.id, type: 'char_purchase', amount_nano: -price, ref: id }); } catch (_) {}
+    res.json({ balance: up.balance_nano, character_skin: id, owned_chars: owned });
+  });
+}));
+app.post('/api/char/equip', wrap(async (req, res) => {
+  const id = String(req.body.id || '');
+  const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', req.u.id).single();
+  const eq = { ...(p.equipped_skins || {}) };
+  const owned = Array.isArray(eq._chars) ? eq._chars : [];
+  if (!owned.includes(id)) throw new Error('Character skin not owned');
+  eq.character = id;
+  await sb.from('players').update({ equipped_skins: eq }).eq('telegram_id', req.u.id);
+  res.json({ character_skin: id });
+}));
+async function playerRewardMult(uid) {
+  try {
+    const { data: p } = await sb.from('players').select('equipped_skins').eq('telegram_id', uid).single();
+    const eq = p.equipped_skins || {};
+    let maxG = 1;
+    for (const k of Object.keys(eq)) {
+      if (k === 'character' || k === '_chars') continue;
+      const idx = +String(eq[k]).split('_')[1] || 0;
+      maxG = Math.max(maxG, GUN_SKIN_MULT[idx] || 1);
+    }
+    const cm = CHAR_MULT[eq.character] || 1;
+    return Math.min(maxG * cm, 12);
+  } catch { return 1; }
 }
 
-document.querySelectorAll('#tabs button').forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on'));
-    b.classList.add('on');
-    ['eco','guns','skins','wd','tools'].forEach(k => {
-      $('p_' + k).style.display = b.dataset.t === k ? 'block' : 'none';
-    });
-  };
+app.get('/api/wallet', wrap(async (req, res) => {
+  const uid = req.u.id, since = new Date(Date.now() - 864e5).toISOString();
+  const [{ data: h }, { data: k }, { data: wd }] = await Promise.all([
+    sb.from('ledger').select('type,amount_nano,ref,created_at').eq('telegram_id', uid).neq('type', 'kill_reward').order('id', { ascending: false }).limit(30),
+    sb.from('ledger').select('amount_nano').eq('telegram_id', uid).eq('type', 'kill_reward').gte('created_at', since).limit(5000),
+    sb.from('withdrawals').select('id,status').eq('telegram_id', uid).order('id', { ascending: false }).limit(40)
+  ]);
+  res.json({ history: h || [], today: (k || []).reduce((a, r) => a + Number(r.amount_nano), 0), wd: wd || [] });
+}));
+
+app.post('/api/withdraw', wrap(async (req, res) => {
+  await withLock(req.u.id, async () => {
+    let addr; try { addr = Address.parse(String(req.body.address).trim()).toString({ bounceable: false }); } catch { throw new Error('Invalid TON address'); }
+    const amt = nano(req.body.amount);
+    if (!(amt > 0)) throw new Error('Invalid amount');
+    const { data, error } = await sb.rpc('request_withdrawal', { p_tid: req.u.id, p_amount: amt, p_address: addr });
+    if (error) throw new Error(error.message.includes('check') ? 'Not enough balance' : error.message);
+    await sb.from('players').update({ wallet_address: addr }).eq('telegram_id', req.u.id);
+    const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', req.u.id).single();
+    res.json({ id: data, balance: p.balance_nano });
+  });
+}));
+
+/* ---------- admin api ---------- */
+const KEYS = ['reward_per_kill_nano', 'min_withdraw_nano', 'withdraw_fee_nano', 'daily_withdraw_cap_nano', 'max_kills_per_minute', 'min_deposit_nano'];
+app.get('/api/admin/overview', wrap(async (req, res) => {
+  const [{ data: skins }, { data: wd }, { count }, { data: weapons }, { data: guns }] = await Promise.all([
+    sb.from('skins').select('*').order('sort'),
+    sb.from('withdrawals').select('*').order('id', { ascending: false }).limit(50),
+    sb.from('players').select('*', { count: 'exact', head: true }),
+    sb.from('weapons').select('*').order('sort'),
+    sb.from('guns').select('*').order('sort')
+  ]);
+  const s = await settings(); const cfg = {}; KEYS.forEach(k => cfg[k] = s[k]);
+  let hot = null; try { if (client) hot = String(await client.getBalance(wallet.address)); } catch { }
+  res.json({
+    cfg,
+    skins: skins || [],
+    weapons: weapons || [],
+    guns: guns || [],
+    withdrawals: wd || [],
+    players: count || 0,
+    hot,
+    address: walletAddr
+  });
+}, true));
+app.post('/api/admin/settings', wrap(async (req, res) => {
+  const { key, value } = req.body; if (!KEYS.includes(key)) throw new Error('bad key');
+  const v = Number(value); if (!(v >= 0)) throw new Error('bad value');
+  await sb.from('app_settings').upsert({ key, value: Math.round(v), updated_at: new Date().toISOString() });
+  cfgCache.t = 0; res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/skin', wrap(async (req, res) => {
+  const { id, price_nano, active } = req.body;
+  await sb.from('skins').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/weapon', wrap(async (req, res) => {
+  const { id, price_nano, active } = req.body;
+  await sb.from('weapons').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/gun', wrap(async (req, res) => {
+  const { id, price_nano, active } = req.body;
+  await sb.from('guns').update({ price_nano: Math.max(0, Math.round(Number(price_nano))), active: !!active }).eq('id', String(id)); res.json({ ok: 1 });
+}, true));
+app.post('/api/admin/refund', wrap(async (req, res) => {
+  const { data, error } = await sb.rpc('refund_withdrawal', { p_wid: Number(req.body.id) });
+  if (error) throw error; res.json({ ok: data });
+}, true));
+app.post('/api/admin/ban', wrap(async (req, res) => {
+  await sb.from('players').update({ banned: !!req.body.banned }).eq('telegram_id', Number(req.body.telegram_id)); res.json({ ok: 1 });
+}, true));
+
+app.post('/api/admin/reset-user', wrap(async (req, res) => {
+  const tid = Number(req.body.telegram_id); if (!tid) throw new Error('bad id');
+  const { data } = await sb.from('players').update({ balance_nano: 0 }).eq('telegram_id', tid).select('telegram_id');
+  res.json({ ok: 1, count: (data || []).length });
+}, true));
+// DANGER: zeroes every player's balance. Requires the literal confirm word.
+app.post('/api/admin/reset-balances', wrap(async (req, res) => {
+  if (req.body.confirm !== 'RESET') throw new Error('confirmation missing');
+  const { data, error } = await sb.from('players').update({ balance_nano: 0 }).gt('balance_nano', 0).select('telegram_id');
+  if (error) throw error;
+  console.warn('ADMIN RESET ALL BALANCES by', req.u.id, 'players:', (data || []).length);
+  res.json({ ok: 1, count: (data || []).length });
+}, true));
+
+/* ---------- Telegram bot (webhook) ---------- */
+const tgSecret = crypto.createHash('sha256').update(String(E.BOT_TOKEN)).digest('hex').slice(0, 24);
+const tg = (m, b) => fetch(`https://api.telegram.org/bot${E.BOT_TOKEN}/${m}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
+app.post('/tg/' + tgSecret, async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const m = req.body.message; if (!m || !m.text) return;
+    if (m.text.startsWith('/admin') && (await adminIds()).includes(String(m.from.id)))
+      return tg('sendMessage', { chat_id: m.chat.id, text: 'Admin panel', reply_markup: { inline_keyboard: [[{ text: 'Open admin', web_app: { url: BASE + '/admin.html' } }]] } });
+    if (m.text.startsWith('/start'))
+      tg('sendMessage', { chat_id: m.chat.id, text: 'Welcome, soldier! Kill bots, earn TON.', reply_markup: { inline_keyboard: [[{ text: 'Play now', web_app: { url: BASE } }]] } });
+  } catch (e) { console.error(e); }
 });
 
-const KEYS = {
-  reward_per_kill_nano: ['Reward per kill', 1],
-  min_withdraw_nano: ['Min withdraw', 1],
-  withdraw_fee_nano: ['Withdraw fee', 1],
-  daily_withdraw_cap_nano: ['Daily cap / player', 1],
-  max_kills_per_minute: ['Max kills / min (anti-cheat)', 0]
-};
+/* ---------- TON wallet: deposits + withdrawals ---------- */
+let client, wallet, contract, key, walletAddr = '';
 
-async function load() {
+/* ===== Deposit engine v2 =====
+   - cursor based scan (never misses txs after downtime, paginates past 50)
+   - strict comment parsing (text comments only, op = 0)
+   - ignores bounces, failed txs, self-transfers, dust below minimum
+   - idempotent crediting by tx hash (credit_deposit_v2, falls back to legacy RPC)
+   - unmatched / below-min transfers are recorded for admin follow-up
+   - fast polling while a user is watching the deposit screen */
+const DEP_MIN_DEFAULT = 10000000; // 0.01 TON
+let depLastLt = 0n, depWatchUntil = 0, depLastRun = 0, depBusy = false, v2Missing = false;
+const depSeen = new Set(); // tx hashes handled in this process (avoid repeat DB work / repeat notifications)
+
+function extractComment(body) {
+  if (!body) return '';
   try {
-    const d = await api('/api/admin/overview');
-
-    $('hot').textContent = d.hot != null ? f(d.hot).toFixed(3) : '–';
-    $('pl').textContent = d.players ?? '–';
-    $('addrBox').textContent = d.address || '–';
-
-    const cfg = d.cfg || {};
-    $('eco').innerHTML = Object.keys(KEYS).map(k => {
-      const [label, isTon] = KEYS[k];
-      const val = isTon ? f(cfg[k] || 0) : (cfg[k] ?? 0);
-      return `<label>${label}</label>
-        <div class="row">
-          <input id="c_${k}" type="number" step="any" value="${val}">
-          <button class="sm" onclick="sv('${k}',${isTon})">Save</button>
-        </div>`;
-    }).join('');
-
-    const gunList = (d.guns && d.guns.length) ? d.guns : (d.weapons || []);
-    if (gunList.length) {
-      $('guns').innerHTML = gunList.map(g => `
-        <div class="item">
-          <div class="name">${g.name || g.id}</div>
-          <div class="row">
-            <input id="gp_${g.id}" type="number" step="any" value="${f(g.price_nano || 0)}">
-            <input id="ga_${g.id}" type="checkbox" ${g.active !== false ? 'checked' : ''}>
-            <button class="sm" onclick="sg('${g.id}')">Save</button>
-          </div>
-        </div>`).join('');
-    } else {
-      $('guns').innerHTML = '<div class="empty">No guns found in database</div>';
-    }
-
-    const skins = d.skins || [];
-    if (skins.length) {
-      $('skins').innerHTML = skins.map(s => {
-        const gun = (s.gun || s.weapon || '').toUpperCase();
-        return `<div class="item">
-          <div class="name">${gun} · ${s.name || s.id} <span class="muted">${s.rarity || ''}</span></div>
-          <div class="row">
-            <input id="p_${s.id}" type="number" step="any" value="${f(s.price_nano || 0)}">
-            <input id="a_${s.id}" type="checkbox" ${s.active !== false ? 'checked' : ''}>
-            <button class="sm" onclick="ss('${s.id}')">Save</button>
-          </div>
-        </div>`;
-      }).join('');
-    } else {
-      $('skins').innerHTML = '<div class="empty">No skins found</div>';
-    }
-
-    const wd = d.withdrawals || [];
-    if (wd.length) {
-      $('wd').innerHTML = wd.map(w => {
-        const addr = (w.address || '').slice(0, 12) + '…';
-        return `<div class="item">
-          <div class="row" style="justify-content:space-between">
-            <div>
-              <b>#${w.id}</b> · ${w.telegram_id}<br>
-              <span class="muted">${addr}</span>
-            </div>
-            <div style="text-align:right">
-              <b>${fmt(w.amount_nano)} TON</b><br>
-              <span class="pill ${w.status}">${w.status}</span>
-              ${w.error ? `<div class="muted">${w.error}</div>` : ''}
-              ${w.status === 'failed' ? `<br><button class="sm danger" style="margin-top:6px" onclick="rf(${w.id})">Refund</button>` : ''}
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    } else {
-      $('wd').innerHTML = '<div class="empty">No withdrawals yet</div>';
-    }
-
-  } catch (e) {
-    document.body.innerHTML = `<div style="padding:40px 20px;text-align:center"><h2 style="color:#ff4d6d">${e.message}</h2><p class="muted">Make sure you opened this from the Telegram bot as admin.</p></div>`;
+    const s = body.beginParse();
+    if (s.remainingBits < 32) return '';
+    if (s.loadUint(32) !== 0) return ''; // only plain text comments (op 0)
+    return (s.loadStringTail() || '').trim().slice(0, 120);
+  } catch { return ''; }
+}
+function matchDepositComment(c) {
+  if (!c) return null;
+  const m = /^\s*[Gg]\s*[-:#]?\s*(\d{3,15})\s*$/.exec(String(c));
+  return m ? Number(m[1]) : null;
+}
+async function depMin() {
+  const s = await settings();
+  const v = Number(s.min_deposit_nano ?? E.MIN_DEPOSIT_NANO ?? DEP_MIN_DEFAULT);
+  return v > 0 ? v : DEP_MIN_DEFAULT;
+}
+async function depFetchNew() {
+  const fresh = []; let cursor = null;
+  for (let page = 0; page < 8; page++) {
+    const opts = { limit: 50, archival: true };
+    if (cursor) { opts.lt = cursor.lt; opts.hash = cursor.hash; }
+    if (depLastLt > 0n) opts.to_lt = depLastLt.toString();
+    const batch = await client.getTransactions(wallet.address, opts);
+    const list = cursor ? batch.filter(t => String(t.lt) !== cursor.lt) : batch;
+    if (!list.length) break;
+    for (const t of list) if (BigInt(t.lt) > depLastLt) fresh.push(t);
+    const oldest = list[list.length - 1];
+    cursor = { lt: String(oldest.lt), hash: oldest.hash().toString('base64') };
+    if (batch.length < 50) break;
   }
+  return fresh.sort((a, b) => (BigInt(a.lt) < BigInt(b.lt) ? -1 : 1)); // oldest first
 }
-
-async function sv(k, isTon) {
+async function depRecord(row) { // best effort log for non-credited transfers
+  try { await sb.from('deposits').upsert(row, { onConflict: 'tx_hash', ignoreDuplicates: true }); } catch (_) {}
+}
+async function depCredit(tid, coins, hash, comment, sender) {
+  if (!v2Missing) {
+    const { data, error } = await sb.rpc('credit_deposit_v2', { p_tid: tid, p_amount: coins, p_hash: hash, p_comment: comment, p_sender: sender });
+    if (!error) return data === true; // true = newly credited, false = already credited
+    if (/PGRST202|could not find|does not exist/i.test(error.code + ' ' + error.message)) {
+      v2Missing = true; console.warn('credit_deposit_v2 missing — using legacy credit_deposit. Run deposit_v2.sql for full protection.');
+    } else throw new Error(error.message);
+  }
+  const { error } = await sb.rpc('credit_deposit', { p_tid: tid, p_amount: coins, p_hash: hash, p_comment: comment });
+  if (error) { if (/duplicate|unique|already/i.test(error.message || '')) return false; throw new Error(error.message); }
+  return true;
+}
+async function pollDeposits() {
+  if (depBusy || !client) return; depBusy = true; depLastRun = Date.now();
   try {
-    const raw = $('c_' + k).value;
-    const value = isTon ? Number(raw) * 1e9 : Number(raw);
-    await api('/api/admin/settings', { key: k, value });
-    toast('Saved ✔');
-  } catch (e) { toast(e.message); }
+    const min = await depMin(), self = wallet.address.toRawString();
+    const txs = await depFetchNew();
+    let maxLt = depLastLt, allOk = true;
+    for (const tx of txs) {
+      const lt = BigInt(tx.lt), hash = tx.hash().toString('hex');
+      if (depSeen.has(hash)) { if (lt > maxLt) maxLt = lt; continue; }
+      const m = tx.inMessage;
+      const aborted = tx.description && tx.description.type === 'generic' && tx.description.aborted;
+      if (!m || m.info.type !== 'internal' || !m.info.src || m.info.bounced || aborted) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const sender = m.info.src.toString({ bounceable: false });
+      if (m.info.src.toRawString() === self) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const coins = Number(m.info.value.coins);
+      if (!(coins > 0)) { depSeen.add(hash); if (lt > maxLt) maxLt = lt; continue; }
+      const comment = extractComment(m.body), tid = matchDepositComment(comment);
+      try {
+        if (!tid) {
+          await depRecord({ tx_hash: hash, telegram_id: null, amount_nano: coins, comment, sender, status: 'unmatched' });
+        } else if (coins < min) {
+          await depRecord({ tx_hash: hash, telegram_id: tid, amount_nano: coins, comment, sender, status: 'below_min' });
+        } else {
+          const { data: pl } = await sb.from('players').select('telegram_id').eq('telegram_id', tid).maybeSingle();
+          if (!pl) {
+            await depRecord({ tx_hash: hash, telegram_id: tid, amount_nano: coins, comment, sender, status: 'unknown_user' });
+          } else if (await depCredit(tid, coins, hash, comment || ('G' + tid), sender)) {
+            const ton = (coins / 1e9).toFixed(4);
+            console.log('deposit credited', tid, ton, 'TON', hash.slice(0, 12));
+            tg('sendMessage', {
+              chat_id: tid,
+              text: `💎 Deposit received!\n\n+${ton} TON was added to your balance.\n🧾 Tx: ${hash.slice(0, 10)}…`,
+              reply_markup: { inline_keyboard: [[{ text: 'Open game', web_app: { url: BASE || '' } }]] }
+            }).catch(ne => console.error('deposit notify', tid, ne.message));
+          }
+        }
+        depSeen.add(hash); if (lt > maxLt) maxLt = lt;
+      } catch (e) { allOk = false; console.error('deposit', hash.slice(0, 12), e.message); break; } // stop here, retry next round
+    }
+    if (allOk && maxLt > depLastLt) depLastLt = maxLt;
+    if (depSeen.size > 5000) { let i = 0; for (const h of depSeen) { depSeen.delete(h); if (++i > 2500) break; } }
+  } catch (e) { console.error('deposit poll', e.message); } finally { depBusy = false; }
+}
+async function depLoop() {
+  await pollDeposits();
+  setTimeout(depLoop, Date.now() < depWatchUntil ? 4000 : 15000);
 }
 
-async function sg(id) {
+/* player-facing deposit endpoint: info + recent deposits + live balance */
+app.get('/api/deposit', wrap(async (req, res) => {
+  const uid = req.u.id;
+  if (req.query.watch) { // user is staring at the deposit screen → poll fast, and kick a poll now
+    depWatchUntil = Date.now() + 3 * 60 * 1000;
+    if (Date.now() - depLastRun > 3500) pollDeposits();
+  }
+  let recent = [];
+  const r1 = await sb.from('deposits').select('id,amount_nano,status,created_at,tx_hash').eq('telegram_id', uid).order('id', { ascending: false }).limit(6);
+  if (!r1.error) recent = r1.data || [];
+  else {
+    const r2 = await sb.from('ledger').select('id,amount_nano,created_at,ref').eq('telegram_id', uid).eq('type', 'deposit').order('id', { ascending: false }).limit(6);
+    recent = (r2.data || []).map(x => ({ id: x.id, amount_nano: x.amount_nano, status: 'credited', created_at: x.created_at, tx_hash: x.ref }));
+  }
+  const { data: p } = await sb.from('players').select('balance_nano').eq('telegram_id', uid).single();
+  res.json({
+    address: walletAddr, comment: 'G' + uid, min_nano: await depMin(),
+    balance: p ? p.balance_nano : 0, recent, ready: !!walletAddr
+  });
+}));
+
+async function initWallet() {
+  if (!E.WALLET_MNEMONIC) return console.warn('WALLET_MNEMONIC missing: payments disabled');
+  key = await mnemonicToPrivateKey(E.WALLET_MNEMONIC.trim().split(/\s+/));
+  wallet = WalletContractV5R1.create({ workchain: 0, publicKey: key.publicKey });
+  client = new TonClient({ endpoint: 'https://toncenter.com/api/v2/jsonRPC', apiKey: E.TON_API_KEY });
+  contract = client.open(wallet);
+  walletAddr = wallet.address.toString({ bounceable: false });
+  console.log('Payment wallet:', walletAddr);
+  if (E.PAY_ADDRESS && Address.parse(E.PAY_ADDRESS).toRawString() !== wallet.address.toRawString())
+    console.warn('WARNING: PAY_ADDRESS does not match the wallet derived from the mnemonic!');
+  setTimeout(depLoop, 3000);
+  setInterval(processWithdrawals, 12000);
+  setTimeout(processWithdrawals, 5000);
+}
+let wdBusy = false;
+async function processWithdrawals() {
+  if (wdBusy || !client) return; wdBusy = true;
   try {
-    await api('/api/admin/gun', {
-      id,
-      price_nano: Number($('gp_' + id).value) * 1e9,
-      active: $('ga_' + id).checked
-    });
-    try {
-      await api('/api/admin/weapon', {
-        id,
-        price_nano: Number($('gp_' + id).value) * 1e9,
-        active: $('ga_' + id).checked
-      });
-    } catch (_) {}
-    toast('Gun saved ✔');
-  } catch (e) { toast(e.message); }
+    const { data } = await sb.from('withdrawals').select('*').eq('status', 'pending').order('id').limit(5);
+    for (const w of data || []) {
+      const { data: c } = await sb.from('withdrawals').update({ status: 'processing' }).eq('id', w.id).eq('status', 'pending').select();
+      if (!c || !c.length) continue;
+      let broadcast = false;
+      try {
+        const send = BigInt(w.amount_nano - w.fee_nano);
+        if (send <= 0n) throw new Error('amount <= fee');
+        // minimal gas reserve so small hot-wallet balances can still pay
+        const gasReserve = 1000000n; // 0.001 TON
+        const bal = await client.getBalance(wallet.address);
+        if (bal < send + gasReserve) {
+          throw new Error('hot wallet low (' + (Number(bal) / 1e9).toFixed(4) + ' TON)');
+        }
+        const seqno = await contract.getSeqno();
+        broadcast = true;
+        await contract.sendTransfer({
+          secretKey: key.secretKey,
+          seqno,
+          sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
+          messages: [internal({
+            to: Address.parse(w.address),
+            value: send,
+            bounce: false,
+            body: 'Game withdrawal #' + w.id
+          })]
+        });
+        let ok = false;
+        for (let i = 0; i < 16 && !ok; i++) {
+          await sleep(4000);
+          ok = (await contract.getSeqno()) > seqno;
+        }
+        if (!ok) throw new Error('not confirmed, check wallet manually');
+        await sb.from('withdrawals').update({ status: 'sent', processed_at: new Date().toISOString(), error: null }).eq('id', w.id);
+        const amountTon = (Number(w.amount_nano - w.fee_nano) / 1e9).toFixed(4);
+        const feeTon = (Number(w.fee_nano) / 1e9).toFixed(4);
+        try {
+          await tg('sendMessage', {
+            chat_id: w.telegram_id,
+            text: `✅ Withdrawal successful!\n\n💰 Amount: ${amountTon} TON\n🧾 Fee: ${feeTon} TON\n📬 To: \`${w.address}\`\n🆔 ID: #${w.id}`,
+            parse_mode: 'Markdown'
+          });
+        } catch (notifyErr) { console.error('notify success', w.id, notifyErr.message); }
+      } catch (e) {
+        console.error('withdraw', w.id, e.message);
+        if (!broadcast) {
+          // not sent yet — put back to pending so it retries (e.g. hot wallet low)
+          await sb.from('withdrawals').update({ status: 'pending', error: e.message }).eq('id', w.id);
+          // if hot wallet low, stop queue so we don't burn through all pending
+          if (/hot wallet low/i.test(e.message)) break;
+          continue;
+        }
+        await sb.from('withdrawals').update({ status: 'failed', error: e.message, processed_at: new Date().toISOString() }).eq('id', w.id);
+        try {
+          await tg('sendMessage', {
+            chat_id: w.telegram_id,
+            text: `❌ Withdrawal failed\n\n🆔 ID: #${w.id}\nReason: ${e.message}\n\nYour balance has been restored. Please try again later or contact support.`
+          });
+        } catch (notifyErr) { console.error('notify fail', w.id, notifyErr.message); }
+      }
+    }
+  } catch (e) { console.error('wd loop', e.message); } finally { wdBusy = false; }
 }
 
-async function ss(id) {
-  try {
-    await api('/api/admin/skin', {
-      id,
-      price_nano: Number($('p_' + id).value) * 1e9,
-      active: $('a_' + id).checked
-    });
-    toast('Skin saved ✔');
-  } catch (e) { toast(e.message); }
-}
-
-async function rf(id) {
-  if (!confirm('Refund #' + id + '?\\nOnly if it was NOT paid on-chain.')) return;
-  try {
-    await api('/api/admin/refund', { id });
-    toast('Refunded ✔');
-    load();
-  } catch (e) { toast(e.message); }
-}
-
-async function ban(banned) {
-  const tid = $('bid').value;
-  if (!tid) return toast('Enter Telegram ID');
-  try {
-    await api('/api/admin/ban', { telegram_id: tid, banned });
-    toast(banned ? 'Banned ✔' : 'Unbanned ✔');
-  } catch (e) { toast(e.message); }
-}
-
-load();
-</script>
-</body>
-</html>
+const PORT = E.PORT || 3000;
+app.listen(PORT, async () => {
+  console.log('Listening on', PORT);
+  await initWallet().catch(e => console.error('wallet init', e));
+  if (BASE) console.log('webhook', (await tg('setWebhook', { url: BASE + '/tg/' + tgSecret })).description);
+});
